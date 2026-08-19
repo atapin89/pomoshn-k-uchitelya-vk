@@ -1,8 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Layers, Plus, Pencil, Trash2, RotateCcw, AlertCircle, Monitor, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Layers,
+  Plus,
+  Pencil,
+  Trash2,
+  RotateCcw,
+  AlertCircle,
+  Monitor,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Globe,
+  Languages,
+  LifeBuoy,
+  Play,
+} from 'lucide-react';
 import type { Deck } from '@/types';
 import { loadDecks, saveDecks } from '@/lib/storage';
 import { triggerHaptic } from '@/lib/haptic';
+import { presetDecks } from '@/data/presetDecks';
 import BackButton from './BackButton';
 import DeckEditorModal from './DeckEditorModal';
 import FlashcardsProjectorScreen from './FlashcardsProjectorScreen';
@@ -13,12 +30,22 @@ interface FlashcardsScreenProps {
   onQuiz: (deckId: string) => void;
 }
 
+const presetIcons: Record<string, typeof Globe> = {
+  'preset-deck-geo': Globe,
+  'preset-deck-eng': Languages,
+  'preset-deck-water': LifeBuoy,
+};
+
 export default function FlashcardsScreen({ onBack, onStudy, onQuiz }: FlashcardsScreenProps) {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [editing, setEditing] = useState<Deck | null>(null);
   const [creating, setCreating] = useState(false);
   const [mistakeCards, setMistakeCards] = useState<{ card: any; deckTitle: string; deckId: string }[]>([]);
   const [projectorDeck, setProjectorDeck] = useState<Deck | null>(null);
+
+  const [showPresets, setShowPresets] = useState(false);
+  const [showHow, setShowHow] = useState(false);
+  const [showFaq, setShowFaq] = useState(false);
   const [openHow, setOpenHow] = useState<number | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -57,6 +84,16 @@ export default function FlashcardsScreen({ onBack, onStudy, onQuiz }: Flashcards
     persist(decks.filter((d) => d.id !== id));
   };
 
+  const addPreset = (preset: Deck) => {
+    const copy: Deck = {
+      ...preset,
+      createdAt: Date.now(),
+      cards: preset.cards.map((c) => ({ ...c })),
+    };
+    persist([...decks, copy]);
+    triggerHaptic('medium');
+  };
+
   const getDeckProgress = (deck: Deck) => {
     const total = deck.cards.length;
     const learned = deck.cards.filter((c) => c.status === 'learned').length;
@@ -69,6 +106,10 @@ export default function FlashcardsScreen({ onBack, onStudy, onQuiz }: Flashcards
     {
       q: 'Создание колоды',
       a: 'Нажмите «Создать новую колоду», введите название и добавьте карточки «вопрос — ответ». Можно добавить дополнительные стороны (сторона 3, 4…) для подробных ответов.',
+    },
+    {
+      q: 'Готовые колоды',
+      a: 'Откройте «Готовые колоды» и нажмите «Добавить» — колода появится в вашем списке. Повторное нажатие «Изучать» открывает тренировку сразу.',
     },
     {
       q: 'Изучение',
@@ -103,7 +144,7 @@ export default function FlashcardsScreen({ onBack, onStudy, onQuiz }: Flashcards
     },
     {
       q: 'Как провести с классом?',
-      a: 'Откройте режим проектора: показывайте вопрос — ученики отвечают с места или поднимают руку, затем «Показать ответ» для проверки. Второй вариант: распечатайте список и проведите бинго из раздела «Бинго».',
+      a: 'Откройте режим проектора: показывайте вопрос — ученики отвечают с места или поднимают руку, затем «Показать ответ» для проверки. Второй вариант: проведите бинго из раздела «Бинго».',
     },
     {
       q: 'Как удалить или изменить колоду?',
@@ -170,7 +211,7 @@ export default function FlashcardsScreen({ onBack, onStudy, onQuiz }: Flashcards
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Layers className="w-16 h-16 text-purple-300 mb-4" />
             <p className="text-lg font-semibold text-purple-700">Пока нет колод</p>
-            <p className="text-sm text-gray-500 mt-1">Создайте первую колоду карточек</p>
+            <p className="text-sm text-gray-500 mt-1">Создайте свою или добавьте готовую ниже</p>
           </div>
         ) : (
           decks.map((deck) => {
@@ -261,10 +302,69 @@ export default function FlashcardsScreen({ onBack, onStudy, onQuiz }: Flashcards
           <Plus className="w-5 h-5" /> Создать новую колоду
         </button>
 
+        {/* Готовые колоды: аккордеон */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowPresets(!showPresets)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Готовые колоды</h3>
+              <span className="text-xs font-bold text-purple-400">{presetDecks.length}</span>
+            </div>
+            {showPresets ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showPresets && (
+            <div className="px-5 pb-5 space-y-2">
+              {presetDecks.map((preset) => {
+                const added = decks.some((d) => d.id === preset.id);
+                const Icon = presetIcons[preset.id] || Layers;
+                return (
+                  <div
+                    key={preset.id}
+                    className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-3"
+                  >
+                    <div className="shrink-0 w-11 h-11 rounded-xl bg-purple-50 flex items-center justify-center border border-purple-200">
+                      <Icon className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
+                        {preset.title}
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5">карточек: {preset.cards.length}</p>
+                    </div>
+                    <button
+                      onClick={() => (added ? onStudy(preset.id) : addPreset(preset))}
+                      className={`shrink-0 rounded-xl px-3 py-2.5 text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition-transform ${
+                        added ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'
+                      }`}
+                    >
+                      {added ? (
+                        <>
+                          <Play className="w-4 h-4" /> Изучать
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" /> Добавить
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Как это работает */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
-            onClick={() => setOpenHow(openHow === -1 ? null : -1)}
+            onClick={() => setShowHow(!showHow)}
             className="w-full px-5 py-4 flex items-center justify-between gap-2"
           >
             <div className="flex items-center gap-2">
@@ -272,13 +372,13 @@ export default function FlashcardsScreen({ onBack, onStudy, onQuiz }: Flashcards
               <h3 className="font-bold text-purple-700">Как это работает</h3>
               <span className="text-xs font-bold text-purple-400">{howItems.length}</span>
             </div>
-            {openHow === -1 ? (
+            {showHow ? (
               <ChevronUp className="w-5 h-5 text-purple-600" />
             ) : (
               <ChevronDown className="w-5 h-5 text-purple-600" />
             )}
           </button>
-          {openHow === -1 && (
+          {showHow && (
             <div className="px-5 pb-5 space-y-2">
               {howItems.map((item, idx) => (
                 <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
@@ -307,7 +407,7 @@ export default function FlashcardsScreen({ onBack, onStudy, onQuiz }: Flashcards
         {/* Вопросы и подсказки */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
-            onClick={() => setOpenFaq(openFaq === -1 ? null : -1)}
+            onClick={() => setShowFaq(!showFaq)}
             className="w-full px-5 py-4 flex items-center justify-between gap-2"
           >
             <div className="flex items-center gap-2">
@@ -315,13 +415,13 @@ export default function FlashcardsScreen({ onBack, onStudy, onQuiz }: Flashcards
               <h3 className="font-bold text-purple-700">Вопросы и подсказки</h3>
               <span className="text-xs font-bold text-purple-400">{faqItems.length}</span>
             </div>
-            {openFaq === -1 ? (
+            {showFaq ? (
               <ChevronUp className="w-5 h-5 text-purple-600" />
             ) : (
               <ChevronDown className="w-5 h-5 text-purple-600" />
             )}
           </button>
-          {openFaq === -1 && (
+          {showFaq && (
             <div className="px-5 pb-5 space-y-2">
               {faqItems.map((item, idx) => (
                 <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
