@@ -1,37 +1,53 @@
-import { useEffect, useRef, useState } from 'react';
-import { UserPlus, Users, LayoutGrid, Shuffle, Copy, Share2, Check, Dices } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  UserPlus,
+  Users,
+  LayoutGrid,
+  Shuffle,
+  Copy,
+  Share2,
+  Check,
+  Dices,
+  Download,
+  Upload,
+  Save,
+  Trash2,
+  HelpCircle,
+  GraduationCap,
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+} from 'lucide-react';
 import BackButton from './BackButton';
-import YandexAdBlock from './YandexAdBlock';
 import { triggerHaptic } from '@/lib/haptic';
+import {
+  parseStudents,
+  shuffle,
+  alternateByGender,
+  loadSavedLists,
+  saveSavedLists,
+  type SavedList,
+} from '@/lib/students';
 
 const STORAGE_KEY = 'generator-class-list';
+const GENDER_KEY = 'generator-consider-gender';
 
 type Mode = 'one' | 'groups' | 'seating';
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
+function shuffleArr<T>(arr: T[]): T[] {
+  return shuffle(arr);
 }
 
-function loadList(): string[] {
+function loadListText(): string {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((s) => typeof s === 'string' && s.trim() !== '');
+    return localStorage.getItem(STORAGE_KEY) || '';
   } catch {
-    return [];
+    return '';
   }
 }
 
 export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
-  const [text, setText] = useState('');
-  const [students, setStudents] = useState<string[]>([]);
+  const [text, setText] = useState(loadListText());
   const [mode, setMode] = useState<Mode>('one');
 
   // roulette
@@ -39,8 +55,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [winner, setWinner] = useState('');
-  
-  // actions feedback
+
   const [copied, setCopied] = useState(false);
 
   // groups
@@ -51,21 +66,40 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
   const [rows, setRows] = useState(3);
   const [cols, setCols] = useState(4);
   const [seating, setSeating] = useState<string[]>([]);
+  const [considerGender, setConsiderGender] = useState(() => {
+    try {
+      return localStorage.getItem(GENDER_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  // saved lists
+  const [savedLists, setSavedLists] = useState<SavedList[]>([]);
+  const [listName, setListName] = useState('');
+  const [editingListId, setEditingListId] = useState<string | null>(null);
+  const [savedFlag, setSavedFlag] = useState(false);
+
+  // accordions
+  const [showHow, setShowHow] = useState(false);
+  const [showFaq, setShowFaq] = useState(false);
+  const [openHow, setOpenHow] = useState<number | null>(null);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const list = loadList();
-    setStudents(list);
-    setText(list.join('\n'));
+    setSavedLists(loadSavedLists());
   }, []);
 
-  const handleSaveList = () => {
-    const list = text
-      .split('\n')
-      .map((s) => s.trim())
-      .filter((s) => s !== '');
-    setStudents(list);
+  const students = useMemo(() => parseStudents(text), [text]);
+  const boysCount = students.filter((s) => s.gender === 'm').length;
+  const girlsCount = students.filter((s) => s.gender === 'f').length;
+  const noGenderCount = students.length - boysCount - girlsCount;
+
+  const handleSaveListText = () => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      localStorage.setItem(STORAGE_KEY, text);
     } catch {
       // ignore
     }
@@ -74,10 +108,11 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
 
   const handleClearList = () => {
     setText('');
-    setStudents([]);
     setGroups([]);
     setSeating([]);
     setWinner('');
+    setEditingListId(null);
+    setListName('');
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -85,54 +120,127 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
-  // --- SHARE & COPY LOGIC ---
-  const handleCopy = (textToCopy: string) => {
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      setCopied(true);
+  // ===== ИМПОРТ / ЭКСПОРТ / КОПИРОВАНИЕ =====
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setText(String(reader.result || ''));
+      setListName(file.name.replace(/\.[^.]+$/, ''));
+      setEditingListId(null);
       triggerHaptic('light');
-      setTimeout(() => setCopied(false), 2000);
-    });
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleExportFile = () => {
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${listName.trim() || 'список_класса'}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    triggerHaptic('light');
+  };
+
+  const copyText = (t: string) => {
+    navigator.clipboard
+      .writeText(t)
+      .then(() => {
+        setCopied(true);
+        triggerHaptic('light');
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {});
   };
 
   const handleShare = async (textToShare: string) => {
     if (navigator.share) {
       try {
-        await navigator.share({
-          title: 'Результат жеребьёвки',
-          text: textToShare,
-        });
+        await navigator.share({ title: 'Список класса', text: textToShare });
         triggerHaptic('light');
-      } catch (err) {
-        console.log('Share canceled or failed', err);
+      } catch {
+        copyText(textToShare);
       }
     } else {
-      handleCopy(textToShare);
+      copyText(textToShare);
     }
   };
 
-  // --- WHEEL OF FORTUNE LOGIC ---
+  // ===== СОХРАНЁННЫЕ СПИСКИ =====
+  const refreshLists = () => setSavedLists(loadSavedLists());
+
+  const handleSaveNamedList = () => {
+    if (!text.trim()) return;
+    const now = Date.now();
+    const lists = loadSavedLists();
+    if (editingListId) {
+      saveSavedLists(
+        lists.map((l) =>
+          l.id === editingListId
+            ? { ...l, name: listName.trim() || l.name, text, updatedAt: now }
+            : l,
+        ),
+      );
+    } else {
+      const newList: SavedList = {
+        id: `list-${now}-${Math.random().toString(36).slice(2, 7)}`,
+        name: listName.trim() || `Список ${lists.length + 1}`,
+        text,
+        createdAt: now,
+        updatedAt: now,
+      };
+      saveSavedLists([...lists, newList]);
+      setEditingListId(newList.id);
+    }
+    refreshLists();
+    setSavedFlag(true);
+    setTimeout(() => setSavedFlag(false), 2000);
+    triggerHaptic('light');
+  };
+
+  const handleLoadList = (l: SavedList) => {
+    setText(l.text);
+    setListName(l.name);
+    setEditingListId(l.id);
+    setGroups([]);
+    setSeating([]);
+    setWinner('');
+    window.scrollTo({ top: 0 });
+    triggerHaptic('light');
+  };
+
+  const handleDeleteList = (id: string) => {
+    saveSavedLists(loadSavedLists().filter((l) => l.id !== id));
+    if (editingListId === id) setEditingListId(null);
+    refreshLists();
+  };
+
+  // ===== РЕЖИМЫ =====
   const handlePickOne = () => {
     if (students.length === 0 || isSpinning) return;
-    
+
     setIsSpinning(true);
     setWinner('');
     triggerHaptic('medium');
 
     const winnerIndex = Math.floor(Math.random() * students.length);
-    const finalWinner = students[winnerIndex];
+    const finalWinner = students[winnerIndex].name;
 
-    // Минимум 5 полных оборотов (1800 град) + случайное смещение
     const extraSpins = 5 * 360;
     const randomOffset = Math.floor(Math.random() * 360);
     setRotation((prev) => prev + extraSpins + randomOffset);
 
-    // Быстрая смена имен во время вращения
     let spinInterval: ReturnType<typeof setInterval>;
     spinInterval = setInterval(() => {
-      setRouletteName(students[Math.floor(Math.random() * students.length)]);
+      setRouletteName(students[Math.floor(Math.random() * students.length)].name);
     }, 50);
 
-    // Остановка через 1.5 секунды (время CSS анимации)
     setTimeout(() => {
       clearInterval(spinInterval);
       setRouletteName(finalWinner);
@@ -145,25 +253,38 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
   const handleSplitGroups = () => {
     if (students.length === 0) return;
     const n = Math.max(1, Math.min(groupCount, students.length));
-    const shuffled = shuffle(students);
+    const shuffled = shuffleArr(students);
     const result: string[][] = Array.from({ length: n }, () => []);
-    shuffled.forEach((s, i) => result[i % n].push(s));
+    shuffled.forEach((s, i) => result[i % n].push(s.name));
     setGroups(result);
-    setWinner(''); // сброс предыдущего результата
+    setWinner('');
     triggerHaptic('medium');
   };
 
   const handleSeating = () => {
     if (students.length === 0) return;
     const total = Math.max(1, rows * cols);
-    const shuffled = shuffle(students);
+    const ordered =
+      considerGender && students.some((s) => s.gender !== null)
+        ? alternateByGender(students)
+        : shuffleArr(students);
     const grid: string[] = [];
     for (let i = 0; i < total; i++) {
-      grid.push(i < shuffled.length ? shuffled[i] : '');
+      grid.push(i < ordered.length ? ordered[i].name : '');
     }
     setSeating(grid);
-    setWinner(''); // сброс предыдущего результата
+    setWinner('');
     triggerHaptic('medium');
+  };
+
+  const toggleConsiderGender = () => {
+    const next = !considerGender;
+    setConsiderGender(next);
+    try {
+      localStorage.setItem(GENDER_KEY, next ? '1' : '0');
+    } catch {
+      // ignore
+    }
   };
 
   const modeButtons: { id: Mode; label: string; icon: typeof UserPlus }[] = [
@@ -172,37 +293,82 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
     { id: 'seating', label: 'Случайная рассадка', icon: LayoutGrid },
   ];
 
-  // Форматирование текста для копирования/шеринга
   const getGroupsText = () => {
-    return groups.map((g, i) => `Группа ${i + 1}:\n${g.map((name, j) => `  ${j + 1}. ${name}`).join('\n')}`).join('\n\n');
+    return groups
+      .map((g, i) => `Группа ${i + 1}:\n${g.map((name, j) => `  ${j + 1}. ${name}`).join('\n')}`)
+      .join('\n\n');
   };
 
   const getSeatingText = () => {
     let result = 'Схема рассадки:\n';
     for (let r = 0; r < rows; r++) {
       const rowNames = seating.slice(r * cols, (r + 1) * cols);
-      result += `Ряд ${r + 1}: ${rowNames.map(n => n || 'Свободно').join(' | ')}\n`;
+      result += `Ряд ${r + 1}: ${rowNames.map((n) => n || 'Свободно').join(' | ')}\n`;
     }
     return result;
   };
 
+  const howItems = [
+    {
+      q: 'Формат списка и пол учеников',
+      a: 'Один ученик на строку. Пол — в скобках или через запятую: «Иван Петров (м)», «Аня Смирнова, ж», «Олег (мальчик)». Без отметки пол не учитывается. Дубликаты убираются автоматически.',
+    },
+    {
+      q: 'Импорт и экспорт списка',
+      a: '«Импорт» — загрузка списка из файла .txt (формат: один ученик на строку, пол по желанию). «Экспорт» — скачивание текущего списка файлом .txt. Кнопки копирования и «Поделиться» — для быстрой передачи в мессенджер.',
+    },
+    {
+      q: 'Мои списки: сохранить, редактировать, копировать',
+      a: 'Введите название (например, «5А») и нажмите «Сохранить». Список появится в «Моих списках». Тап по списку — загрузить для редактирования, иконка карандаша — тоже загрузка, копирование — в буфер, корзина — удалить. После правок нажмите «Сохранить» — список обновится.',
+    },
+    {
+      q: 'Рассадка с учётом пола',
+      a: 'В режиме «Случайная рассадка» включите переключатель «Чередовать мальчиков и девочек» — при наличии отметок пола алгоритм рассадит учеников с максимальным чередованием. Выключите — рассадка будет полностью случайной.',
+    },
+    {
+      q: 'Три режима жеребьёвки',
+      a: '«Выбрать одного» — колесо случайного выбора (справедливый опрос). «Разделить на группы» — равные команды для проектов. «Случайная рассадка» — новая схема мест. Любой результат можно скопировать или отправить.',
+    },
+  ];
+
+  const faqItems = [
+    {
+      q: 'Сценарий 1 · Справедливый опрос',
+      a: 'Откройте колесо на проекторе и вызывайте учеников случайным выбором. Никто не обижается: случайность видна всему классу, а списки «любимчиков» исключены.',
+    },
+    {
+      q: 'Сценарий 2 · Команды за 10 секунд',
+      a: 'Перед проектной или лабораторной работой нажмите «Разделить на группы». Нужно перемешать иначе — нажмите ещё раз. Результат копируется и отправляется ученикам в чат класса.',
+    },
+    {
+      q: 'Сценарий 3 · Рассадка без обид',
+      a: 'Новая четверть или «все хотят сидеть вместе»? Сгенерируйте случайную рассадку и выведите на проектор. Включите чередование по полу — мальчики и девочки сидят вперемешку, меньше разговоров.',
+    },
+    {
+      q: 'Сценарий 4 · Несколько классов и замены',
+      a: 'Сохраните списки каждого класса («5А», «5Б», «6В»). Переключайтесь в один тап. Экспортируйте список файлом и передайте коллеге на замену или родителю для мероприятия.',
+    },
+    {
+      q: 'Сколько учеников можно ввести?',
+      a: 'Практически до 200 и более. Оптимально 10–40. Если имена повторяются — добавьте фамилию или номер: дубликаты удаляются автоматически.',
+    },
+    {
+      q: 'Где хранятся списки?',
+      a: 'На вашем устройстве. Для переноса на другое устройство или резервной копии используйте «Экспорт» (файл .txt) и «Импорт».',
+    },
+  ];
+
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      {/* НОВАЯ КОМПАКТНАЯ ШАПКА */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          {/* Кнопка назад (не сжимается) */}
           <div className="shrink-0">
             <BackButton onClick={onBack} variant="light" />
           </div>
-          
-          {/* Заголовок и описание (занимают все свободное место, текст обрезается если не влезает) */}
           <div className="flex-1 min-w-0 flex flex-col justify-center">
             <h1 className="text-lg font-bold text-white leading-tight truncate">Жеребьёвка</h1>
             <p className="text-xs text-purple-200 leading-tight">Случайный выбор и группы</p>
           </div>
-          
-          {/* Иконка раздела справа (не сжимается) */}
           <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
             <Dices className="w-5 h-5 text-white" />
           </div>
@@ -210,21 +376,81 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-6 space-y-6 pb-8">
-        {/* Class list */}
+        {/* Список класса */}
         <section className="bg-white rounded-2xl shadow-md p-5">
           <h2 className="text-lg font-semibold text-purple-700 mb-3">Список класса</h2>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Введите имена учеников, каждое с новой строки..."
+            placeholder={'Введите имена учеников, каждое с новой строки...\nПол — по желанию: Иван (м), Аня, ж'}
             className="w-full min-h-[140px] rounded-xl border border-gray-200 p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y"
           />
+          <p className="text-xs text-gray-500 mt-2">
+            Формат: один ученик на строку. Пол — в скобках или через запятую: «Иван Петров (м)», «Аня Смирнова, ж». Без отметки пол не учитывается.
+          </p>
           <p className="text-sm font-semibold text-purple-700 mt-2">
             В списке: {students.length} учеников
+            {students.length > 0 && (
+              <span className="text-gray-500 font-normal">
+                {' '}· м: {boysCount} · ж: {girlsCount}
+                {noGenderCount > 0 && ` · без пола: ${noGenderCount}`}
+              </span>
+            )}
           </p>
+
+          {/* Импорт / экспорт / копирование */}
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-1.5 text-sm transition-colors touch-manipulation"
+            >
+              <Upload className="w-4 h-4" /> Импорт
+            </button>
+            <button
+              onClick={handleExportFile}
+              disabled={!text.trim()}
+              className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-1.5 text-sm transition-colors touch-manipulation"
+            >
+              <Download className="w-4 h-4" /> Экспорт
+            </button>
+            <button
+              onClick={() => copyText(text)}
+              disabled={!text.trim()}
+              className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-1.5 text-sm transition-colors touch-manipulation"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+              Копир.
+            </button>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".txt,text/plain"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+
+          {/* Сохранение именованного списка */}
+          <div className="flex gap-2 mt-3">
+            <input
+              type="text"
+              value={listName}
+              onChange={(e) => setListName(e.target.value)}
+              placeholder="Название списка (например, 5А)"
+              className="flex-1 min-w-0 rounded-xl border border-gray-200 p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+            <button
+              onClick={handleSaveNamedList}
+              disabled={!text.trim()}
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl px-4 py-3 flex items-center gap-1.5 transition-colors touch-manipulation shrink-0"
+            >
+              <Save className="w-4 h-4" /> {savedFlag ? '✓' : editingListId ? 'Обновить' : 'Сохранить'}
+            </button>
+          </div>
+
           <div className="flex gap-3 mt-3">
             <button
-              onClick={handleSaveList}
+              onClick={handleSaveListText}
               className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3 min-h-14 transition-colors touch-manipulation"
             >
               Сохранить список
@@ -238,7 +464,53 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
           </div>
         </section>
 
-        {/* Mode tabs */}
+        {/* Мои списки */}
+        {savedLists.length > 0 && (
+          <section className="bg-white rounded-2xl shadow-md p-5">
+            <h2 className="text-lg font-semibold text-purple-700 mb-3">Мои списки</h2>
+            <div className="space-y-2">
+              {savedLists.map((l) => (
+                <div key={l.id} className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2">
+                  <button onClick={() => handleLoadList(l)} className="flex-1 min-w-0 text-left">
+                    <h4 className="font-semibold text-gray-800 truncate">
+                      {l.name}
+                      {editingListId === l.id && (
+                        <span className="ml-2 text-xs font-bold text-green-600">редактируется</span>
+                      )}
+                    </h4>
+                    <p className="text-xs text-gray-500">
+                      учеников: {parseStudents(l.text).length} ·{' '}
+                      {new Date(l.updatedAt).toLocaleDateString('ru-RU')}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => copyText(l.text)}
+                    className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
+                    aria-label="Копировать список"
+                  >
+                    <Copy className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleLoadList(l)}
+                    className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
+                    aria-label="Редактировать список"
+                  >
+                    <Pencil className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteList(l.id)}
+                    className="p-2 text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                    aria-label="Удалить список"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Режимы */}
         <section>
           <div className="grid grid-cols-3 gap-2">
             {modeButtons.map((m) => {
@@ -267,7 +539,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
           </div>
         </section>
 
-        {/* Mode: pick one (WHEEL OF FORTUNE) */}
+        {/* Режим: один */}
         {mode === 'one' && (
           <section className="bg-white rounded-2xl shadow-md p-5">
             <button
@@ -278,24 +550,17 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
               <Shuffle className={`w-5 h-5 ${isSpinning ? 'animate-spin' : ''}`} />
               {isSpinning ? 'Крутим...' : 'Выбрать одного'}
             </button>
-            
+
             {(isSpinning || winner) && (
               <div className="mt-6 flex flex-col items-center">
-                {/* Wheel Container */}
                 <div className="relative w-56 h-56 mx-auto mb-4">
-                  {/* Pointer */}
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[20px] border-t-red-500 drop-shadow-md" />
-                  
-                  {/* Spinning Wheel */}
-                  <div 
+                  <div
                     className="w-full h-full rounded-full border-4 border-purple-600 bg-[conic-gradient(at_center,_var(--tw-gradient-stops))] from-purple-400 via-violet-500 to-purple-400 shadow-xl transition-transform duration-[1500ms] ease-[cubic-bezier(0.15,0,0.15,1)]"
                     style={{ transform: `rotate(${rotation}deg)` }}
                   >
-                    {/* Decorative inner circle */}
                     <div className="absolute inset-4 rounded-full border-2 border-white/30 border-dashed" />
                   </div>
-                  
-                  {/* Center Name Display */}
                   <div className="absolute inset-0 flex items-center justify-center z-10">
                     <div className="bg-white rounded-full w-24 h-24 flex items-center justify-center shadow-lg border-4 border-purple-100 p-2">
                       <p className="text-center text-sm font-bold text-purple-800 leading-tight break-words">
@@ -305,17 +570,16 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
                   </div>
                 </div>
 
-                {/* Result Actions */}
                 {winner && !isSpinning && (
                   <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-2xl p-5 shadow-xl text-center">
                       <p className="text-sm text-white/80 mb-1">🎉 Выбран:</p>
                       <p className="text-3xl font-extrabold tracking-wide">{winner}</p>
                     </div>
-                    
+
                     <div className="flex gap-3">
                       <button
-                        onClick={() => handleCopy(`🎉 Выбран: ${winner}`)}
+                        onClick={() => copyText(`🎉 Выбран: ${winner}`)}
                         className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
                       >
                         {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
@@ -336,7 +600,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
           </section>
         )}
 
-        {/* Mode: groups */}
+        {/* Режим: группы */}
         {mode === 'groups' && (
           <section className="bg-white rounded-2xl shadow-md p-5 space-y-4">
             <div>
@@ -359,12 +623,12 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
             >
               Распределить
             </button>
-            
+
             {groups.length > 0 && (
               <div className="space-y-3 mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex gap-3">
                   <button
-                    onClick={() => handleCopy(getGroupsText())}
+                    onClick={() => copyText(getGroupsText())}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors text-sm"
                   >
                     {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
@@ -404,7 +668,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
           </section>
         )}
 
-        {/* Mode: seating */}
+        {/* Режим: рассадка */}
         {mode === 'seating' && (
           <section className="bg-white rounded-2xl shadow-md p-5 space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -431,6 +695,28 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
                 />
               </div>
             </div>
+
+            {/* Учёт пола */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-gray-700">Чередовать мальчиков и девочек</span>
+              <button
+                onClick={toggleConsiderGender}
+                className={`relative shrink-0 w-12 h-7 rounded-full transition-colors duration-200 ${
+                  considerGender ? 'bg-purple-600' : 'bg-gray-300'
+                }`}
+                aria-label="Учитывать пол при рассадке"
+              >
+                <span
+                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                    considerGender ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 -mt-2">
+              Работает, если у учеников указан пол: «Иван (м)», «Аня, ж». Настройка запоминается.
+            </p>
+
             <button
               onClick={handleSeating}
               disabled={students.length === 0}
@@ -438,12 +724,12 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
             >
               Сгенерировать схему
             </button>
-            
+
             {seating.length > 0 && (
               <div className="space-y-3 mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex gap-3">
                   <button
-                    onClick={() => handleCopy(getSeatingText())}
+                    onClick={() => copyText(getSeatingText())}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors text-sm"
                   >
                     {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
@@ -487,7 +773,91 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
           </section>
         )}
 
-        <YandexAdBlock />
+        {/* Инструкции и сценарии */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowHow(!showHow)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Инструкции и сценарии</h3>
+              <span className="text-xs font-bold text-purple-400">{howItems.length}</span>
+            </div>
+            {showHow ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showHow && (
+            <div className="px-5 pb-5 space-y-2">
+              {howItems.map((item, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenHow(openHow === idx ? null : idx)}
+                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                  >
+                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                    {openHow === idx ? (
+                      <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                    )}
+                  </button>
+                  {openHow === idx && (
+                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Вопросы и подсказки */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowFaq(!showFaq)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Вопросы и подсказки</h3>
+              <span className="text-xs font-bold text-purple-400">{faqItems.length}</span>
+            </div>
+            {showFaq ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showFaq && (
+            <div className="px-5 pb-5 space-y-2">
+              {faqItems.map((item, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                  >
+                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                    {openFaq === idx ? (
+                      <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                    )}
+                  </button>
+                  {openFaq === idx && (
+                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
