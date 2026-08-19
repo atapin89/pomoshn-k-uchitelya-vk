@@ -47,6 +47,7 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [openMethod, setOpenMethod] = useState<number | null>(null);
   const [showPresets, setShowPresets] = useState(false);
+  const [showMethod, setShowMethod] = useState(false);
 
   useEffect(() => {
     setSavedSets(loadSavedBingoSets());
@@ -150,7 +151,6 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     setSavedSets(loadSavedBingoSets());
   };
 
-  // ===== МЕТОДИЧКА: ИНСТРУКЦИИ И СЦЕНАРИИ =====
   const methodItems = [
     {
       q: 'Подготовка: печатный формат',
@@ -303,7 +303,7 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
           </div>
         )}
 
-        {/* Готовые наборы: аккордеон с плитками */}
+        {/* Готовые наборы: аккордеон с компактными горизонтальными плитками */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowPresets(!showPresets)}
@@ -321,18 +321,23 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
             )}
           </button>
           {showPresets && (
-            <div className="px-5 pb-5 grid grid-cols-2 gap-2">
+            <div className="px-5 pb-5 space-y-2">
               {presetBingoSets.map((set) => (
                 <button
                   key={set.id}
                   onClick={() => openSet(set)}
-                  className="bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 rounded-xl p-3 min-h-[104px] flex flex-col items-center justify-center gap-1.5 text-center active:scale-95 transition-transform"
+                  className="w-full bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 rounded-xl p-3 flex items-center gap-3 text-left active:scale-95 transition-transform"
                 >
-                  <Grid3x3 className="w-6 h-6 text-purple-500" />
-                  <span className="font-semibold text-purple-800 text-sm leading-tight">
-                    {set.name}
-                  </span>
-                  <span className="text-xs text-purple-500">слов: {set.words.length}</span>
+                  <div className="shrink-0 w-11 h-11 rounded-xl bg-white flex items-center justify-center border border-purple-200">
+                    <Grid3x3 className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-purple-800 text-sm leading-tight truncate">
+                      {set.name}
+                    </h4>
+                    <p className="text-xs text-purple-500 mt-0.5">слов: {set.words.length}</p>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-purple-400 -rotate-90 shrink-0" />
                 </button>
               ))}
             </div>
@@ -470,33 +475,47 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
           )}
         </div>
 
-        {/* Методичка: инструкции и сценарии */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-2">
-          <div className="flex items-center gap-2 mb-3">
-            <GraduationCap className="w-5 h-5 text-purple-600" />
-            <h3 className="font-bold text-purple-700">Методичка: сценарии для урока</h3>
-          </div>
-
-          {methodItems.map((item, idx) => (
-            <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setOpenMethod(openMethod === idx ? null : idx)}
-                className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
-              >
-                <span className="font-semibold text-sm text-gray-800">{item.q}</span>
-                {openMethod === idx ? (
-                  <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
-                )}
-              </button>
-              {openMethod === idx && (
-                <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
-                  {item.a}
-                </div>
-              )}
+        {/* Методичка: аккордеон */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowMethod(!showMethod)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Методичка: сценарии для урока</h3>
+              <span className="text-xs font-bold text-purple-400">{methodItems.length}</span>
             </div>
-          ))}
+            {showMethod ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showMethod && (
+            <div className="px-5 pb-5 space-y-2">
+              {methodItems.map((item, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenMethod(openMethod === idx ? null : idx)}
+                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                  >
+                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                    {openMethod === idx ? (
+                      <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                    )}
+                  </button>
+                  {openMethod === idx && (
+                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* FAQ */}
