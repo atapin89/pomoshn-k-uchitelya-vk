@@ -4,7 +4,7 @@ import type { Deck } from '@/types';
 import { loadDecks } from '@/lib/storage';
 import { triggerHaptic } from '@/lib/haptic';
 import BackButton from './BackButton';
-import YandexAdBlock from './YandexAdBlock'; // <-- ДОБАВЛЕН ИМПОРТ
+
 
 interface QuizScreenProps {
   deckId: string;
