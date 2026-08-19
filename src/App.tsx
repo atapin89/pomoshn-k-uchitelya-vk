@@ -15,8 +15,9 @@ import QuizScreen from '@/components/QuizScreen';
 import WordSearchScreen from '@/components/WordSearchScreen';
 import ManualScreen from '@/components/ManualScreen';
 import CalculatorsScreen from '@/components/CalculatorsScreen';
+import BingoGeneratorScreen from '@/components/BingoGeneratorScreen';
 
-type Route = 'home' | 'timer' | 'generator' | 'noise' | 'flashcards' | 'study' | 'quiz' | 'wordsearch' | 'manual' | 'calculators';
+type Route = 'home' | 'timer' | 'generator' | 'noise' | 'flashcards' | 'study' | 'quiz' | 'wordsearch' | 'manual' | 'calculators' | 'bingo';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -93,6 +94,7 @@ export default function App() {
   if (route === 'wordsearch') return <WordSearchScreen onBack={() => setRoute('home')} />;
   if (route === 'manual') return <ManualScreen onBack={() => setRoute('home')} />;
   if (route === 'calculators') return <CalculatorsScreen onBack={() => setRoute('home')} />;
+  if (route === 'bingo') return <BingoGeneratorScreen onBack={() => setRoute('home')} />;
 
   if (activeTemplate) {
     return (
