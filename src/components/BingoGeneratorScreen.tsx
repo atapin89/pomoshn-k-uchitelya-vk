@@ -1,418 +1,359 @@
-import { useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Grid3x3, Play, Save, Shuffle, Trash2 } from 'lucide-react';
+import type { BingoConfig, BingoGame, GridSize, SavedBingoSet } from '@/types/bingo';
+import { GRID_SIZES, generateBingoId } from '@/types/bingo';
+import { generateBingoCards, generateCallOrder } from '@/lib/bingoGenerator';
 import {
-  Grid3x3, Plus, Trash2, Download, Eye, Shuffle, Check,
-  ArrowLeft, Printer, Monitor, X, RotateCcw, FileText
-} from 'lucide-react';
+  clearCurrentBingoGame,
+  deleteBingoSet,
+  loadCurrentBingoGame,
+  loadSavedBingoSets,
+  saveBingoSet,
+  saveCurrentBingoGame,
+} from '@/lib/bingoStorage';
 import BackButton from './BackButton';
-import YandexAdBlock from './YandexAdBlock';
-import { triggerHaptic } from '@/lib/haptic';
-import { jsPDF } from 'jspdf';
-
-// ===== ТИПЫ =====
-interface BingoCard {
-  id: string;
-  cells: (string | null)[]; // 25 ячеек, null = FREE
-  markedCells: boolean[]; // какие ячейки отмечены
-}
+import BingoPreviewScreen from './BingoPreviewScreen';
+import BingoProjectorScreen from './BingoProjectorScreen';
 
 type Screen = 'editor' | 'preview' | 'projector';
 
-const STORAGE_KEY = 'bingo_cards';
+interface BingoGeneratorScreenProps {
+  onBack: () => void;
+}
 
-// ===== УТИЛИТЫ =====
-const generateId = () => Math.random().toString(36).substr(2, 9);
-
-const shuffleArray = <T,>(array: T[]): T[] => {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-};
-
-const loadCards = (): BingoCard[] => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-};
-
-const saveCards = (cards: BingoCard[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
-};
-
-// ===== ГЛАВНЫЙ КОМПОНЕНТ =====
-export default function BingoGeneratorScreen({ onBack }: { onBack: () => void }) {
+export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenProps) {
   const [screen, setScreen] = useState<Screen>('editor');
-  const [words, setWords] = useState('');
-  const [cards, setCards] = useState<BingoCard[]>(loadCards());
-  const [cardCount, setCardCount] = useState(5);
-  const [isProjectorMode, setIsProjectorMode] = useState(false);
+  const [name, setName] = useState('');
+  const [wordsText, setWordsText] = useState('');
+  const [gridSize, setGridSize] = useState<GridSize>('5x5');
+  const [hasFreeCenter, setHasFreeCenter] = useState(true);
+  const [cardCount, setCardCount] = useState(10);
+  const [savedSets, setSavedSets] = useState<SavedBingoSet[]>([]);
+  const [game, setGame] = useState<BingoGame | null>(null);
+  const [hasSavedGame, setHasSavedGame] = useState(false);
+  const [savedFlag, setSavedFlag] = useState(false);
 
-  const generateCards = () => {
-    const wordList = words
+  useEffect(() => {
+    setSavedSets(loadSavedBingoSets());
+    setHasSavedGame(loadCurrentBingoGame() !== null);
+  }, []);
+
+  // Разбор слов: убираем пустые строки и дубликаты
+  const words = useMemo(() => {
+    const seen = new Set<string>();
+    return wordsText
       .split('\n')
-      .map(w => w.trim())
-      .filter(w => w !== '');
-
-    if (wordList.length < 24) {
-      alert('Нужно минимум 24 слова для заполнения карточки Бинго (5x5 минус центр)');
-      return;
-    }
-
-    const newCards: BingoCard[] = [];
-    for (let i = 0; i < cardCount; i++) {
-      const shuffled = shuffleArray(wordList);
-      const cells: (string | null)[] = [];
-      for (let j = 0; j < 25; j++) {
-        if (j === 12) {
-          cells.push(null); // FREE в центре
-        } else {
-          cells.push(shuffled[j % shuffled.length]);
-        }
-      }
-      newCards.push({
-        id: generateId(),
-        cells,
-        markedCells: Array(25).fill(false),
+      .map((w) => w.trim())
+      .filter((w) => {
+        if (!w) return false;
+        const key = w.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
-    }
+  }, [wordsText]);
 
-    setCards(newCards);
-    saveCards(newCards);
-    triggerHaptic('success');
+  const cellsNeeded =
+    GRID_SIZES[gridSize].total - (gridSize === '5x5' && hasFreeCenter ? 1 : 0);
+
+  const buildConfig = (): BingoConfig => ({
+    name: name.trim() || 'Бинго',
+    gridSize,
+    cardCount,
+    hasFreeCenter: gridSize === '5x5' ? hasFreeCenter : false,
+  });
+
+  const generate = () => {
+    if (words.length < cellsNeeded) return;
+    const config = buildConfig();
+    const newGame: BingoGame = {
+      id: generateBingoId(),
+      config,
+      words,
+      cards: generateBingoCards(words, config),
+      callOrder: generateCallOrder(words.length),
+      currentCallIndex: 0,
+      createdAt: Date.now(),
+    };
+    setGame(newGame);
+    saveCurrentBingoGame(newGame);
+    setHasSavedGame(true);
+    setScreen('preview');
   };
 
-  const clearCards = () => {
-    setCards([]);
-    saveCards([]);
-    triggerHaptic('medium');
-  };
-
-  const toggleCell = (cardId: string, cellIndex: number) => {
-    setCards(cards.map(card => {
-      if (card.id !== cardId) return card;
-      const newMarked = [...card.markedCells];
-      newMarked[cellIndex] = !newMarked[cellIndex];
-      return { ...card, markedCells: newMarked };
-    }));
-    triggerHaptic('light');
-  };
-
-  const resetCard = (cardId: string) => {
-    setCards(cards.map(card => {
-      if (card.id !== cardId) return card;
-      return { ...card, markedCells: Array(25).fill(false) };
-    }));
-    triggerHaptic('light');
-  };
-
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 10;
-    const cardSize = 90;
-    const gap = 5;
-
-    cards.forEach((card, idx) => {
-      if (idx > 0 && idx % 2 === 0) doc.addPage();
-
-      const xPos = margin + (idx % 2) * (cardSize + gap);
-      const yPos = margin + Math.floor(idx / 2) * (cardSize + gap + 20);
-
-      doc.setFontSize(10);
-      doc.text(`Карточка ${idx + 1}`, xPos, yPos - 2);
-
-      const cellSize = cardSize / 5;
-      for (let row = 0; row < 5; row++) {
-        for (let col = 0; col < 5; col++) {
-          const cellIndex = row * 5 + col;
-          const x = xPos + col * cellSize;
-          const y = yPos + row * cellSize;
-
-          doc.rect(x, y, cellSize, cellSize);
-          
-          const text = card.cells[cellIndex] || 'FREE';
-          doc.setFontSize(8);
-          doc.text(text, x + cellSize / 2, y + cellSize / 2, { align: 'center', baseline: 'middle' });
-
-          if (card.markedCells[cellIndex]) {
-            doc.setFillColor(200, 200, 200);
-            doc.rect(x, y, cellSize, cellSize, 'F');
-          }
-        }
-      }
+  const updateGame = (patch: Partial<BingoGame>) => {
+    setGame((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      saveCurrentBingoGame(next);
+      return next;
     });
-
-    doc.save(`бинго_${cards.length}карточек.pdf`);
-    triggerHaptic('success');
   };
 
-  // ===== ЭКРАН РЕДАКТОРА =====
-  if (screen === 'editor') {
-    return (
-      <div className="min-h-[100dvh] notebook-bg flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-            <div className="shrink-0">
-              <BackButton onClick={onBack} variant="light" />
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <h1 className="text-lg font-bold text-white leading-tight truncate">Генератор Бинго</h1>
-              <p className="text-xs text-purple-200 leading-tight">Карточки для игры</p>
-            </div>
-            <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-              <Grid3x3 className="w-5 h-5 text-white" />
-            </div>
-          </div>
-        </header>
+  const continueGame = () => {
+    const saved = loadCurrentBingoGame();
+    if (saved) {
+      setGame(saved);
+      setScreen('preview');
+    }
+  };
 
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
-            <div>
-              <label className="text-sm font-semibold text-purple-700 block mb-2">
-                Слова для Бинго (каждое с новой строки)
-              </label>
-              <textarea
-                value={words}
-                onChange={(e) => setWords(e.target.value)}
-                placeholder="Введите минимум 24 слова..."
-                className="w-full h-40 rounded-xl border border-purple-200 p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                💡 Нужно минимум 24 слова. Чем больше слов, тем разнообразнее карточки.
-              </p>
-            </div>
+  const finishGame = () => {
+    clearCurrentBingoGame();
+    setHasSavedGame(false);
+    setGame(null);
+  };
 
-            <div>
-              <label className="text-sm font-semibold text-purple-700 block mb-2">
-                Количество карточек
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="30"
-                value={cardCount}
-                onChange={(e) => setCardCount(Math.max(1, Math.min(30, Number(e.target.value))))}
-                className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:outline-none"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                💡 От 1 до 30 карточек. Каждая карточка уникальна.
-              </p>
-            </div>
+  const saveSet = () => {
+    if (words.length === 0) return;
+    const set: SavedBingoSet = {
+      id: generateBingoId(),
+      name: name.trim() || 'Бинго',
+      config: buildConfig(),
+      words,
+      createdAt: Date.now(),
+    };
+    saveBingoSet(set);
+    setSavedSets(loadSavedBingoSets());
+    setSavedFlag(true);
+    setTimeout(() => setSavedFlag(false), 2000);
+  };
 
-            <button
-              onClick={generateCards}
-              disabled={!words.trim()}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
-            >
-              <Shuffle className="w-5 h-5" />
-              Сгенерировать карточки
-            </button>
-          </div>
+  const loadSet = (set: SavedBingoSet) => {
+    setName(set.name);
+    setWordsText(set.words.join('\n'));
+    setGridSize(set.config.gridSize);
+    setHasFreeCenter(set.config.hasFreeCenter);
+    setCardCount(set.config.cardCount);
+    window.scrollTo({ top: 0 });
+  };
 
-          {cards.length > 0 && (
-            <>
-              <div className="bg-white rounded-2xl shadow-sm p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-purple-700">Сгенерировано карточек: {cards.length}</h3>
-                  <button
-                    onClick={clearCards}
-                    className="text-red-500 hover:bg-red-50 rounded-lg p-2 transition-colors"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setScreen('preview')}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                  >
-                    <Eye className="w-5 h-5" />
-                    Просмотр и печать
-                  </button>
-
-                  <button
-                    onClick={exportToPDF}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                  >
-                    <Download className="w-5 h-5" />
-                    Скачать PDF
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsProjectorMode(true);
-                      setScreen('projector');
-                    }}
-                    className="w-full bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                  >
-                    <Monitor className="w-5 h-5" />
-                    Режим проектора
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
-                  <FileText className="w-4 h-4" /> Как использовать:
-                </h4>
-                <ol className="text-xs text-amber-700 space-y-1 list-decimal list-inside">
-                  <li>Введите список слов (минимум 24)</li>
-                  <li>Укажите количество карточек</li>
-                  <li>Нажмите "Сгенерировать"</li>
-                  <li>Скачайте PDF для печати или используйте режим проектора</li>
-                </ol>
-              </div>
-            </>
-          )}
-
-          <YandexAdBlock />
-        </main>
-      </div>
-    );
-  }
+  const removeSet = (id: string) => {
+    deleteBingoSet(id);
+    setSavedSets(loadSavedBingoSets());
+  };
 
   // ===== ЭКРАН ПРОСМОТРА =====
-  if (screen === 'preview') {
+  if (screen === 'preview' && game) {
     return (
-      <div className="min-h-[100dvh] notebook-bg flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-            <div className="shrink-0">
-              <BackButton onClick={() => setScreen('editor')} variant="light" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-bold text-white truncate">Просмотр карточек</h1>
-              <p className="text-xs text-purple-200">{cards.length} карточек</p>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 overflow-y-auto">
-          <div className="flex gap-2">
-            <button
-              onClick={exportToPDF}
-              className="flex-1 bg-green-600 text-white font-semibold rounded-xl py-2.5 flex items-center justify-center gap-1.5 text-sm active:scale-95 transition-transform"
-            >
-              <Download className="w-4 h-4" /> PDF
-            </button>
-            <button
-              onClick={() => {
-                setIsProjectorMode(true);
-                setScreen('projector');
-              }}
-              className="flex-1 bg-purple-600 text-white font-semibold rounded-xl py-2.5 flex items-center justify-center gap-1.5 text-sm active:scale-95 transition-transform"
-            >
-              <Monitor className="w-4 h-4" /> Проектор
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {cards.map((card, idx) => (
-              <div key={card.id} className="bg-white rounded-2xl p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-purple-700">Карточка {idx + 1}</h3>
-                  <button
-                    onClick={() => resetCard(card.id)}
-                    className="text-gray-500 hover:bg-gray-100 rounded-lg p-1.5 transition-colors"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-5 gap-1">
-                  {card.cells.map((cell, cellIdx) => (
-                    <button
-                      key={cellIdx}
-                      onClick={() => toggleCell(card.id, cellIdx)}
-                      className={`aspect-square rounded-lg flex items-center justify-center text-xs font-semibold transition-all ${
-                        card.markedCells[cellIdx]
-                          ? 'bg-purple-600 text-white'
-                          : cell === null
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {cell === null ? 'FREE' : cell.substring(0, 8)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <YandexAdBlock />
-        </main>
-      </div>
+      <BingoPreviewScreen
+        game={game}
+        onBack={() => setScreen('editor')}
+        onProjector={() => setScreen('projector')}
+        onCardsChange={(cards) => updateGame({ cards })}
+      />
     );
   }
 
   // ===== РЕЖИМ ПРОЕКТОРА =====
-  if (screen === 'projector') {
+  if (screen === 'projector' && game) {
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col">
-        <header className="bg-gray-800 shadow-lg sticky top-0 z-10">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setScreen('preview')}
-                className="text-gray-300 hover:text-white transition-colors"
-              >
-                <ArrowLeft className="w-6 h-6" />
-              </button>
-              <h1 className="text-2xl font-bold text-white">Бинго - Режим проектора</h1>
-            </div>
-            <button
-              onClick={() => setIsProjectorMode(false)}
-              className="bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl px-4 py-2 flex items-center gap-2 transition-colors"
-            >
-              <X className="w-5 h-5" />
-              Выйти
-            </button>
-          </div>
-        </header>
-
-        <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
-          <div className="grid grid-cols-2 gap-8">
-            {cards.slice(0, 2).map((card, idx) => (
-              <div key={card.id} className="bg-white rounded-3xl p-6 shadow-2xl">
-                <h2 className="text-2xl font-bold text-purple-700 mb-4 text-center">
-                  Карточка {idx + 1}
-                </h2>
-                <div className="grid grid-cols-5 gap-2">
-                  {card.cells.map((cell, cellIdx) => (
-                    <button
-                      key={cellIdx}
-                      onClick={() => toggleCell(card.id, cellIdx)}
-                      className={`aspect-square rounded-xl flex items-center justify-center text-sm font-bold transition-all ${
-                        card.markedCells[cellIdx]
-                          ? 'bg-purple-600 text-white scale-95'
-                          : cell === null
-                          ? 'bg-amber-200 text-amber-800'
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                      }`}
-                    >
-                      {cell === null ? 'FREE' : cell}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 text-center">
-            <p className="text-gray-400 text-sm">
-              Нажимайте на ячейки, чтобы отмечать их. Используйте для демонстрации на проекторе.
-            </p>
-          </div>
-        </main>
-      </div>
+      <BingoProjectorScreen
+        game={game}
+        onBack={() => setScreen('preview')}
+        onUpdate={updateGame}
+      />
     );
   }
 
-  return null;
+  // ===== ЭКРАН КОНСТРУКТОРА =====
+  return (
+    <div className="min-h-[100dvh] notebook-bg flex flex-col">
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
+        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+          <div className="shrink-0">
+            <BackButton onClick={onBack} variant="light" />
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
+            <h1 className="text-lg font-bold text-white leading-tight truncate">Бинго</h1>
+            <p className="text-xs text-purple-200 leading-tight">Конструктор карточек</p>
+          </div>
+          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+            <Grid3x3 className="w-5 h-5 text-white" />
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 overflow-y-auto pb-10">
+        {/* Продолжить сохранённую игру */}
+        {hasSavedGame && !game && (
+          <div className="bg-gradient-to-br from-green-100 to-emerald-50 border-2 border-green-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-green-800">Есть сохранённая игра</h3>
+              <p className="text-sm text-green-700">Продолжите с того же места</p>
+            </div>
+            <button
+              onClick={continueGame}
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl px-4 py-3 flex items-center gap-2 active:scale-95 transition-transform shrink-0"
+            >
+              <Play className="w-5 h-5" /> Продолжить
+            </button>
+          </div>
+        )}
+
+        {/* Идёт игра */}
+        {game && (
+          <div className="bg-gradient-to-br from-purple-100 to-violet-50 border-2 border-purple-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-purple-800 truncate">Игра: {game.config.name}</h3>
+              <p className="text-sm text-purple-700">
+                Вызвано {game.currentCallIndex} из {game.callOrder.length}
+              </p>
+            </div>
+            <button
+              onClick={() => setScreen('preview')}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl px-4 py-3 flex items-center gap-2 active:scale-95 transition-transform shrink-0"
+            >
+              <Play className="w-5 h-5" /> Открыть
+            </button>
+            <button
+              onClick={finishGame}
+              className="bg-white text-red-500 border-2 border-red-200 font-semibold rounded-xl px-3 py-3 active:scale-95 transition-transform shrink-0"
+              aria-label="Завершить игру"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
+        {/* Форма конструктора */}
+        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+          <div>
+            <label className="text-sm font-semibold text-purple-700 block mb-2">Название бинго</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Например: Столицы мира"
+              className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-purple-700 block mb-2">
+              Слова (каждое с новой строки)
+            </label>
+            <textarea
+              value={wordsText}
+              onChange={(e) => setWordsText(e.target.value)}
+              placeholder={'Москва\nПариж\nТокио\n...'}
+              className="w-full h-40 rounded-xl border border-purple-200 p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y"
+            />
+            <p
+              className={`text-xs font-semibold mt-1 ${
+                words.length >= cellsNeeded ? 'text-green-600' : 'text-orange-600'
+              }`}
+            >
+              Слов: {words.length} · нужно минимум {cellsNeeded}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-purple-700 block mb-2">Размер сетки</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['3x3', '4x4', '5x5'] as GridSize[]).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setGridSize(s)}
+                  className={`py-3 rounded-xl font-bold text-sm transition-colors ${
+                    gridSize === s
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-purple-50 text-purple-700'
+                  }`}
+                >
+                  {s.replace('x', '×')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {gridSize === '5x5' && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-gray-700">Свободная клетка в центре (FREE)</span>
+              <button
+                onClick={() => setHasFreeCenter(!hasFreeCenter)}
+                className={`relative shrink-0 w-12 h-7 rounded-full transition-colors duration-200 ${
+                  hasFreeCenter ? 'bg-purple-600' : 'bg-gray-300'
+                }`}
+                aria-label="Свободная клетка"
+              >
+                <span
+                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                    hasFreeCenter ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+
+          <div>
+            <label className="text-sm font-semibold text-purple-700 block mb-2">
+              Количество карточек: {cardCount}
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="30"
+              value={cardCount}
+              onChange={(e) => setCardCount(Number(e.target.value))}
+              className="w-full accent-purple-600"
+            />
+            <p className="text-xs text-gray-500 mt-1">От 1 до 30 уникальных карточек</p>
+          </div>
+
+          <button
+            onClick={generate}
+            disabled={words.length < cellsNeeded}
+            className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-semibold rounded-xl py-4 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <Shuffle className="w-5 h-5" /> Сгенерировать карточки
+          </button>
+        </div>
+
+        {/* Сохранённые наборы */}
+        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-bold text-purple-700">Мои наборы</h3>
+            <button
+              onClick={saveSet}
+              disabled={words.length === 0}
+              className="bg-purple-100 hover:bg-purple-200 disabled:opacity-50 text-purple-700 font-semibold rounded-xl px-3 py-2 text-sm flex items-center gap-1.5 active:scale-95 transition-transform"
+            >
+              <Save className="w-4 h-4" /> {savedFlag ? 'Сохранено ✓' : 'Сохранить набор'}
+            </button>
+          </div>
+
+          {savedSets.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              Пока нет сохранённых наборов
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {savedSets.map((set) => (
+                <div
+                  key={set.id}
+                  className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2"
+                >
+                  <button onClick={() => loadSet(set)} className="flex-1 min-w-0 text-left">
+                    <h4 className="font-semibold text-gray-800 truncate">{set.name}</h4>
+                    <p className="text-xs text-gray-500">
+                      {set.config.gridSize.replace('x', '×')} · слов: {set.words.length} ·{' '}
+                      {new Date(set.createdAt).toLocaleDateString('ru-RU')}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => removeSet(set.id)}
+                    className="p-2 text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                    aria-label="Удалить набор"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
 }
