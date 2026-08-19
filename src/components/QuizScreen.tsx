@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Check, X, ArrowRight, Shuffle } from 'lucide-react';
 import type { Deck } from '@/types';
 import { loadDecks } from '@/lib/storage';
 import { triggerHaptic } from '@/lib/haptic';
 import BackButton from './BackButton';
-
 
 interface QuizScreenProps {
   deckId: string;
@@ -26,7 +25,22 @@ interface AssignPair {
 }
 
 export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
-  const [deck, setDeck] = useState<Deck | null>(null);
+  // Загружаем колоду СРАЗУ (включая временную колоду ошибок),
+  // чтобы первый рендер не падал
+  const [deck, setDeck] = useState<Deck | null>(() => {
+    try {
+      if (deckId === 'mistakes-temp') {
+        const tempData = localStorage.getItem('temp_study_deck');
+        if (tempData) return JSON.parse(tempData) as Deck;
+        return null;
+      }
+      const allDecks = loadDecks();
+      const found = allDecks.find((d) => d.id === deckId) || null;
+      return found && found.cards.length >= 2 ? found : null;
+    } catch {
+      return null;
+    }
+  });
   const [quizType, setQuizType] = useState<QuizType>(null);
   const [questionCount, setQuestionCount] = useState(5);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -39,14 +53,6 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [matchedPairs, setMatchedPairs] = useState<string[]>([]);
   const [quizComplete, setQuizComplete] = useState(false);
-
-  useEffect(() => {
-    const allDecks = loadDecks();
-    const foundDeck = allDecks.find((d) => d.id === deckId);
-    if (foundDeck && foundDeck.cards.length >= 2) {
-      setDeck(foundDeck);
-    }
-  }, [deckId]);
 
   const generateQuestions = (type: QuizType): Question[] => {
     if (!deck) return [];
@@ -134,7 +140,7 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
         triggerHaptic('medium');
       }
       setSelectedLeft(null);
-      
+
       if (matchedPairs.length + 1 === assignPairs.length) {
         setTimeout(() => setQuizComplete(true), 500);
       }
@@ -152,8 +158,20 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
     }
   };
 
+  // Защита: колода не найдена — показываем экран с кнопкой назад
+  if (!deck) {
+    return (
+      <div className="min-h-[100dvh] bg-purple-50 flex flex-col items-center justify-center p-6">
+        <p className="text-purple-700 text-lg font-semibold mb-4">Колода не найдена</p>
+        <button onClick={onBack} className="bg-purple-600 text-white px-6 py-3 rounded-xl font-semibold">
+          Назад
+        </button>
+      </div>
+    );
+  }
+
   // ЭКРАН ВЫБОРА ТИПА ТЕСТА
-  if (!quizType && deck) {
+  if (!quizType) {
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
         <header className="bg-purple-700 shadow-md sticky top-0 z-10">
@@ -208,7 +226,7 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
   // ЭКРАН ЗАВЕРШЕНИЯ
   if (quizComplete) {
     const total = quizType === 'assign' ? assignPairs.length : quizQuestions.length;
-    const percentage = Math.round((score / total) * 100);
+    const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
         <header className="bg-purple-700 shadow-md sticky top-0 z-10">
@@ -220,7 +238,7 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
           <div className="bg-white rounded-3xl p-8 shadow-xl w-full">
             <h2 className="text-3xl font-bold text-purple-700 mb-2">Тест завершен!</h2>
             <p className="text-gray-600 mb-6">{deck?.title}</p>
-            
+
             <div className="bg-purple-50 rounded-2xl p-6 mb-6">
               <div className="text-5xl font-bold text-purple-600 mb-2">{percentage}%</div>
               <div className="text-gray-600">
@@ -318,6 +336,17 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
 
   // РЕЖИМЫ CHOICE И TEXT
   const question = quizQuestions[currentQuestion];
+
+  if (!question) {
+    return (
+      <div className="min-h-[100dvh] bg-purple-50 flex flex-col items-center justify-center p-6">
+        <p className="text-purple-700 text-lg font-semibold mb-4">Нет доступных вопросов</p>
+        <button onClick={onBack} className="bg-purple-600 text-white px-6 py-3 rounded-xl font-semibold">
+          Назад
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
