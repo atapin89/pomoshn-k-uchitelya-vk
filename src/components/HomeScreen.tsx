@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Clock, Dices, Volume2, Layers, HelpCircle, Grid3x3, BookOpen, Calculator } from 'lucide-react';
-import YandexAdBlock from './YandexAdBlock';
 import { HelpModal } from './HelpModal';
 import { helpTexts } from '@/data/helpTexts';
 
 interface HomeScreenProps {
-  onNavigate: (route: 'timer' | 'generator' | 'noise' | 'flashcards' | 'wordsearch' | 'manual' | 'calculators') => void;
+  onNavigate: (route: 'timer' | 'generator' | 'noise' | 'flashcards' | 'wordsearch' | 'manual' | 'calculators' | 'bingo') => void;
 }
 
 export default function HomeScreen({ onNavigate }: HomeScreenProps) {
@@ -18,6 +17,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     { id: 'flashcards', title: 'Флэш-карточки', description: 'Колоды и изучение', icon: Layers },
     { id: 'wordsearch', title: 'Филворды', description: 'Поиск слов', icon: Grid3x3 },
     { id: 'calculators', title: 'Калькуляторы', description: 'Баллы, СОУ, тесты', icon: Calculator },
+    { id: 'bingo', title: 'Бинго', description: 'Карточки и проектор', icon: Grid3x3 },
   ];
 
   return (
@@ -94,8 +94,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             Наше сообщество: вопросы и новости здесь
           </a>
         </div>
-
-        <YandexAdBlock />
       </main>
 
       <HelpModal
