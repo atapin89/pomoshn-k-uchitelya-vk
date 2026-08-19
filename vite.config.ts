@@ -4,7 +4,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/pomoshn-k-uchitelya/', // <-- Эта строка критически важна для GitHub Pages
+  base: '/pomoshn-k-uchitelya-vk/',
   plugins: [react()],
   resolve: {
     alias: {
