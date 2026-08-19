@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Grid3x3, Play, Save, Shuffle, Trash2 } from 'lucide-react';
+import { Grid3x3, Play, Save, Shuffle, Sparkles, Trash2 } from 'lucide-react';
 import type { BingoConfig, BingoGame, GridSize, SavedBingoSet } from '@/types/bingo';
 import { GRID_SIZES, generateBingoId } from '@/types/bingo';
 import { generateBingoCards, generateCallOrder } from '@/lib/bingoGenerator';
@@ -11,6 +11,7 @@ import {
   saveBingoSet,
   saveCurrentBingoGame,
 } from '@/lib/bingoStorage';
+import { presetBingoSets } from '@/data/bingoPresets';
 import BackButton from './BackButton';
 import BingoPreviewScreen from './BingoPreviewScreen';
 import BingoProjectorScreen from './BingoProjectorScreen';
@@ -38,7 +39,6 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     setHasSavedGame(loadCurrentBingoGame() !== null);
   }, []);
 
-  // Разбор слов: убираем пустые строки и дубликаты
   const words = useMemo(() => {
     const seen = new Set<string>();
     return wordsText
@@ -63,15 +63,13 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     hasFreeCenter: gridSize === '5x5' ? hasFreeCenter : false,
   });
 
-  const generate = () => {
-    if (words.length < cellsNeeded) return;
-    const config = buildConfig();
+  const startGame = (config: BingoConfig, gameWords: string[]) => {
     const newGame: BingoGame = {
       id: generateBingoId(),
       config,
-      words,
-      cards: generateBingoCards(words, config),
-      callOrder: generateCallOrder(words.length),
+      words: gameWords,
+      cards: generateBingoCards(gameWords, config),
+      callOrder: generateCallOrder(gameWords.length),
       currentCallIndex: 0,
       createdAt: Date.now(),
     };
@@ -79,6 +77,21 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     saveCurrentBingoGame(newGame);
     setHasSavedGame(true);
     setScreen('preview');
+  };
+
+  const generate = () => {
+    if (words.length < cellsNeeded) return;
+    startGame(buildConfig(), words);
+  };
+
+  // Открытие набора: заполняет форму И сразу показывает карточки
+  const openSet = (set: SavedBingoSet) => {
+    setName(set.name);
+    setWordsText(set.words.join('\n'));
+    setGridSize(set.config.gridSize);
+    setHasFreeCenter(set.config.hasFreeCenter);
+    setCardCount(set.config.cardCount);
+    startGame({ ...set.config, name: set.name }, set.words);
   };
 
   const updateGame = (patch: Partial<BingoGame>) => {
@@ -119,21 +132,11 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     setTimeout(() => setSavedFlag(false), 2000);
   };
 
-  const loadSet = (set: SavedBingoSet) => {
-    setName(set.name);
-    setWordsText(set.words.join('\n'));
-    setGridSize(set.config.gridSize);
-    setHasFreeCenter(set.config.hasFreeCenter);
-    setCardCount(set.config.cardCount);
-    window.scrollTo({ top: 0 });
-  };
-
   const removeSet = (id: string) => {
     deleteBingoSet(id);
     setSavedSets(loadSavedBingoSets());
   };
 
-  // ===== ЭКРАН ПРОСМОТРА =====
   if (screen === 'preview' && game) {
     return (
       <BingoPreviewScreen
@@ -145,7 +148,6 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     );
   }
 
-  // ===== РЕЖИМ ПРОЕКТОРА =====
   if (screen === 'projector' && game) {
     return (
       <BingoProjectorScreen
@@ -156,7 +158,6 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     );
   }
 
-  // ===== ЭКРАН КОНСТРУКТОРА =====
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
@@ -175,7 +176,6 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 overflow-y-auto pb-10">
-        {/* Продолжить сохранённую игру */}
         {hasSavedGame && !game && (
           <div className="bg-gradient-to-br from-green-100 to-emerald-50 border-2 border-green-200 rounded-2xl p-4 flex items-center gap-3">
             <div className="flex-1 min-w-0">
@@ -191,7 +191,6 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
           </div>
         )}
 
-        {/* Идёт игра */}
         {game && (
           <div className="bg-gradient-to-br from-purple-100 to-violet-50 border-2 border-purple-200 rounded-2xl p-4 flex items-center gap-3">
             <div className="flex-1 min-w-0">
@@ -215,6 +214,26 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
             </button>
           </div>
         )}
+
+        {/* Готовые наборы */}
+        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-700">Готовые наборы</h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {presetBingoSets.map((set) => (
+              <button
+                key={set.id}
+                onClick={() => openSet(set)}
+                className="bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 rounded-xl p-3 text-left active:scale-95 transition-transform"
+              >
+                <h4 className="font-semibold text-purple-800 text-sm leading-tight">{set.name}</h4>
+                <p className="text-xs text-purple-500 mt-1">слов: {set.words.length}</p>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Форма конструктора */}
         <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
@@ -256,9 +275,7 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
                   key={s}
                   onClick={() => setGridSize(s)}
                   className={`py-3 rounded-xl font-bold text-sm transition-colors ${
-                    gridSize === s
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-purple-50 text-purple-700'
+                    gridSize === s ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
                   }`}
                 >
                   {s.replace('x', '×')}
@@ -310,7 +327,7 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
           </button>
         </div>
 
-        {/* Сохранённые наборы */}
+        {/* Мои наборы */}
         <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-bold text-purple-700">Мои наборы</h3>
@@ -324,17 +341,12 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
           </div>
 
           {savedSets.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">
-              Пока нет сохранённых наборов
-            </p>
+            <p className="text-sm text-gray-400 text-center py-4">Пока нет сохранённых наборов</p>
           ) : (
             <div className="space-y-2">
               {savedSets.map((set) => (
-                <div
-                  key={set.id}
-                  className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2"
-                >
-                  <button onClick={() => loadSet(set)} className="flex-1 min-w-0 text-left">
+                <div key={set.id} className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2">
+                  <button onClick={() => openSet(set)} className="flex-1 min-w-0 text-left">
                     <h4 className="font-semibold text-gray-800 truncate">{set.name}</h4>
                     <p className="text-xs text-gray-500">
                       {set.config.gridSize.replace('x', '×')} · слов: {set.words.length} ·{' '}
