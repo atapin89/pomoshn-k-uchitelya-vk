@@ -1,4 +1,5 @@
-import type { BingoCard, BingoConfig, GridSize, GRID_SIZES } from '@/types/bingo';
+import type { BingoCard, BingoConfig, GridSize } from '@/types/bingo';
+import { GRID_SIZES } from '@/types/bingo';
 
 /**
  * Перемешивает массив случайным образом (Fisher-Yates shuffle)
