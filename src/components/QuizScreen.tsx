@@ -200,7 +200,6 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
             <h3 className="text-lg font-bold text-purple-700 mb-1">Соответствие</h3>
             <p className="text-sm text-gray-600">Соедините пары понятий</p>
           </button>
-          <YandexAdBlock /> {/* <-- ДОБАВЛЕН КОМПОНЕНТ РЕКЛАМЫ */}
         </main>
       </div>
     );
@@ -244,7 +243,6 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
               </button>
             </div>
           </div>
-          <YandexAdBlock /> {/* <-- ДОБАВЛЕН КОМПОНЕНТ РЕКЛАМЫ */}
         </main>
       </div>
     );
@@ -313,7 +311,6 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
           <p className="text-center text-sm text-gray-500 mt-4">
             Нажми на элемент слева, затем на соответствующий справа
           </p>
-          <YandexAdBlock /> {/* <-- ДОБАВЛЕН КОМПОНЕНТ РЕКЛАМЫ */}
         </main>
       </div>
     );
@@ -411,7 +408,6 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
             Далее <ArrowRight size={20} />
           </button>
         )}
-        <YandexAdBlock /> {/* <-- ДОБАВЛЕН КОМПОНЕНТ РЕКЛАМЫ */}
       </main>
     </div>
   );
