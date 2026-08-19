@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Grid3x3, Play, Save, Shuffle, Sparkles, Trash2, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Grid3x3,
+  Play,
+  Save,
+  Shuffle,
+  Sparkles,
+  Trash2,
+  HelpCircle,
+  GraduationCap,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import type { BingoConfig, BingoGame, GridSize, SavedBingoSet } from '@/types/bingo';
 import { GRID_SIZES, generateBingoId } from '@/types/bingo';
 import { generateBingoCards, generateCallOrder } from '@/lib/bingoGenerator';
@@ -34,6 +45,8 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
   const [hasSavedGame, setHasSavedGame] = useState(false);
   const [savedFlag, setSavedFlag] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [openMethod, setOpenMethod] = useState<number | null>(null);
+  const [showPresets, setShowPresets] = useState(false);
 
   useEffect(() => {
     setSavedSets(loadSavedBingoSets());
@@ -137,6 +150,42 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     setSavedSets(loadSavedBingoSets());
   };
 
+  // ===== МЕТОДИЧКА: ИНСТРУКЦИИ И СЦЕНАРИИ =====
+  const methodItems = [
+    {
+      q: 'Подготовка: печатный формат',
+      a: '1) Выберите тему и список слов (от 24). 2) Сгенерируйте карточки: число учеников + 2–3 запасные. 3) Скачайте PDF карточек (2–4 на лист) и распечатайте. 4) Скачайте «Список ведущего». 5) Раздайте карточки, объясните правило линии (5 в ряд по горизонтали, вертикали или диагонали) и вызывайте слова. Собравший линию кричит «Бинго!» — сверьте карточку со списком.',
+    },
+    {
+      q: 'Подготовка: онлайн с проектором',
+      a: '1) Сгенерируйте карточки и откройте «Режим проектора» → «Во весь экран». 2) Ученики играют с распечаток или с телефонов — клетки отмечаются тапом. 3) Ведите игру кнопкой «Далее»; табло (иконка глаза) показывает вызванные слова. 4) Победителя проверяйте по табло: все слова его линии должны быть зелёными.',
+    },
+    {
+      q: 'Практические советы',
+      a: 'Закладывайте 10–15 минут, одна партия — 5–7 минут. Останавливайтесь после 1–2 победителей, иначе внимание рассеивается. Чем больше список слов, тем уникальнее карточки. Победителю — «+1 к оценке», наклейка или маленький приз.',
+    },
+    {
+      q: 'Сценарий 1 · Разминка-повторение',
+      a: 'Начало урока, любая тема. Набор по пройденному материалу (например, «Памятные даты истории РФ»). Называйте событие — ученики отмечают дату; на следующем уроке наоборот: дату — ищут событие. Первая линия — мини-победа, полное бинго — оценка.',
+    },
+    {
+      q: 'Сценарий 2 · Терминологическое лото',
+      a: 'Закрепление терминов (русский язык, биология, география). Читайте определение — ученики отмечают термин. Усложнение для сильных: называйте пример, синоним или антоним.',
+    },
+    {
+      q: 'Сценарий 3 · Математическая перестрелка',
+      a: 'Устный счёт, повторение перед контрольной. Называйте задание («корень из 144», «15% от 200») — ученики отмечают ответ. Темп 20–30 секунд на вызов. Игра парами: один считает, второй отмечает, потом меняются.',
+    },
+    {
+      q: 'Сценарий 4 · Новогодний урок-праздник',
+      a: 'Декабрь, начальная школа. Набор «Новый год»: загадывайте загадки — дети отмечают отгадки. Включите режим проектора с крупными словами — даже первоклашки следят за игрой всем классом.',
+    },
+    {
+      q: 'Сценарий 5 · Командный турнир',
+      a: 'Обобщающий урок. Класс делится на команды, у каждой своя стопка карточек. Слова вызываются для всех одновременно. Побеждает команда, первой собравшая 3 линии; спорные ситуации проверяются по табло на проекторе.',
+    },
+  ];
+
   const faqItems = [
     {
       q: 'Как играть в бинго?',
@@ -144,7 +193,7 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     },
     {
       q: 'Сколько слов нужно для карточки?',
-      a: 'Для 3×3 — минимум 8 слов (9 с FREE), для 4×4 — 16 слов, для 5×5 — 24 слова. Чем больше слов, тем разнообразнее карточки.',
+      a: 'Для 3×3 — минимум 9 слов, для 4×4 — 16 слов, для 5×5 — 24 слова (с FREE-клеткой). Чем больше слов, тем разнообразнее карточки.',
     },
     {
       q: 'Что такое FREE-клетка?',
@@ -152,23 +201,19 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     },
     {
       q: 'Как использовать режим проектора?',
-      a: 'Нажмите "Режим проектора" на экране просмотра карточек. Откроется тёмный экран с крупным текущим словом. Подключите проектор или интерактивную доску и нажмите "Во весь экран".',
+      a: 'Нажмите "Режим проектора" на экране просмотра карточек. Откроется тёмный экран с крупным текущим словом. Подключите проектор или доску и нажмите "Во весь экран".',
     },
     {
       q: 'Зачем два PDF: карточки и список?',
-      a: 'PDF карточек — для раздачи игрокам (печать). PDF списка — для ведущего, чтобы видеть порядок вызова слов и отмечать уже названные.',
+      a: 'PDF карточек — для раздачи игрокам (печать). PDF списка — для ведущего: порядок вызова слов и отметки уже названных.',
     },
     {
       q: 'Можно ли играть онлайн без печати?',
-      a: 'Да! В режиме просмотра карточки кликабельны — отмечайте их прямо на экране. Ученики могут играть на телефонах, а ведущий ведёт игру с проектора.',
+      a: 'Да! В режиме просмотра карточки кликабельны — отмечайте их прямо на экране. Ученики играют на телефонах, ведущий ведёт игру с проектора.',
     },
     {
       q: 'Как использовать готовые наборы?',
-      a: 'Нажмите на готовый набор (например, "Математика") — карточки сгенерируются автоматически. Можете играть сразу или отредактировать слова и сгенерировать заново.',
-    },
-    {
-      q: 'Идеи для урока',
-      a: 'Повторение темы (термины, даты, формулы), изучение лексики иностранного языка, игра на закрепление правил, командная работа, разминка в начале урока, итоговая проверка знаний.',
+      a: 'Откройте «Готовые наборы» и нажмите на плитку — карточки сгенерируются автоматически. Играйте сразу или вернитесь и отредактируйте слова.',
     },
   ];
 
@@ -211,6 +256,7 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 overflow-y-auto pb-10">
+        {/* Сохранённая игра + кнопка Сброс */}
         {hasSavedGame && !game && (
           <div className="bg-gradient-to-br from-green-100 to-emerald-50 border-2 border-green-200 rounded-2xl p-4 flex items-center gap-3">
             <div className="flex-1 min-w-0">
@@ -222,6 +268,13 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
               className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl px-4 py-3 flex items-center gap-2 active:scale-95 transition-transform shrink-0"
             >
               <Play className="w-5 h-5" /> Продолжить
+            </button>
+            <button
+              onClick={finishGame}
+              className="bg-white text-red-500 border-2 border-red-200 font-semibold rounded-xl px-3 py-3 active:scale-95 transition-transform shrink-0"
+              aria-label="Сбросить сохранённую игру"
+            >
+              <Trash2 className="w-5 h-5" />
             </button>
           </div>
         )}
@@ -250,24 +303,40 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
           </div>
         )}
 
-        {/* Готовые наборы */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-purple-600" />
-            <h3 className="font-bold text-purple-700">Готовые наборы</h3>
-          </div>
-          <div className="grid grid-cols-1 gap-2">
-            {presetBingoSets.map((set) => (
-              <button
-                key={set.id}
-                onClick={() => openSet(set)}
-                className="bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 rounded-xl p-3 text-left active:scale-95 transition-transform"
-              >
-                <h4 className="font-semibold text-purple-800 text-sm leading-tight">{set.name}</h4>
-                <p className="text-xs text-purple-500 mt-1">слов: {set.words.length}</p>
-              </button>
-            ))}
-          </div>
+        {/* Готовые наборы: аккордеон с плитками */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowPresets(!showPresets)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Готовые наборы</h3>
+              <span className="text-xs font-bold text-purple-400">{presetBingoSets.length}</span>
+            </div>
+            {showPresets ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showPresets && (
+            <div className="px-5 pb-5 grid grid-cols-2 gap-2">
+              {presetBingoSets.map((set) => (
+                <button
+                  key={set.id}
+                  onClick={() => openSet(set)}
+                  className="bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 rounded-xl p-3 min-h-[104px] flex flex-col items-center justify-center gap-1.5 text-center active:scale-95 transition-transform"
+                >
+                  <Grid3x3 className="w-6 h-6 text-purple-500" />
+                  <span className="font-semibold text-purple-800 text-sm leading-tight">
+                    {set.name}
+                  </span>
+                  <span className="text-xs text-purple-500">слов: {set.words.length}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Форма конструктора */}
@@ -401,7 +470,36 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
           )}
         </div>
 
-        {/* FAQ и подсказки */}
+        {/* Методичка: инструкции и сценарии */}
+        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-2">
+          <div className="flex items-center gap-2 mb-3">
+            <GraduationCap className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-700">Методичка: сценарии для урока</h3>
+          </div>
+
+          {methodItems.map((item, idx) => (
+            <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setOpenMethod(openMethod === idx ? null : idx)}
+                className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+              >
+                <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                {openMethod === idx ? (
+                  <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                )}
+              </button>
+              {openMethod === idx && (
+                <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
+                  {item.a}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* FAQ */}
         <div className="bg-white rounded-2xl shadow-sm p-5 space-y-2">
           <div className="flex items-center gap-2 mb-3">
             <HelpCircle className="w-5 h-5 text-purple-600" />
