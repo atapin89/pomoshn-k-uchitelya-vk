@@ -2,6 +2,19 @@ import type { SavedBingoSet } from '@/types/bingo';
 
 export const presetBingoSets: SavedBingoSet[] = [
   {
+    id: 'preset-bingo-sept1',
+    name: '1 сентября — День знаний',
+    config: { name: '1 сентября — День знаний', gridSize: '5x5', cardCount: 10, hasFreeCenter: true },
+    createdAt: 0,
+    words: [
+      'Школа', 'Знания', 'Урок', 'Класс', 'Учитель',
+      'Дневник', 'Тетрадь', 'Звонок', 'Линейка', 'Цветы',
+      'Букет', 'Парта', 'Учебник', 'Портфель', 'Мел',
+      'Доска', 'Карандаш', 'Ручка', 'Первый урок', 'Расписание',
+      'Классный руководитель', 'Перемена', 'Школьный двор', 'Друзья', 'Осень',
+    ],
+  },
+  {
     id: 'preset-bingo-history',
     name: 'Памятные даты истории РФ',
     config: { name: 'Памятные даты истории РФ', gridSize: '5x5', cardCount: 10, hasFreeCenter: true },
