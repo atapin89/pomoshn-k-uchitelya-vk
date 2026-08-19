@@ -11,13 +11,55 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [activeHelpModal, setActiveHelpModal] = useState<string | null>(null);
 
   const sections = [
-    { id: 'timer', title: 'Таймер урока', description: 'Шаблоны и этапы', icon: Clock },
-    { id: 'generator', title: 'Жеребьёвка', description: 'Случайный выбор', icon: Dices },
-    { id: 'noise', title: 'Контроль шума', description: 'Шумометр', icon: Volume2 },
-    { id: 'flashcards', title: 'Флэш-карточки', description: 'Колоды и изучение', icon: Layers },
-    { id: 'wordsearch', title: 'Филворды', description: 'Поиск слов', icon: Grid3x3 },
-    { id: 'calculators', title: 'Калькуляторы', description: 'Баллы, СОУ, тесты', icon: Calculator },
-    { id: 'bingo', title: 'Бинго', description: 'Карточки и проектор', icon: Grid3x3 },
+    {
+      id: 'timer',
+      title: 'Таймер урока',
+      description: 'Шаблоны и этапы',
+      hint: 'Шаблоны урока с этапами: разминка, объяснение, практика, закрепление. Готовые сценарии + свой.',
+      icon: Clock,
+    },
+    {
+      id: 'generator',
+      title: 'Жеребьёвка',
+      description: 'Случайный выбор',
+      hint: 'Выбор ученика рулеткой, деление класса на группы и случайная рассадка по партам.',
+      icon: Dices,
+    },
+    {
+      id: 'noise',
+      title: 'Контроль шума',
+      description: 'Шумометр',
+      hint: 'Измеритель уровня шума в классе с визуализацией: шарики, смайлики или пузыри. Звуковое оповещение при превышении порога.',
+      icon: Volume2,
+    },
+    {
+      id: 'flashcards',
+      title: 'Флэш-карточки',
+      description: 'Колоды и изучение',
+      hint: 'Интервальное повторение: создавайте колоды, изучайте карточки, проходите тесты с выбором ответа, вводом текста и соответствием.',
+      icon: Layers,
+    },
+    {
+      id: 'wordsearch',
+      title: 'Филворды',
+      description: 'Поиск слов',
+      hint: 'Генератор филвордов с ответами. Пакетная генерация до 30 вариантов, скачивание PNG и PDF, отправка в мессенджер.',
+      icon: Grid3x3,
+    },
+    {
+      id: 'calculators',
+      title: 'Калькуляторы',
+      description: 'Баллы, СОУ, тесты',
+      hint: 'Подсчёт баллов, СОУ и качества знаний по классу. Генератор тестов с экспортом в PDF.',
+      icon: Calculator,
+    },
+    {
+      id: 'bingo',
+      title: 'Бинго',
+      description: 'Карточки и проектор',
+      hint: 'Конструктор карточек бинго. Готовые наборы (1 сентября, история, Новый год), режим проектора, скачивание PDF.',
+      icon: Grid3x3,
+    },
   ];
 
   return (
@@ -55,7 +97,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 pb-5">
-        {/* СЕТКА 3×3 */}
+        {/* СЕТКА 3×3 с увеличенными шрифтами и подсказками */}
         <div className="grid grid-cols-3 gap-3">
           {sections.map((section) => {
             const Icon = section.icon;
@@ -63,29 +105,30 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               <div key={section.id} className="relative">
                 <button
                   onClick={() => onNavigate(section.id as any)}
-                  className="w-full bg-gradient-to-br from-purple-500 to-violet-600 text-white rounded-2xl p-3 min-h-[120px] flex flex-col items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform touch-manipulation"
+                  className="w-full bg-gradient-to-br from-purple-500 to-violet-600 text-white rounded-2xl p-3 min-h-[140px] flex flex-col items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform touch-manipulation"
                 >
-                  <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center">
-                    <Icon className="w-6 h-6 text-white" />
+                  <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                    <Icon className="w-7 h-7 text-white" />
                   </div>
                   <div className="text-center">
-                    <h2 className="text-sm font-bold leading-tight">{section.title}</h2>
-                    <p className="text-white/80 text-[10px] mt-0.5 leading-tight">{section.description}</p>
+                    <h2 className="text-base sm:text-[17px] font-bold leading-tight">{section.title}</h2>
+                    <p className="text-white/85 text-xs sm:text-[13px] mt-1 leading-tight">{section.description}</p>
                   </div>
                 </button>
                 <button
                   onClick={() => setActiveHelpModal(section.id)}
-                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white/30 hover:bg-white/50 flex items-center justify-center transition-all duration-200"
-                  aria-label="Помощь"
+                  className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-white/30 hover:bg-white/50 flex items-center justify-center transition-all duration-200"
+                  aria-label="Подсказка"
                 >
-                  <HelpCircle className="w-3.5 h-3.5 text-white" />
+                  <HelpCircle className="w-4 h-4 text-white" />
                 </button>
               </div>
             );
           })}
         </div>
 
-        <div className="mt-4 mb-1 text-left">
+        {/* Ссылка на сообщество — по центру */}
+        <div className="mt-4 mb-1 text-center">
           <a
             href="https://max.ru/channel_topteach"
             target="_blank"
@@ -100,8 +143,14 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       <HelpModal
         isOpen={activeHelpModal !== null}
         onClose={() => setActiveHelpModal(null)}
-        title={activeHelpModal ? helpTexts[activeHelpModal as keyof typeof helpTexts]?.title || 'Помощь' : ''}
-        content={activeHelpModal ? helpTexts[activeHelpModal as keyof typeof helpTexts]?.content || 'Описание скоро появится' : ''}
+        title={activeHelpModal ? helpTexts[activeHelpModal as keyof typeof helpTexts]?.title || '' : ''}
+        content={
+          activeHelpModal
+            ? (sections.find((s) => s.id === activeHelpModal)?.hint ||
+                helpTexts[activeHelpModal as keyof typeof helpTexts]?.content ||
+                'Описание скоро появится')
+            : ''
+        }
       />
     </div>
   );
