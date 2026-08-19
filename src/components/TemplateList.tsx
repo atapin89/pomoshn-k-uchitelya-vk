@@ -2,7 +2,6 @@ import { Clock, ChevronRight, Plus, BookOpen, Trash2, Pencil } from 'lucide-reac
 import type { LessonTemplate } from '@/types';
 import { totalDurationSeconds, formatTime } from '@/lib/format';
 import BackButton from './BackButton';
-import YandexAdBlock from './YandexAdBlock';
 
 interface TemplateListProps {
   templates: LessonTemplate[];
@@ -113,7 +112,6 @@ export default function TemplateList({
           </div>
         </button>
 
-        <YandexAdBlock />
       </main>
     </div>
   );
