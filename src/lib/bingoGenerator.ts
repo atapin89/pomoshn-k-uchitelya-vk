@@ -100,4 +100,102 @@ export function checkBingoWin(card: BingoCard, gridSize: GridSize): boolean {
   const { markedCells } = card;
 
   // Проверяем горизонтали
-  for (let row =
+  for (let row = 0; row < rows; row++) {
+    let win = true;
+    for (let col = 0; col < cols; col++) {
+      const index = row * cols + col;
+      if (!markedCells[index]) {
+        win = false;
+        break;
+      }
+    }
+    if (win) return true;
+  }
+
+  // Проверяем вертикали
+  for (let col = 0; col < cols; col++) {
+    let win = true;
+    for (let row = 0; row < rows; row++) {
+      const index = row * cols + col;
+      if (!markedCells[index]) {
+        win = false;
+        break;
+      }
+    }
+    if (win) return true;
+  }
+
+  // Проверяем главную диагональ (сверху-слева → снизу-справа)
+  let diagonal1 = true;
+  for (let i = 0; i < rows; i++) {
+    const index = i * cols + i;
+    if (!markedCells[index]) {
+      diagonal1 = false;
+      break;
+    }
+  }
+  if (diagonal1) return true;
+
+  // Проверяем обратную диагональ (сверху-справа → снизу-слева)
+  let diagonal2 = true;
+  for (let i = 0; i < rows; i++) {
+    const index = i * cols + (cols - 1 - i);
+    if (!markedCells[index]) {
+      diagonal2 = false;
+      break;
+    }
+  }
+  if (diagonal2) return true;
+
+  return false;
+}
+
+/**
+ * Переключает состояние клетки (отмечена/не отмечена)
+ */
+export function toggleCell(
+  cards: BingoCard[],
+  cardId: string,
+  cellIndex: number
+): BingoCard[] {
+  return cards.map((card) => {
+    if (card.id === cardId) {
+      const newMarkedCells = [...card.markedCells];
+      // Не позволяем снять отметку с центральной клетки в 5x5
+      if (card.cells[cellIndex] === null) {
+        return card;
+      }
+      newMarkedCells[cellIndex] = !newMarkedCells[cellIndex];
+      return { ...card, markedCells: newMarkedCells };
+    }
+    return card;
+  });
+}
+
+/**
+ * Сбрасывает все отметки на карточке (кроме центральной клетки)
+ */
+export function resetCard(cards: BingoCard[], cardId: string): BingoCard[] {
+  return cards.map((card) => {
+    if (card.id === cardId) {
+      const newMarkedCells = card.markedCells.map((marked, index) => {
+        // Оставляем центральную клетку отмеченной
+        return card.cells[index] === null;
+      });
+      return { ...card, markedCells: newMarkedCells };
+    }
+    return card;
+  });
+}
+
+/**
+ * Сбрасывает все карточки
+ */
+export function resetAllCards(cards: BingoCard[]): BingoCard[] {
+  return cards.map((card) => {
+    const newMarkedCells = card.markedCells.map((marked, index) => {
+      return card.cells[index] === null;
+    });
+    return { ...card, markedCells: newMarkedCells };
+  });
+}
