@@ -33,6 +33,7 @@ import {
 
 const STORAGE_KEY = 'generator-class-list';
 const GENDER_KEY = 'generator-consider-gender';
+const PRIVACY_BANNER_KEY = 'generator-privacy-banner-closed';
 
 type Mode = 'one' | 'groups' | 'seating';
 
@@ -83,6 +84,15 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
   const [savedFlag, setSavedFlag] = useState(false);
   const [showMyLists, setShowMyLists] = useState(false);
 
+  // privacy banner
+  const [showPrivacyBanner, setShowPrivacyBanner] = useState(() => {
+    try {
+      return localStorage.getItem(PRIVACY_BANNER_KEY) !== '1';
+    } catch {
+      return true;
+    }
+  });
+
   // accordions
   const [showHow, setShowHow] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
@@ -99,6 +109,15 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
   const boysCount = students.filter((s) => s.gender === 'm').length;
   const girlsCount = students.filter((s) => s.gender === 'f').length;
   const noGenderCount = students.length - boysCount - girlsCount;
+
+  const handleClosePrivacyBanner = () => {
+    setShowPrivacyBanner(false);
+    try {
+      localStorage.setItem(PRIVACY_BANNER_KEY, '1');
+    } catch {
+      // ignore
+    }
+  };
 
   const handleClearList = () => {
     setText('');
@@ -308,7 +327,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
   const howItems = [
     {
       q: 'Формат списка и пол учеников',
-      a: 'Один ученик на строку. Пол — в скобках или через запятую: «Иван Петров (м)», «Аня Смирнова, ж», «Олег (мальчик)». Без отметки пол не учитывается. Дубликаты убираются автоматически. Счётчик под полем ввода покажет, сколько учеников и полов распознано.',
+      a: 'Один ученик на строку. Пол указывать необязательно — в скобках или через запятую: «Иван Петров (м)», «Аня Смирнова, ж», «Олег (мальчик)». Без отметки пол не учитывается. Дубликаты убираются автоматически. Счётчик под полем ввода покажет, сколько учеников и полов распознано.',
     },
     {
       q: 'Импорт списка: пошагово',
@@ -319,8 +338,8 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
       a: '«Экспорт» скачивает текущий список файлом «название.txt» (без названия — «список_класса.txt»); файл попадает в «Загрузки» устройства. «Копир.» кладёт список в буфер обмена для вставки в заметки или мессенджер. Экспорт — это резервная копия и способ перенести список на другое устройство через «Импорт».',
     },
     {
-      q: 'Мои списки: сохранить, редактировать, копировать',
-      a: 'Введите название (например, «5А») и нажмите «Обновить» или «Сохранить». Список появится в «Моих списках». Тап по списку или карандаш — загрузить для редактирования (после правок нажмите «Обновить»). Копирование — список в буфер обмена. Корзина — удалить список безвозвратно.',
+      q: 'Мои списки: сохранить, редактировать',
+      a: 'Введите название (например, «5А») и нажмите «Сохранить список». Список появится в «Моих списках». Тап по списку или карандаш — загрузить для редактирования (после правок нажмите «Обновить»). Карандаш — редактировать, корзина — удалить список безвозвратно.',
     },
     {
       q: 'Рассадка с учётом пола',
@@ -381,19 +400,28 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-6 space-y-6 pb-8">
-        {/* Предупреждение о персональных данных */}
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="text-sm text-amber-800 leading-relaxed">
-            <p className="font-bold mb-1">Персональные данные детей</p>
-            <p>
-              ФИО ученика — персональные данные (152-ФЗ). Храните списки только на своём
-              устройстве, не пересылайте в общие чаты и не публикуйте в открытом доступе.
-              Для игр на проекторе используйте только имена без фамилий. Приложение хранит
-              списки локально и никуда не передаёт; удаляйте ненужные списки кнопкой корзины.
-            </p>
+        {/* Предупреждение о персональных данных — сворачиваемое */}
+        {showPrivacyBanner && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0 text-sm text-amber-800 leading-relaxed">
+              <p className="font-bold mb-1">Персональные данные детей</p>
+              <p>
+                ФИО ученика — персональные данные (152-ФЗ). Храните списки только на своём
+                устройстве, не пересылайте в общие чаты и не публикуйте в открытом доступе.
+                Для игр на проекторе используйте только имена без фамилий. Приложение хранит
+                списки локально и никуда не передаёт; удаляйте ненужные списки кнопкой корзины.
+              </p>
+            </div>
+            <button
+              onClick={handleClosePrivacyBanner}
+              className="shrink-0 text-amber-600 hover:text-amber-800 p-1"
+              aria-label="Скрыть уведомление"
+            >
+              <ChevronUp className="w-5 h-5" />
+            </button>
           </div>
-        </div>
+        )}
 
         {/* Список класса */}
         <section className="bg-white rounded-2xl shadow-md p-5">
@@ -405,7 +433,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
             className="w-full min-h-[140px] rounded-xl border border-gray-200 p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y"
           />
           <p className="text-xs text-gray-500 mt-2">
-            Формат: один ученик на строку. Пол — в скобках или через запятую: «Иван Петров (м)», «Аня Смирнова, ж». Без отметки пол не учитывается.
+            Формат: один ученик на строку. Пол указывать необязательно — в скобках или через запятую: «Иван Петров (м)», «Аня Смирнова, ж». Дубликаты убираются автоматически.
           </p>
           <p className="text-sm font-semibold text-purple-700 mt-2">
             В списке: {students.length} учеников
@@ -449,45 +477,34 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
             onChange={handleImportFile}
           />
 
-          {/* Поле наименования (компактное) + действия в одну строку */}
-          <div className="mt-3 flex items-center gap-2">
+          {/* Поле наименования + кнопки действий в одну строку */}
+          <div className="mt-3 grid grid-cols-4 gap-2">
             <input
               type="text"
               value={listName}
               onChange={(e) => setListName(e.target.value)}
               placeholder="Название (5А)"
-              className="flex-1 min-w-0 rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
             <button
               onClick={handleSaveNamedList}
-              disabled={!text.trim()}
-              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl px-3 py-2.5 flex items-center gap-1.5 text-sm transition-colors touch-manipulation shrink-0"
+              disabled={!text.trim() || !editingListId}
+              className="bg-purple-100 hover:bg-purple-200 disabled:opacity-40 text-purple-700 font-semibold rounded-xl py-2.5 text-xs flex items-center justify-center gap-1 transition-colors touch-manipulation"
             >
-              <Save className="w-4 h-4" /> {savedFlag ? '✓' : editingListId ? 'Обнов.' : 'Сохр.'}
+              <Save className="w-3.5 h-3.5" /> {savedFlag ? '✓' : 'Обнов.'}
             </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 mt-2">
             <button
               onClick={handleSaveNamedList}
-              disabled={!text.trim()}
-              className="bg-purple-100 hover:bg-purple-200 disabled:opacity-40 text-purple-700 font-semibold rounded-xl py-2.5 text-xs flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+              disabled={!text.trim() || editingListId !== null}
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl py-2.5 text-xs flex items-center justify-center gap-1 transition-colors touch-manipulation"
             >
-              <Save className="w-3.5 h-3.5" /> Сохранить список
+              <Save className="w-3.5 h-3.5" /> Сохранить
             </button>
             <button
               onClick={handleClearList}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl py-2.5 text-xs flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl py-2.5 text-xs flex items-center justify-center gap-1 transition-colors touch-manipulation"
             >
               <Trash2 className="w-3.5 h-3.5" /> Очистить
-            </button>
-            <button
-              onClick={() => copyText(text)}
-              disabled={!text.trim()}
-              className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-700 font-semibold rounded-xl py-2.5 text-xs flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
-            >
-              {copied && !editingListId ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-              Копировать
             </button>
           </div>
         </section>
@@ -519,7 +536,6 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
                 <div className="grid grid-cols-2 gap-2">
                   {savedLists.map((l) => {
                     const isEditing = editingListId === l.id;
-                    const copiedThis = copied === l.id;
                     return (
                       <div
                         key={l.id}
@@ -542,17 +558,6 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
                           </p>
                         </button>
                         <div className="flex gap-1 mt-1">
-                          <button
-                            onClick={() => copyText(l.text, l.id)}
-                            className="flex-1 bg-white hover:bg-gray-100 text-gray-600 rounded-lg py-1.5 flex items-center justify-center transition-colors"
-                            aria-label="Копировать список"
-                          >
-                            {copiedThis ? (
-                              <Check className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </button>
                           <button
                             onClick={() => handleLoadList(l)}
                             className="flex-1 bg-white hover:bg-gray-100 text-purple-600 rounded-lg py-1.5 flex items-center justify-center transition-colors"
@@ -646,7 +651,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
 
                     <div className="flex gap-3">
                       <button
-                        onClick={() => copyText(`🎉 Выбран: ${winner}`)}
+                        onClick={() => copyText(`🎉 Выбран: ${winner}`, 'winner')}
                         className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
                       >
                         {copied === 'winner' ? (
