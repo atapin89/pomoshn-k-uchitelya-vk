@@ -18,6 +18,7 @@ import {
   ChevronUp,
   Pencil,
   AlertTriangle,
+  List,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -57,7 +58,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
   const [rotation, setRotation] = useState(0);
   const [winner, setWinner] = useState('');
 
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | false>(false);
 
   // groups
   const [groupCount, setGroupCount] = useState(2);
@@ -80,6 +81,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
   const [listName, setListName] = useState('');
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [savedFlag, setSavedFlag] = useState(false);
+  const [showMyLists, setShowMyLists] = useState(false);
 
   // accordions
   const [showHow, setShowHow] = useState(false);
@@ -97,15 +99,6 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
   const boysCount = students.filter((s) => s.gender === 'm').length;
   const girlsCount = students.filter((s) => s.gender === 'f').length;
   const noGenderCount = students.length - boysCount - girlsCount;
-
-  const handleSaveListText = () => {
-    try {
-      localStorage.setItem(STORAGE_KEY, text);
-    } catch {
-      // ignore
-    }
-    triggerHaptic('medium');
-  };
 
   const handleClearList = () => {
     setText('');
@@ -149,11 +142,11 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
     triggerHaptic('light');
   };
 
-  const copyText = (t: string) => {
+  const copyText = (t: string, id?: string) => {
     navigator.clipboard
       .writeText(t)
       .then(() => {
-        setCopied(true);
+        setCopied(id || true);
         triggerHaptic('light');
         setTimeout(() => setCopied(false), 2000);
       })
@@ -212,13 +205,16 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
     setGroups([]);
     setSeating([]);
     setWinner('');
-    window.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     triggerHaptic('light');
   };
 
   const handleDeleteList = (id: string) => {
     saveSavedLists(loadSavedLists().filter((l) => l.id !== id));
-    if (editingListId === id) setEditingListId(null);
+    if (editingListId === id) {
+      setEditingListId(null);
+      setListName('');
+    }
     refreshLists();
   };
 
@@ -324,7 +320,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
     },
     {
       q: 'Мои списки: сохранить, редактировать, копировать',
-      a: 'Введите название (например, «5А») и нажмите «Сохранить». Список появится в «Моих списках». Тап по списку или карандаш — загрузить для редактирования (после правок нажмите «Обновить»). Копирование — список в буфер обмена. Корзина — удалить список безвозвратно.',
+      a: 'Введите название (например, «5А») и нажмите «Обновить» или «Сохранить». Список появится в «Моих списках». Тап по списку или карандаш — загрузить для редактирования (после правок нажмите «Обновить»). Копирование — список в буфер обмена. Корзина — удалить список безвозвратно.',
     },
     {
       q: 'Рассадка с учётом пола',
@@ -441,7 +437,7 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
               disabled={!text.trim()}
               className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-1.5 text-sm transition-colors touch-manipulation"
             >
-              {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+              {copied && !editingListId ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
               Копир.
             </button>
           </div>
@@ -453,85 +449,133 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
             onChange={handleImportFile}
           />
 
-          {/* Сохранение именованного списка */}
-          <div className="flex gap-2 mt-3">
+          {/* Поле наименования (компактное) + действия в одну строку */}
+          <div className="mt-3 flex items-center gap-2">
             <input
               type="text"
               value={listName}
               onChange={(e) => setListName(e.target.value)}
-              placeholder="Название списка (например, 5А)"
-              className="flex-1 min-w-0 rounded-xl border border-gray-200 p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              placeholder="Название (5А)"
+              className="flex-1 min-w-0 rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
             <button
               onClick={handleSaveNamedList}
               disabled={!text.trim()}
-              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl px-4 py-3 flex items-center gap-1.5 transition-colors touch-manipulation shrink-0"
+              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl px-3 py-2.5 flex items-center gap-1.5 text-sm transition-colors touch-manipulation shrink-0"
             >
-              <Save className="w-4 h-4" /> {savedFlag ? '✓' : editingListId ? 'Обновить' : 'Сохранить'}
+              <Save className="w-4 h-4" /> {savedFlag ? '✓' : editingListId ? 'Обнов.' : 'Сохр.'}
             </button>
           </div>
 
-          <div className="flex gap-3 mt-3">
+          <div className="grid grid-cols-3 gap-2 mt-2">
             <button
-              onClick={handleSaveListText}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3 min-h-14 transition-colors touch-manipulation"
+              onClick={handleSaveNamedList}
+              disabled={!text.trim()}
+              className="bg-purple-100 hover:bg-purple-200 disabled:opacity-40 text-purple-700 font-semibold rounded-xl py-2.5 text-xs flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
             >
-              Сохранить список
+              <Save className="w-3.5 h-3.5" /> Сохранить список
             </button>
             <button
               onClick={handleClearList}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-xl px-5 py-3 min-h-14 transition-colors touch-manipulation"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl py-2.5 text-xs flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
             >
-              Очистить
+              <Trash2 className="w-3.5 h-3.5" /> Очистить
+            </button>
+            <button
+              onClick={() => copyText(text)}
+              disabled={!text.trim()}
+              className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-700 font-semibold rounded-xl py-2.5 text-xs flex items-center justify-center gap-1.5 transition-colors touch-manipulation"
+            >
+              {copied && !editingListId ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+              Копировать
             </button>
           </div>
         </section>
 
-        {/* Мои списки */}
-        {savedLists.length > 0 && (
-          <section className="bg-white rounded-2xl shadow-md p-5">
-            <h2 className="text-lg font-semibold text-purple-700 mb-3">Мои списки</h2>
-            <div className="space-y-2">
-              {savedLists.map((l) => (
-                <div key={l.id} className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2">
-                  <button onClick={() => handleLoadList(l)} className="flex-1 min-w-0 text-left">
-                    <h4 className="font-semibold text-gray-800 truncate">
-                      {l.name}
-                      {editingListId === l.id && (
-                        <span className="ml-2 text-xs font-bold text-green-600">редактируется</span>
-                      )}
-                    </h4>
-                    <p className="text-xs text-gray-500">
-                      учеников: {parseStudents(l.text).length} ·{' '}
-                      {new Date(l.updatedAt).toLocaleDateString('ru-RU')}
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => copyText(l.text)}
-                    className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
-                    aria-label="Копировать список"
-                  >
-                    <Copy className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => handleLoadList(l)}
-                    className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
-                    aria-label="Редактировать список"
-                  >
-                    <Pencil className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteList(l.id)}
-                    className="p-2 text-gray-300 hover:text-red-500 transition-colors shrink-0"
-                    aria-label="Удалить список"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              ))}
+        {/* Мои списки — аккордеон, 2 столбца */}
+        <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+          <button
+            onClick={() => setShowMyLists(!showMyLists)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <List className="w-5 h-5 text-purple-600" />
+              <h2 className="text-lg font-semibold text-purple-700">Мои списки</h2>
+              <span className="text-xs font-bold text-purple-400">{savedLists.length}</span>
             </div>
-          </section>
-        )}
+            {showMyLists ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showMyLists && (
+            <div className="px-5 pb-5">
+              {savedLists.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">
+                  Пока нет сохранённых списков
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {savedLists.map((l) => {
+                    const isEditing = editingListId === l.id;
+                    const copiedThis = copied === l.id;
+                    return (
+                      <div
+                        key={l.id}
+                        className={`rounded-xl p-2.5 flex flex-col gap-1.5 border-2 ${
+                          isEditing
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-purple-100 bg-gray-50'
+                        }`}
+                      >
+                        <button
+                          onClick={() => handleLoadList(l)}
+                          className="text-left min-w-0"
+                        >
+                          <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
+                            {l.name}
+                          </h4>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {parseStudents(l.text).length} уч. ·{' '}
+                            {new Date(l.updatedAt).toLocaleDateString('ru-RU')}
+                          </p>
+                        </button>
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            onClick={() => copyText(l.text, l.id)}
+                            className="flex-1 bg-white hover:bg-gray-100 text-gray-600 rounded-lg py-1.5 flex items-center justify-center transition-colors"
+                            aria-label="Копировать список"
+                          >
+                            {copiedThis ? (
+                              <Check className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleLoadList(l)}
+                            className="flex-1 bg-white hover:bg-gray-100 text-purple-600 rounded-lg py-1.5 flex items-center justify-center transition-colors"
+                            aria-label="Редактировать список"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteList(l.id)}
+                            className="flex-1 bg-white hover:bg-gray-100 text-red-500 rounded-lg py-1.5 flex items-center justify-center transition-colors"
+                            aria-label="Удалить список"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Режимы */}
         <section>
@@ -605,8 +649,12 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
                         onClick={() => copyText(`🎉 Выбран: ${winner}`)}
                         className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
                       >
-                        {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                        {copied ? 'Скопировано' : 'Копировать'}
+                        {copied === 'winner' ? (
+                          <Check className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                        {copied === 'winner' ? 'Скопировано' : 'Копировать'}
                       </button>
                       <button
                         onClick={() => handleShare(`🎉 Выбран: ${winner}`)}
@@ -651,11 +699,15 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
               <div className="space-y-3 mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex gap-3">
                   <button
-                    onClick={() => copyText(getGroupsText())}
+                    onClick={() => copyText(getGroupsText(), 'groups')}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors text-sm"
                   >
-                    {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                    {copied ? 'Скопировано' : 'Копировать'}
+                    {copied === 'groups' ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                    {copied === 'groups' ? 'Скопировано' : 'Копировать'}
                   </button>
                   <button
                     onClick={() => handleShare(getGroupsText())}
@@ -752,11 +804,15 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
               <div className="space-y-3 mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex gap-3">
                   <button
-                    onClick={() => copyText(getSeatingText())}
+                    onClick={() => copyText(getSeatingText(), 'seating')}
                     className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors text-sm"
                   >
-                    {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                    {copied ? 'Скопировано' : 'Копировать'}
+                    {copied === 'seating' ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                    {copied === 'seating' ? 'Скопировано' : 'Копировать'}
                   </button>
                   <button
                     onClick={() => handleShare(getSeatingText())}
