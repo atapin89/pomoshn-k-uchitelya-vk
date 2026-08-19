@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Grid3x3, Play, Save, Shuffle, Sparkles, Trash2 } from 'lucide-react';
+import { Grid3x3, Play, Save, Shuffle, Sparkles, Trash2, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { BingoConfig, BingoGame, GridSize, SavedBingoSet } from '@/types/bingo';
 import { GRID_SIZES, generateBingoId } from '@/types/bingo';
 import { generateBingoCards, generateCallOrder } from '@/lib/bingoGenerator';
@@ -33,6 +33,7 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
   const [game, setGame] = useState<BingoGame | null>(null);
   const [hasSavedGame, setHasSavedGame] = useState(false);
   const [savedFlag, setSavedFlag] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
     setSavedSets(loadSavedBingoSets());
@@ -84,7 +85,6 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     startGame(buildConfig(), words);
   };
 
-  // Открытие набора: заполняет форму И сразу показывает карточки
   const openSet = (set: SavedBingoSet) => {
     setName(set.name);
     setWordsText(set.words.join('\n'));
@@ -136,6 +136,41 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
     deleteBingoSet(id);
     setSavedSets(loadSavedBingoSets());
   };
+
+  const faqItems = [
+    {
+      q: 'Как играть в бинго?',
+      a: 'Ведущий называет слова по порядку, игроки отмечают их на карточках. Первый, кто собрал линию (горизонталь, вертикаль или диагональ), кричит "Бинго!" и побеждает.',
+    },
+    {
+      q: 'Сколько слов нужно для карточки?',
+      a: 'Для 3×3 — минимум 8 слов (9 с FREE), для 4×4 — 16 слов, для 5×5 — 24 слова. Чем больше слов, тем разнообразнее карточки.',
+    },
+    {
+      q: 'Что такое FREE-клетка?',
+      a: 'В центре карточки 5×5 автоматически ставится "FREE" — она уже отмечена. Это классическое правило бинго, упрощающее победу.',
+    },
+    {
+      q: 'Как использовать режим проектора?',
+      a: 'Нажмите "Режим проектора" на экране просмотра карточек. Откроется тёмный экран с крупным текущим словом. Подключите проектор или интерактивную доску и нажмите "Во весь экран".',
+    },
+    {
+      q: 'Зачем два PDF: карточки и список?',
+      a: 'PDF карточек — для раздачи игрокам (печать). PDF списка — для ведущего, чтобы видеть порядок вызова слов и отмечать уже названные.',
+    },
+    {
+      q: 'Можно ли играть онлайн без печати?',
+      a: 'Да! В режиме просмотра карточки кликабельны — отмечайте их прямо на экране. Ученики могут играть на телефонах, а ведущий ведёт игру с проектора.',
+    },
+    {
+      q: 'Как использовать готовые наборы?',
+      a: 'Нажмите на готовый набор (например, "Математика") — карточки сгенерируются автоматически. Можете играть сразу или отредактировать слова и сгенерировать заново.',
+    },
+    {
+      q: 'Идеи для урока',
+      a: 'Повторение темы (термины, даты, формулы), изучение лексики иностранного языка, игра на закрепление правил, командная работа, разминка в начале урока, итоговая проверка знаний.',
+    },
+  ];
 
   if (screen === 'preview' && game) {
     return (
@@ -221,7 +256,7 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
             <Sparkles className="w-5 h-5 text-purple-600" />
             <h3 className="font-bold text-purple-700">Готовые наборы</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2">
             {presetBingoSets.map((set) => (
               <button
                 key={set.id}
@@ -364,6 +399,35 @@ export default function BingoGeneratorScreen({ onBack }: BingoGeneratorScreenPro
               ))}
             </div>
           )}
+        </div>
+
+        {/* FAQ и подсказки */}
+        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-2">
+          <div className="flex items-center gap-2 mb-3">
+            <HelpCircle className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-700">Вопросы и подсказки</h3>
+          </div>
+
+          {faqItems.map((item, idx) => (
+            <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+              >
+                <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                {openFaq === idx ? (
+                  <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                )}
+              </button>
+              {openFaq === idx && (
+                <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
+                  {item.a}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </main>
     </div>
