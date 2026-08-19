@@ -11,14 +11,17 @@
   }
 }
 
+/* Окно приложения растягивается по контенту:
+   страница скроллится целиком, как нативное приложение,
+   без внутренних ползунков */
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 html {
-  height: 100dvh;
+  min-height: 100dvh;
 }
 
 #root {
@@ -29,13 +32,12 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   touch-action: manipulation;
-  /* VK Mini App: используем безопасные зоны экрана (вырез, жестовая панель) */
+  /* используем безопасные зоны экрана */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Липкие шапки учитывают вырез экрана сверху */
 header.sticky {
   padding-top: env(safe-area-inset-top);
 }
@@ -48,13 +50,12 @@ header.sticky {
   background-size: 24px 24px;
 }
 
-/* VK Mini App: расширенное рабочее поле на планшетах и в десктопной VK */
+/* расширенное рабочее поле на планшетах и в десктопной VK */
 @media (min-width: 640px) {
   .max-w-md {
     max-width: 44rem;
   }
 }
-
 @media (min-width: 1024px) {
   .max-w-md {
     max-width: 56rem;
