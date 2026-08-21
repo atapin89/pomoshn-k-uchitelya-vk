@@ -43,7 +43,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const [games, setGames] = useState<EduGame[]>([]);
   const [editingGame, setEditingGame] = useState<EduGame | null>(null);
   const [projectorGame, setProjectorGame] = useState<EduGame | null>(null);
-  const [isNewGame, setIsNewGame] = useState(false); // флаг: игра только создана и может быть пустой
+  const [isNewGame, setIsNewGame] = useState(false);
 
   const [showMyGames, setShowMyGames] = useState(true);
   const [showPresets, setShowPresets] = useState(true);
@@ -61,16 +61,15 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
 
   const refresh = () => setGames(loadEduGames());
 
-  // Создание новой игры: создаём временную и сразу открываем редактор
+  // Создание новой игры: сохраняем и СРАЗУ открываем редактор
   const handleCreate = () => {
     const game = createEmptyGame('Новая игра');
     upsertEduGame(game);
-    refresh();
     setEditingGame(game);
     setIsNewGame(true);
+    refresh();
   };
 
-  // Копирование пресета в «Мои игры» с открытием редактора
   const handleCopyPreset = (preset: EduGame) => {
     const copy: EduGame = {
       ...preset,
@@ -89,7 +88,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
     setIsNewGame(false);
   };
 
-  // Выход из редактора: если игра пустая — удаляем её
+  // Выход из редактора: пустую новую игру удаляем, возвращаемся на домашний экран
   const handleEditorBack = () => {
     if (editingGame) {
       const questionsCount = gameQuestionsCount(editingGame);
@@ -104,17 +103,6 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
     onBack();
   };
 
-  // Запуск проектора для пресета (без копирования)
-  const handleProjectorPreset = (preset: EduGame) => {
-    setProjectorGame(preset);
-  };
-
-  // Запуск проектора для своей игры
-  const handleProjectorGame = (game: EduGame) => {
-    setProjectorGame(game);
-  };
-
-  // Выход из проектора
   const handleProjectorBack = () => {
     setProjectorGame(null);
     onBack();
@@ -155,7 +143,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const howItems = [
     {
       q: 'Как создать игру (режим разработчика)',
-      a: 'Нажмите «Создать игру»: введите название, добавьте раунды (темы) и вопросы с баллами и ответами. Баллы повышайте внутри раунда: 10 → 50. Изменения сохраняются автоматически. Карандаш на карточке игры — редактирование.',
+      a: 'Нажмите «Создать игру» — сразу откроется редактор: введите название, добавьте раунды (темы) и вопросы с баллами и ответами. Баллы повышайте внутри раунда: 10 → 50. Изменения сохраняются автоматически. Карандаш на карточке игры — редактирование.',
     },
     {
       q: 'Режим проектора',
@@ -275,7 +263,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
           </p>
         </div>
 
-        {/* Мои игры */}
+        {/* 1) МОИ ИГРЫ — всегда первые */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowMyGames(!showMyGames)}
@@ -320,7 +308,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleProjectorGame(g)}
+                          onClick={() => setProjectorGame(g)}
                           className="bg-white hover:bg-gray-100 text-gray-700 rounded-lg py-2 flex items-center justify-center transition-colors"
                           aria-label="Режим проектора"
                         >
@@ -356,7 +344,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
           )}
         </div>
 
-        {/* Готовые игры */}
+        {/* 2) ГОТОВЫЕ ИГРЫ — всегда после «Мои игры» */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowPresets(!showPresets)}
@@ -381,7 +369,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
                   className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-gray-50"
                 >
                   <button
-                    onClick={() => handleProjectorPreset(g)}
+                    onClick={() => setProjectorGame(g)}
                     className="flex-1 min-w-0 text-left flex items-center gap-3"
                   >
                     <div className="shrink-0 w-11 h-11 rounded-xl bg-white border border-purple-200 flex items-center justify-center">
