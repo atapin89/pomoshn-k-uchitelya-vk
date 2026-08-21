@@ -15,6 +15,7 @@ import {
   List,
   Check,
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import type { EduGame } from '@/types/eduGame';
 import { createEmptyGame, gameQuestionsCount, generateEduId } from '@/types/eduGame';
@@ -42,8 +43,10 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const [games, setGames] = useState<EduGame[]>([]);
   const [editingGame, setEditingGame] = useState<EduGame | null>(null);
   const [projectorGame, setProjectorGame] = useState<EduGame | null>(null);
+  const [isNewGame, setIsNewGame] = useState(false); // флаг: игра только создана и может быть пустой
 
   const [showMyGames, setShowMyGames] = useState(true);
+  const [showPresets, setShowPresets] = useState(true);
   const [showHow, setShowHow] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [openHow, setOpenHow] = useState<number | null>(null);
@@ -53,42 +56,68 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Проверяем, какие готовые игры уже есть в «Мои игры» по названиям
-    // Если какой-то пресет отсутствует — добавляем его копию
-    try {
-      const existingGames = loadEduGames();
-      const existingTitles = new Set(existingGames.map((g) => g.title.toLowerCase()));
-      const missingPresets = presetEduGames.filter(
-        (p) => !existingTitles.has(p.title.toLowerCase()),
-      );
-
-      if (missingPresets.length > 0) {
-        const newCopies: EduGame[] = missingPresets.map((preset) => ({
-          ...preset,
-          id: generateEduId('edugame'),
-          rounds: preset.rounds.map((r) => ({
-            ...r,
-            id: generateEduId('round'),
-            questions: r.questions.map((q) => ({ ...q, id: generateEduId('q') })),
-          })),
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        }));
-        saveEduGames([...existingGames, ...newCopies]);
-      }
-    } catch {
-      // ignore quota errors
-    }
     setGames(loadEduGames());
   }, []);
 
   const refresh = () => setGames(loadEduGames());
 
+  // Создание новой игры: создаём временную и сразу открываем редактор
   const handleCreate = () => {
-    const game = createEmptyGame('');
+    const game = createEmptyGame('Новая игра');
     upsertEduGame(game);
     refresh();
     setEditingGame(game);
+    setIsNewGame(true);
+  };
+
+  // Копирование пресета в «Мои игры» с открытием редактора
+  const handleCopyPreset = (preset: EduGame) => {
+    const copy: EduGame = {
+      ...preset,
+      id: generateEduId('edugame'),
+      rounds: preset.rounds.map((r) => ({
+        ...r,
+        id: generateEduId('round'),
+        questions: r.questions.map((q) => ({ ...q, id: generateEduId('q') })),
+      })),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    upsertEduGame(copy);
+    refresh();
+    setEditingGame(copy);
+    setIsNewGame(false);
+  };
+
+  // Выход из редактора: если игра пустая — удаляем её
+  const handleEditorBack = () => {
+    if (editingGame) {
+      const questionsCount = gameQuestionsCount(editingGame);
+      const hasTitle = editingGame.title.trim().length > 0 && editingGame.title !== 'Новая игра';
+      if (isNewGame && questionsCount === 0 && !hasTitle) {
+        deleteEduGame(editingGame.id);
+      }
+    }
+    setEditingGame(null);
+    setIsNewGame(false);
+    refresh();
+    onBack();
+  };
+
+  // Запуск проектора для пресета (без копирования)
+  const handleProjectorPreset = (preset: EduGame) => {
+    setProjectorGame(preset);
+  };
+
+  // Запуск проектора для своей игры
+  const handleProjectorGame = (game: EduGame) => {
+    setProjectorGame(game);
+  };
+
+  // Выход из проектора
+  const handleProjectorBack = () => {
+    setProjectorGame(null);
+    onBack();
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,10 +207,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
     return (
       <EduGameEditorScreen
         game={editingGame}
-        onBack={() => {
-          refresh();
-          onBack();
-        }}
+        onBack={handleEditorBack}
         onSave={(g) => upsertEduGame(g)}
       />
     );
@@ -189,7 +215,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
 
   // ===== РЕЖИМ ПРОЕКТОРА =====
   if (projectorGame) {
-    return <EduGameProjectorScreen game={projectorGame} onBack={() => onBack()} />;
+    return <EduGameProjectorScreen game={projectorGame} onBack={handleProjectorBack} />;
   }
 
   // ===== ГЛАВНЫЙ ЭКРАН РАЗДЕЛА =====
@@ -245,11 +271,11 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
             </p>
           )}
           <p className="text-xs text-gray-500">
-            Готовые игры «Окружающий мир» и «Литературное чтение» уже добавлены в «Мои игры» — их можно менять и запускать.
+            Импорт принимает файлы .json из «Помощника учителя» — так учителя делятся готовыми играми.
           </p>
         </div>
 
-        {/* Мои игры (раскрыт по умолчанию, готовые игры уже внутри) */}
+        {/* Мои игры */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowMyGames(!showMyGames)}
@@ -276,7 +302,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
                 <div className="space-y-2">
                   {games.map((g) => (
                     <div key={g.id} className="border-2 border-purple-100 rounded-xl p-3 space-y-2 bg-gray-50">
-                      <button onClick={() => setEditingGame(g)} className="w-full text-left min-w-0">
+                      <button onClick={() => { setEditingGame(g); setIsNewGame(false); }} className="w-full text-left min-w-0">
                         <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
                           {g.title}
                         </h4>
@@ -287,14 +313,14 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
                       </button>
                       <div className="grid grid-cols-5 gap-1">
                         <button
-                          onClick={() => setEditingGame(g)}
+                          onClick={() => { setEditingGame(g); setIsNewGame(false); }}
                           className="bg-white hover:bg-gray-100 text-purple-600 rounded-lg py-2 flex items-center justify-center transition-colors"
                           aria-label="Редактировать"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => setProjectorGame(g)}
+                          onClick={() => handleProjectorGame(g)}
                           className="bg-white hover:bg-gray-100 text-gray-700 rounded-lg py-2 flex items-center justify-center transition-colors"
                           aria-label="Режим проектора"
                         >
@@ -326,6 +352,62 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Готовые игры */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowPresets(!showPresets)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              <h2 className="text-lg font-semibold text-purple-700">Готовые игры</h2>
+              <span className="text-xs font-bold text-purple-400">{presetEduGames.length}</span>
+            </div>
+            {showPresets ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showPresets && (
+            <div className="px-5 pb-5 space-y-2">
+              {presetEduGames.map((g) => (
+                <div
+                  key={g.id}
+                  className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-gray-50"
+                >
+                  <button
+                    onClick={() => handleProjectorPreset(g)}
+                    className="flex-1 min-w-0 text-left flex items-center gap-3"
+                  >
+                    <div className="shrink-0 w-11 h-11 rounded-xl bg-white border border-purple-200 flex items-center justify-center">
+                      <Trophy className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
+                        {g.title}
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)}
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleCopyPreset(g)}
+                    className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
+                    aria-label="Скопировать в Мои игры и редактировать"
+                  >
+                    <Pencil className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+              <p className="text-xs text-gray-500">
+                Нажми на набор — сразу откроется проектор для игры. Карандаш — скопировать в «Мои игры» и отредактировать под свой класс.
+              </p>
             </div>
           )}
         </div>
