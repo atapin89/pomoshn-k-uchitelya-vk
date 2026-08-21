@@ -1,99 +1,190 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Trophy,
   Plus,
+  Upload,
+  Pencil,
+  Monitor,
+  Download,
+  Share2,
   Trash2,
   ChevronDown,
   ChevronUp,
-  Save,
+  HelpCircle,
+  GraduationCap,
+  List,
   Check,
-  Layers,
-  Pencil,
+  AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
-import type { EduGame, EduQuestion, EduRound } from '@/types/eduGame';
-import { generateEduId, gameQuestionsCount } from '@/types/eduGame';
+import type { EduGame } from '@/types/eduGame';
+import { createEmptyGame, gameQuestionsCount, generateEduId } from '@/types/eduGame';
+import { presetEduGames } from '@/data/presetEduGames';
+import {
+  loadEduGames,
+  upsertEduGame,
+  deleteEduGame,
+  serializeEduGame,
+  parseEduGameFile,
+  downloadTextFile,
+  sanitizeFileName,
+} from '@/lib/eduGameStorage';
+import { exportEduGameToPDF } from '@/lib/eduGamePdf';
 import BackButton from './BackButton';
+import EduGameEditorScreen from './EduGameEditorScreen';
+import EduGameProjectorScreen from './EduGameProjectorScreen';
 
-interface EduGameEditorScreenProps {
-  game: EduGame;
+interface EduGameScreenProps {
   onBack: () => void;
-  onSave: (game: EduGame) => void;
 }
 
-export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEditorScreenProps) {
-  const [draft, setDraft] = useState<EduGame>(game);
-  const [openRound, setOpenRound] = useState<string | null>(game.rounds[0]?.id ?? null);
-  const [savedFlag, setSavedFlag] = useState(false);
+export default function EduGameScreen({ onBack }: EduGameScreenProps) {
+  const [games, setGames] = useState<EduGame[]>([]);
+  const [editingGame, setEditingGame] = useState<EduGame | null>(null);
+  const [projectorGame, setProjectorGame] = useState<EduGame | null>(null);
 
-  // Автосохранение с небольшой задержкой
+  const [showMyGames, setShowMyGames] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
+  const [showHow, setShowHow] = useState(false);
+  const [showFaq, setShowFaq] = useState(false);
+  const [openHow, setOpenHow] = useState<number | null>(null);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const [importMsg, setImportMsg] = useState<'ok' | 'error' | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
-    const t = setTimeout(() => onSave(draft), 600);
-    return () => clearTimeout(t);
-  }, [draft, onSave]);
+    setGames(loadEduGames());
+  }, []);
 
-  const handleManualSave = () => {
-    onSave(draft);
-    setSavedFlag(true);
-    setTimeout(() => setSavedFlag(false), 2000);
-  };
+  const refresh = () => setGames(loadEduGames());
 
-  const patchRound = (roundId: string, p: Partial<EduRound>) =>
-    setDraft((d) => ({
-      ...d,
-      rounds: d.rounds.map((r) => (r.id === roundId ? { ...r, ...p } : r)),
-    }));
-
-  const addRound = () => {
-    const round: EduRound = {
-      id: generateEduId('round'),
-      title: `Раунд ${draft.rounds.length + 1}`,
-      questions: [],
+  const handleCopyPreset = (preset: EduGame) => {
+    const copy: EduGame = {
+      ...preset,
+      id: generateEduId('edugame'),
+      rounds: preset.rounds.map((r) => ({
+        ...r,
+        id: generateEduId('round'),
+        questions: r.questions.map((q) => ({ ...q, id: generateEduId('q') })),
+      })),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
-    setDraft((d) => ({ ...d, rounds: [...d.rounds, round] }));
-    setOpenRound(round.id);
+    upsertEduGame(copy);
+    refresh();
+    setEditingGame(copy);
   };
 
-  const removeRound = (roundId: string) =>
-    setDraft((d) => ({ ...d, rounds: d.rounds.filter((r) => r.id !== roundId) }));
+  const handleCreate = () => {
+    const game = createEmptyGame('');
+    upsertEduGame(game);
+    refresh();
+    setEditingGame(game);
+  };
 
-  const addQuestion = (roundId: string) =>
-    setDraft((d) => ({
-      ...d,
-      rounds: d.rounds.map((r) =>
-        r.id === roundId
-          ? {
-              ...r,
-              questions: [
-                ...r.questions,
-                { id: generateEduId('q'), text: '', answer: '', points: 10 },
-              ],
-            }
-          : r,
-      ),
-    }));
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const game = parseEduGameFile(String(reader.result || ''));
+      if (game) {
+        upsertEduGame(game);
+        refresh();
+        setImportMsg('ok');
+      } else {
+        setImportMsg('error');
+      }
+      setTimeout(() => setImportMsg(null), 2500);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
-  const patchQuestion = (roundId: string, qId: string, p: Partial<EduQuestion>) =>
-    setDraft((d) => ({
-      ...d,
-      rounds: d.rounds.map((r) =>
-        r.id === roundId
-          ? {
-              ...r,
-              questions: r.questions.map((q) => (q.id === qId ? { ...q, ...p } : q)),
-            }
-          : r,
-      ),
-    }));
+  const handleExportGame = (game: EduGame) => {
+    downloadTextFile(
+      sanitizeFileName(`игра_${game.title}.json`),
+      serializeEduGame(game),
+      'application/json;charset=utf-8',
+    );
+  };
 
-  const removeQuestion = (roundId: string, qId: string) =>
-    setDraft((d) => ({
-      ...d,
-      rounds: d.rounds.map((r) =>
-        r.id === roundId
-          ? { ...r, questions: r.questions.filter((q) => q.id !== qId) }
-          : r,
-      ),
-    }));
+  const handleDelete = (id: string) => {
+    deleteEduGame(id);
+    refresh();
+  };
 
+  const howItems = [
+    {
+      q: 'Как создать игру (режим разработчика)',
+      a: 'Нажмите «Создать игру»: введите название, добавьте раунды (темы) и вопросы с баллами и ответами. Баллы повышайте внутри раунда: 10 → 50. Изменения сохраняются автоматически. Карандаш на карточке игры — редактирование.',
+    },
+    {
+      q: 'Режим проектора',
+      a: 'Кнопка с монитором открывает табло: колонки — раунды, клетки — баллы. Нажмите на баллы — вопрос крупно на экране; «Показать вопрос» → «Показать ответ» → «Закрыть клетку» (клетка гаснет). Кнопка справа вверху — во весь экран для проектора или доски.',
+    },
+    {
+      q: 'Индивидуальный рейтинг участников',
+      a: 'В проекторе нажмите иконку «Люди» и включите «Индивидуальный рейтинг». Добавьте имена списком или импортом .txt (одно имя на строку). В окне вопроса у каждого ученика кнопки «+» и «−» начисляют или снимают стоимость вопроса. Иконка кубка — таблица результатов и экспорт в .txt.',
+    },
+    {
+      q: 'Печать карточек: двусторонняя',
+      a: 'Кнопка PDF создаёт файл, где каждая карточка — пара страниц: лицевая — вопрос, оборот — баллы и ответ. В настройках печати выберите «двусторонняя печать, переворот по длинному краю». Вырежьте по пунктирной рамке — и играйте без компьютера: вопрос для игроков, оборот для ведущего.',
+    },
+    {
+      q: 'Обмен играми между учителями',
+      a: 'Кнопка «Поделиться» скачивает игру файлом .json. Коллега в своём «Помощнике учителя» нажимает «Импорт игры» и выбирает файл — игра появляется в его «Моих играх» со всеми раундами, вопросами и баллами.',
+    },
+  ];
+
+  const faqItems = [
+    {
+      q: 'Сценарий 1 · Урок-викторина',
+      a: 'Повторение темы: класс делится на команды или играет индивидуально. Открывайте вопросы по выбору учеников, обсуждайте и показывайте ответ. С рейтингом — соревнование до последнего вопроса.',
+    },
+    {
+      q: 'Сценарий 2 · Предметная неделя и финалы',
+      a: 'Отборочные игры в классах, финал — на сцене с проектором. Рейтинг участников ведётся в приложении, результаты экспортируются в .txt для грамот.',
+    },
+    {
+      q: 'Сценарий 3 · Игра без компьютера',
+      a: 'Распечатайте карточки двусторонней печатью и разрежьте. Раздайте вопросы игрокам, ведущий читает по оборотам. Подходит для поезда, дачи и класса без техники.',
+    },
+    {
+      q: 'Сколько раундов и вопросов делать?',
+      a: 'Оптимально 3–5 раундов по 4–6 вопросов. На урок 40 минут хватает 3 раундов по 5 вопросов. Баллы: 10–50, в финальном раунде можно удвоить.',
+    },
+    {
+      q: 'Где хранятся игры и результаты?',
+      a: 'Игры, участники и счёт — только на вашем устройстве. Для переноса на другое устройство используйте экспорт .json (игры) и .txt (результаты).',
+    },
+    {
+      q: '⚠️ Персональные данные',
+      a: 'Имена участников — персональные данные (152-ФЗ). Храните списки на своём устройстве, не публикуйте результаты с именами в открытом доступе; для публикаций обезличивайте («команда 1»). Удаляйте ненужные списки.',
+    },
+  ];
+
+  // ===== РЕЖИМ РАЗРАБОТЧИКА =====
+  if (editingGame) {
+    return (
+      <EduGameEditorScreen
+        game={editingGame}
+        onBack={() => {
+          setEditingGame(null);
+          refresh();
+        }}
+        onSave={(g) => upsertEduGame(g)}
+      />
+    );
+  }
+
+  // ===== РЕЖИМ ПРОЕКТОРА =====
+  if (projectorGame) {
+    return <EduGameProjectorScreen game={projectorGame} onBack={() => setProjectorGame(null)} />;
+  }
+
+  // ===== ГЛАВНЫЙ ЭКРАН РАЗДЕЛА =====
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
@@ -102,155 +193,276 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
             <BackButton onClick={onBack} variant="light" />
           </div>
           <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">Режим разработчика</h1>
-            <p className="text-xs text-purple-200 leading-tight">
-              Раундов: {draft.rounds.length} · вопросов: {gameQuestionsCount(draft)}
-            </p>
+            <h1 className="text-lg font-bold text-white leading-tight truncate">Своя игра</h1>
+            <p className="text-xs text-purple-200 leading-tight">Интеллектуальная викторина</p>
           </div>
-          <button
-            onClick={handleManualSave}
-            className="shrink-0 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl px-3 py-2 text-white text-sm font-semibold flex items-center gap-1.5 transition-colors"
-          >
-            {savedFlag ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-            {savedFlag ? 'Готово' : 'Сохранить'}
-          </button>
+          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+            <Trophy className="w-5 h-5 text-white" />
+          </div>
         </div>
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-10">
-        {/* Подсказка */}
-        <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl p-4 text-sm text-purple-800 leading-relaxed">
-          <p className="font-bold mb-1 flex items-center gap-2">
-            <Pencil className="w-4 h-4" /> Как составить игру
-          </p>
-          <p>
-            Введите название игры, добавьте раунды (темы), а в каждом раунде — вопросы с баллами
-            и ответами. Изменения сохраняются автоматически. Баллы рекомендуется повышать от
-            вопроса к вопросу внутри раунда: 10 → 50.
-          </p>
-        </div>
-
-        {/* Название игры */}
-        <div className="bg-white rounded-2xl shadow-sm p-5">
-          <label className="text-sm font-semibold text-purple-700 block mb-2">Название игры</label>
-          <input
-            type="text"
-            value={draft.title}
-            onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-            placeholder="Например: История России, 7 класс"
-            className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-400 focus:outline-none"
-          />
-        </div>
-
-        {/* Раунды */}
-        {draft.rounds.map((r, rIdx) => (
-          <div key={r.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        {/* Создание и импорт */}
+        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+          <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => setOpenRound(openRound === r.id ? null : r.id)}
-              className="w-full px-4 py-3 flex items-center justify-between gap-2"
+              onClick={handleCreate}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <Layers className="w-5 h-5 text-purple-600 shrink-0" />
-                <span className="font-bold text-purple-700 truncate">
-                  {r.title || `Раунд ${rIdx + 1}`}
-                </span>
-                <span className="text-xs font-bold text-purple-400 shrink-0">
-                  {r.questions.length}
-                </span>
-              </div>
-              {openRound === r.id ? (
-                <ChevronUp className="w-5 h-5 text-purple-600 shrink-0" />
-              ) : (
-                <ChevronDown className="w-5 h-5 text-purple-600 shrink-0" />
-              )}
+              <Plus className="w-5 h-5" /> Создать игру
             </button>
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            >
+              <Upload className="w-5 h-5" /> Импорт игры
+            </button>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          {importMsg === 'ok' && (
+            <p className="text-sm font-semibold text-green-600 flex items-center gap-1.5">
+              <Check className="w-4 h-4" /> Игра импортирована — смотрите в «Мои игры»
+            </p>
+          )}
+          {importMsg === 'error' && (
+            <p className="text-sm font-semibold text-red-600 flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4" /> Не удалось прочитать файл игры
+            </p>
+          )}
+          <p className="text-xs text-gray-500">
+            Импорт принимает файлы .json из «Помощника учителя» — так учителя делятся готовыми играми.
+          </p>
+        </div>
 
-            {openRound === r.id && (
-              <div className="px-4 pb-4 space-y-3">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={r.title}
-                    onChange={(e) => patchRound(r.id, { title: e.target.value })}
-                    placeholder="Название раунда (тема)"
-                    className="flex-1 min-w-0 rounded-xl border border-purple-200 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
-                  />
+        {/* Готовые игры */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowPresets(!showPresets)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              <h2 className="text-lg font-semibold text-purple-700">Готовые игры</h2>
+              <span className="text-xs font-bold text-purple-400">{presetEduGames.length}</span>
+            </div>
+            {showPresets ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showPresets && (
+            <div className="px-5 pb-5 space-y-2">
+              {presetEduGames.map((g) => (
+                <div
+                  key={g.id}
+                  className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-gray-50"
+                >
                   <button
-                    onClick={() => removeRound(r.id)}
-                    disabled={draft.rounds.length <= 1}
-                    className="shrink-0 p-2.5 text-gray-300 hover:text-red-500 disabled:opacity-40 transition-colors"
-                    aria-label="Удалить раунд"
+                    onClick={() => setProjectorGame(g)}
+                    className="flex-1 min-w-0 text-left flex items-center gap-3"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    <div className="shrink-0 w-11 h-11 rounded-xl bg-white border border-purple-200 flex items-center justify-center">
+                      <Trophy className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
+                        {g.title}
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)}
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleCopyPreset(g)}
+                    className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
+                    aria-label="Скопировать в Мои игры и редактировать"
+                  >
+                    <Pencil className="w-5 h-5" />
                   </button>
                 </div>
+              ))}
+              <p className="text-xs text-gray-500">
+                Нажми на набор — сразу откроется проектор для игры. Карандаш — скопировать в «Мои игры» и отредактировать под свой класс.
+              </p>
+            </div>
+          )}
+        </div>
 
-                {r.questions.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-2">
-                    В раунде пока нет вопросов
-                  </p>
-                )}
-
-                {r.questions.map((q, qIdx) => (
-                  <div key={q.id} className="border-2 border-purple-100 rounded-xl p-3 space-y-2 bg-gray-50">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-purple-500">В{qIdx + 1}</span>
-                      <label className="text-xs font-semibold text-purple-700 shrink-0">Баллы</label>
-                      <input
-                        type="number"
-                        min={5}
-                        max={200}
-                        step={5}
-                        value={q.points}
-                        onChange={(e) =>
-                          patchQuestion(r.id, q.id, {
-                            points: Math.max(5, Math.min(200, Number(e.target.value) || 10)),
-                          })
-                        }
-                        className="w-20 rounded-lg border border-purple-200 px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
-                      />
-                      <button
-                        onClick={() => removeQuestion(r.id, q.id)}
-                        className="ml-auto p-2 text-gray-300 hover:text-red-500 transition-colors"
-                        aria-label="Удалить вопрос"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <textarea
-                      value={q.text}
-                      onChange={(e) => patchQuestion(r.id, q.id, { text: e.target.value })}
-                      placeholder="Текст вопроса…"
-                      className="w-full min-h-[64px] rounded-lg border border-purple-200 p-2 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none resize-y"
-                    />
-                    <input
-                      type="text"
-                      value={q.answer}
-                      onChange={(e) => patchQuestion(r.id, q.id, { answer: e.target.value })}
-                      placeholder="Ответ (для ведущего, необязательно)"
-                      className="w-full rounded-lg border border-purple-200 px-2 py-1.5 text-sm focus:ring-2 focus:ring-purple-400 focus:outline-none"
-                    />
-                  </div>
-                ))}
-
-                <button
-                  onClick={() => addQuestion(r.id)}
-                  className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 text-sm active:scale-95 transition-transform"
-                >
-                  <Plus className="w-4 h-4" /> Добавить вопрос
-                </button>
-              </div>
+        {/* Мои игры */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowMyGames(!showMyGames)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <List className="w-5 h-5 text-purple-600" />
+              <h2 className="text-lg font-semibold text-purple-700">Мои игры</h2>
+              <span className="text-xs font-bold text-purple-400">{games.length}</span>
+            </div>
+            {showMyGames ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
             )}
-          </div>
-        ))}
+          </button>
+          {showMyGames && (
+            <div className="px-5 pb-5">
+              {games.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">
+                  Пока нет игр — создайте первую или импортируйте файл
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {games.map((g) => (
+                    <div key={g.id} className="border-2 border-purple-100 rounded-xl p-3 space-y-2 bg-gray-50">
+                      <button onClick={() => setEditingGame(g)} className="w-full text-left min-w-0">
+                        <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
+                          {g.title}
+                        </h4>
+                        <p className="text-[10px] text-gray-500 mt-0.5">
+                          раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)} ·{' '}
+                          {new Date(g.updatedAt).toLocaleDateString('ru-RU')}
+                        </p>
+                      </button>
+                      <div className="grid grid-cols-5 gap-1">
+                        <button
+                          onClick={() => setEditingGame(g)}
+                          className="bg-white hover:bg-gray-100 text-purple-600 rounded-lg py-2 flex items-center justify-center transition-colors"
+                          aria-label="Редактировать"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setProjectorGame(g)}
+                          className="bg-white hover:bg-gray-100 text-gray-700 rounded-lg py-2 flex items-center justify-center transition-colors"
+                          aria-label="Режим проектора"
+                        >
+                          <Monitor className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => exportEduGameToPDF(g)}
+                          className="bg-white hover:bg-gray-100 text-green-600 rounded-lg py-2 flex items-center justify-center transition-colors"
+                          aria-label="Скачать PDF для печати"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleExportGame(g)}
+                          className="bg-white hover:bg-gray-100 text-blue-600 rounded-lg py-2 flex items-center justify-center transition-colors"
+                          aria-label="Поделиться игрой"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(g.id)}
+                          className="bg-white hover:bg-gray-100 text-red-500 rounded-lg py-2 flex items-center justify-center transition-colors"
+                          aria-label="Удалить игру"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
-        {/* Добавить раунд */}
-        <button
-          onClick={addRound}
-          className="w-full bg-white border-2 border-dashed border-purple-300 rounded-2xl py-4 flex items-center justify-center gap-2 text-purple-600 font-semibold active:scale-95 transition-transform min-h-14"
-        >
-          <Plus className="w-5 h-5" /> Добавить раунд
-        </button>
+        {/* Инструкции */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowHow(!showHow)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Инструкции</h3>
+              <span className="text-xs font-bold text-purple-400">{howItems.length}</span>
+            </div>
+            {showHow ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showHow && (
+            <div className="px-5 pb-5 space-y-2">
+              {howItems.map((item, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenHow(openHow === idx ? null : idx)}
+                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                  >
+                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                    {openHow === idx ? (
+                      <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                    )}
+                  </button>
+                  {openHow === idx && (
+                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Вопросы и сценарии */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowFaq(!showFaq)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Вопросы и сценарии</h3>
+              <span className="text-xs font-bold text-purple-400">{faqItems.length}</span>
+            </div>
+            {showFaq ? (
+              <ChevronUp className="w-5 h-5 text-purple-600" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-purple-600" />
+            )}
+          </button>
+          {showFaq && (
+            <div className="px-5 pb-5 space-y-2">
+              {faqItems.map((item, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                  >
+                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                    {openFaq === idx ? (
+                      <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                    )}
+                  </button>
+                  {openFaq === idx && (
+                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
