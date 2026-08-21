@@ -16,13 +16,13 @@ import {
   Check,
   AlertTriangle,
   Sparkles,
+  type LucideIcon,
 } from 'lucide-react';
 import type { EduGame } from '@/types/eduGame';
 import { createEmptyGame, gameQuestionsCount, generateEduId } from '@/types/eduGame';
 import { presetEduGames } from '@/data/presetEduGames';
 import {
   loadEduGames,
-  saveEduGames,
   upsertEduGame,
   deleteEduGame,
   serializeEduGame,
@@ -35,33 +35,162 @@ import BackButton from './BackButton';
 import EduGameEditorScreen from './EduGameEditorScreen';
 import EduGameProjectorScreen from './EduGameProjectorScreen';
 
-interface EduGameScreenProps {
-  onBack: () => void;
+// ===== Внутренние компоненты (оптимизация: без дублирования разметки) =====
+
+function Collapse({
+  open,
+  onToggle,
+  icon: Icon,
+  title,
+  count,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  icon: LucideIcon;
+  title: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <button onClick={onToggle} className="w-full px-5 py-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Icon className="w-5 h-5 text-purple-600" />
+          <h2 className="text-lg font-semibold text-purple-700">{title}</h2>
+          <span className="text-xs font-bold text-purple-400">{count}</span>
+        </div>
+        {open ? (
+          <ChevronUp className="w-5 h-5 text-purple-600" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-purple-600" />
+        )}
+      </button>
+      {open && <div className="px-5 pb-5">{children}</div>}
+    </div>
+  );
 }
 
-export default function EduGameScreen({ onBack }: EduGameScreenProps) {
+function FaqList({ items }: { items: { q: string; a: string }[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <div className="space-y-2">
+      {items.map((item, idx) => (
+        <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setOpen(open === idx ? null : idx)}
+            className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+          >
+            <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+            {open === idx ? (
+              <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+            )}
+          </button>
+          {open === idx && (
+            <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
+              {item.a}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function IconButton({
+  icon: Icon,
+  label,
+  color,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  color: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`bg-white hover:bg-gray-100 ${color} rounded-lg py-2 flex items-center justify-center transition-colors`}
+      aria-label={label}
+    >
+      <Icon className="w-4 h-4" />
+    </button>
+  );
+}
+
+// ===== Тексты методички =====
+
+const HOW_ITEMS = [
+  {
+    q: 'Как создать игру (режим разработчика)',
+    a: 'Нажмите «Создать игру» — сразу откроется редактор: введите название, добавьте раунды (темы) и вопросы с баллами и ответами. Баллы повышайте внутри раунда: 10 → 50. Изменения сохраняются автоматически. Карандаш на карточке игры — редактирование.',
+  },
+  {
+    q: 'Режим проектора',
+    a: 'Кнопка с монитором открывает табло: колонки — раунды, клетки — баллы. Нажмите на баллы — вопрос крупно на экране; «Показать вопрос» → «Показать ответ» → «Закрыть клетку» (клетка гаснет). Кнопка справа вверху — во весь экран для проектора или доски.',
+  },
+  {
+    q: 'Индивидуальный рейтинг участников',
+    a: 'В проекторе нажмите иконку «Люди» и включите «Индивидуальный рейтинг». Добавьте имена списком или импортом .txt (одно имя на строку). В окне вопроса у каждого ученика кнопки «+» и «−» начисляют или снимают стоимость вопроса. Иконка кубка — таблица результатов и экспорт в .txt.',
+  },
+  {
+    q: 'Печать карточек: двусторонняя',
+    a: 'Кнопка PDF создаёт файл, где каждая карточка — пара страниц: лицевая — вопрос, оборот — баллы и ответ. В настройках печати выберите «двусторонняя печать, переворот по длинному краю». Вырежьте по пунктирной рамке — и играйте без компьютера.',
+  },
+  {
+    q: 'Обмен играми между учителями',
+    a: 'Кнопка «Поделиться» скачивает игру файлом .json. Коллега в своём «Помощнике учителя» нажимает «Импорт игры» и выбирает файл — игра появляется в его «Моих играх» со всеми раундами, вопросами и баллами.',
+  },
+];
+
+const FAQ_ITEMS = [
+  {
+    q: 'Сценарий 1 · Урок-викторина',
+    a: 'Повторение темы: класс делится на команды или играет индивидуально. Открывайте вопросы по выбору учеников, обсуждайте и показывайте ответ. С рейтингом — соревнование до последнего вопроса.',
+  },
+  {
+    q: 'Сценарий 2 · Предметная неделя и финалы',
+    a: 'Отборочные игры в классах, финал — на сцене с проектором. Рейтинг участников ведётся в приложении, результаты экспортируются в .txt для грамот.',
+  },
+  {
+    q: 'Сценарий 3 · Игра без компьютера',
+    a: 'Распечатайте карточки двусторонней печатью и разрежьте. Раздайте вопросы игрокам, ведущий читает по оборотам. Подходит для поезда, дачи и класса без техники.',
+  },
+  {
+    q: 'Сколько раундов и вопросов делать?',
+    a: 'Оптимально 3–5 раундов по 4–6 вопросов. На урок 40 минут хватает 3 раундов по 5 вопросов. Баллы: 10–50, в финальном раунде можно удвоить.',
+  },
+  {
+    q: 'Где хранятся игры и результаты?',
+    a: 'Игры, участники и счёт — только на вашем устройстве. Для переноса на другое устройство используйте экспорт .json (игры) и .txt (результаты).',
+  },
+  {
+    q: '⚠️ Персональные данные',
+    a: 'Имена участников — персональные данные (152-ФЗ). Храните списки на своём устройстве, не публикуйте результаты с именами в открытом доступе; для публикаций обезличивайте («команда 1»). Удаляйте ненужные списки.',
+  },
+];
+
+// ===== Главный экран раздела =====
+
+export default function EduGameScreen({ onBack }: { onBack: () => void }) {
   const [games, setGames] = useState<EduGame[]>([]);
   const [editingGame, setEditingGame] = useState<EduGame | null>(null);
   const [projectorGame, setProjectorGame] = useState<EduGame | null>(null);
   const [isNewGame, setIsNewGame] = useState(false);
-
-  const [showMyGames, setShowMyGames] = useState(true);
-  const [showPresets, setShowPresets] = useState(true);
-  const [showHow, setShowHow] = useState(false);
-  const [showFaq, setShowFaq] = useState(false);
-  const [openHow, setOpenHow] = useState<number | null>(null);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-
+  const [sections, setSections] = useState({ my: true, presets: true, how: false, faq: false });
   const [importMsg, setImportMsg] = useState<'ok' | 'error' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setGames(loadEduGames());
-  }, []);
+  useEffect(() => setGames(loadEduGames()), []);
 
   const refresh = () => setGames(loadEduGames());
+  const toggle = (key: keyof typeof sections) =>
+    setSections((s) => ({ ...s, [key]: !s[key] }));
 
-  // Создание новой игры: сохраняем и СРАЗУ открываем редактор
+  // Создание: сохраняем и СРАЗУ открываем редактор
   const handleCreate = () => {
     const game = createEmptyGame('Новая игра');
     upsertEduGame(game);
@@ -70,6 +199,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
     refresh();
   };
 
+  // Копия пресета в «Мои игры» + редактор
   const handleCopyPreset = (preset: EduGame) => {
     const copy: EduGame = {
       ...preset,
@@ -88,23 +218,16 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
     setIsNewGame(false);
   };
 
-  // Выход из редактора: пустую новую игру удаляем, возвращаемся на домашний экран
+  // Выход из редактора: пустую новую игру удаляем, возврат на домашний экран
   const handleEditorBack = () => {
-    if (editingGame) {
-      const questionsCount = gameQuestionsCount(editingGame);
-      const hasTitle = editingGame.title.trim().length > 0 && editingGame.title !== 'Новая игра';
-      if (isNewGame && questionsCount === 0 && !hasTitle) {
-        deleteEduGame(editingGame.id);
-      }
+    if (editingGame && isNewGame) {
+      const empty = gameQuestionsCount(editingGame) === 0;
+      const renamed = editingGame.title.trim() !== 'Новая игра';
+      if (empty && !renamed) deleteEduGame(editingGame.id);
     }
     setEditingGame(null);
     setIsNewGame(false);
     refresh();
-    onBack();
-  };
-
-  const handleProjectorBack = () => {
-    setProjectorGame(null);
     onBack();
   };
 
@@ -127,68 +250,10 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
     e.target.value = '';
   };
 
-  const handleExportGame = (game: EduGame) => {
-    downloadTextFile(
-      sanitizeFileName(`игра_${game.title}.json`),
-      serializeEduGame(game),
-      'application/json;charset=utf-8',
-    );
+  const openEditor = (game: EduGame) => {
+    setEditingGame(game);
+    setIsNewGame(false);
   };
-
-  const handleDelete = (id: string) => {
-    deleteEduGame(id);
-    refresh();
-  };
-
-  const howItems = [
-    {
-      q: 'Как создать игру (режим разработчика)',
-      a: 'Нажмите «Создать игру» — сразу откроется редактор: введите название, добавьте раунды (темы) и вопросы с баллами и ответами. Баллы повышайте внутри раунда: 10 → 50. Изменения сохраняются автоматически. Карандаш на карточке игры — редактирование.',
-    },
-    {
-      q: 'Режим проектора',
-      a: 'Кнопка с монитором открывает табло: колонки — раунды, клетки — баллы. Нажмите на баллы — вопрос крупно на экране; «Показать вопрос» → «Показать ответ» → «Закрыть клетку» (клетка гаснет). Кнопка справа вверху — во весь экран для проектора или доски.',
-    },
-    {
-      q: 'Индивидуальный рейтинг участников',
-      a: 'В проекторе нажмите иконку «Люди» и включите «Индивидуальный рейтинг». Добавьте имена списком или импортом .txt (одно имя на строку). В окне вопроса у каждого ученика кнопки «+» и «−» начисляют или снимают стоимость вопроса. Иконка кубка — таблица результатов и экспорт в .txt.',
-    },
-    {
-      q: 'Печать карточек: двусторонняя',
-      a: 'Кнопка PDF создаёт файл, где каждая карточка — пара страниц: лицевая — вопрос, оборот — баллы и ответ. В настройках печати выберите «двусторонняя печать, переворот по длинному краю». Вырежьте по пунктирной рамке — и играйте без компьютера.',
-    },
-    {
-      q: 'Обмен играми между учителями',
-      a: 'Кнопка «Поделиться» скачивает игру файлом .json. Коллега в своём «Помощнике учителя» нажимает «Импорт игры» и выбирает файл — игра появляется в его «Моих играх» со всеми раундами, вопросами и баллами.',
-    },
-  ];
-
-  const faqItems = [
-    {
-      q: 'Сценарий 1 · Урок-викторина',
-      a: 'Повторение темы: класс делится на команды или играет индивидуально. Открывайте вопросы по выбору учеников, обсуждайте и показывайте ответ. С рейтингом — соревнование до последнего вопроса.',
-    },
-    {
-      q: 'Сценарий 2 · Предметная неделя и финалы',
-      a: 'Отборочные игры в классах, финал — на сцене с проектором. Рейтинг участников ведётся в приложении, результаты экспортируются в .txt для грамот.',
-    },
-    {
-      q: 'Сценарий 3 · Игра без компьютера',
-      a: 'Распечатайте карточки двусторонней печатью и разрежьте. Раздайте вопросы игрокам, ведущий читает по оборотам. Подходит для поезда, дачи и класса без техники.',
-    },
-    {
-      q: 'Сколько раундов и вопросов делать?',
-      a: 'Оптимально 3–5 раундов по 4–6 вопросов. На урок 40 минут хватает 3 раундов по 5 вопросов. Баллы: 10–50, в финальном раунде можно удвоить.',
-    },
-    {
-      q: 'Где хранятся игры и результаты?',
-      a: 'Игры, участники и счёт — только на вашем устройстве. Для переноса на другое устройство используйте экспорт .json (игры) и .txt (результаты).',
-    },
-    {
-      q: '⚠️ Персональные данные',
-      a: 'Имена участников — персональные данные (152-ФЗ). Храните списки на своём устройстве, не публикуйте результаты с именами в открытом доступе; для публикаций обезличивайте («команда 1»). Удаляйте ненужные списки.',
-    },
-  ];
 
   // ===== РЕЖИМ РАЗРАБОТЧИКА =====
   if (editingGame) {
@@ -203,10 +268,18 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
 
   // ===== РЕЖИМ ПРОЕКТОРА =====
   if (projectorGame) {
-    return <EduGameProjectorScreen game={projectorGame} onBack={handleProjectorBack} />;
+    return (
+      <EduGameProjectorScreen
+        game={projectorGame}
+        onBack={() => {
+          setProjectorGame(null);
+          onBack();
+        }}
+      />
+    );
   }
 
-  // ===== ГЛАВНЫЙ ЭКРАН РАЗДЕЛА =====
+  // ===== ГЛАВНЫЙ ЭКРАН =====
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
@@ -264,227 +337,123 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
         </div>
 
         {/* 1) МОИ ИГРЫ — всегда первые */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => setShowMyGames(!showMyGames)}
-            className="w-full px-5 py-4 flex items-center justify-between gap-2"
-          >
-            <div className="flex items-center gap-2">
-              <List className="w-5 h-5 text-purple-600" />
-              <h2 className="text-lg font-semibold text-purple-700">Мои игры</h2>
-              <span className="text-xs font-bold text-purple-400">{games.length}</span>
-            </div>
-            {showMyGames ? (
-              <ChevronUp className="w-5 h-5 text-purple-600" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-purple-600" />
-            )}
-          </button>
-          {showMyGames && (
-            <div className="px-5 pb-5">
-              {games.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">
-                  Пока нет игр — создайте первую или импортируйте файл
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {games.map((g) => (
-                    <div key={g.id} className="border-2 border-purple-100 rounded-xl p-3 space-y-2 bg-gray-50">
-                      <button onClick={() => { setEditingGame(g); setIsNewGame(false); }} className="w-full text-left min-w-0">
-                        <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
-                          {g.title}
-                        </h4>
-                        <p className="text-[10px] text-gray-500 mt-0.5">
-                          раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)} ·{' '}
-                          {new Date(g.updatedAt).toLocaleDateString('ru-RU')}
-                        </p>
-                      </button>
-                      <div className="grid grid-cols-5 gap-1">
-                        <button
-                          onClick={() => { setEditingGame(g); setIsNewGame(false); }}
-                          className="bg-white hover:bg-gray-100 text-purple-600 rounded-lg py-2 flex items-center justify-center transition-colors"
-                          aria-label="Редактировать"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setProjectorGame(g)}
-                          className="bg-white hover:bg-gray-100 text-gray-700 rounded-lg py-2 flex items-center justify-center transition-colors"
-                          aria-label="Режим проектора"
-                        >
-                          <Monitor className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => exportEduGameToPDF(g)}
-                          className="bg-white hover:bg-gray-100 text-green-600 rounded-lg py-2 flex items-center justify-center transition-colors"
-                          aria-label="Скачать PDF для печати"
-                        >
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleExportGame(g)}
-                          className="bg-white hover:bg-gray-100 text-blue-600 rounded-lg py-2 flex items-center justify-center transition-colors"
-                          aria-label="Поделиться игрой"
-                        >
-                          <Share2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(g.id)}
-                          className="bg-white hover:bg-gray-100 text-red-500 rounded-lg py-2 flex items-center justify-center transition-colors"
-                          aria-label="Удалить игру"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+        <Collapse
+          open={sections.my}
+          onToggle={() => toggle('my')}
+          icon={List}
+          title="Мои игры"
+          count={games.length}
+        >
+          {games.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">
+              Пока нет игр — создайте первую или импортируйте файл
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {games.map((g) => (
+                <div key={g.id} className="border-2 border-purple-100 rounded-xl p-3 space-y-2 bg-gray-50">
+                  <button onClick={() => openEditor(g)} className="w-full text-left min-w-0">
+                    <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
+                      {g.title}
+                    </h4>
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)} ·{' '}
+                      {new Date(g.updatedAt).toLocaleDateString('ru-RU')}
+                    </p>
+                  </button>
+                  <div className="grid grid-cols-5 gap-1">
+                    <IconButton icon={Pencil} label="Редактировать" color="text-purple-600" onClick={() => openEditor(g)} />
+                    <IconButton icon={Monitor} label="Режим проектора" color="text-gray-700" onClick={() => setProjectorGame(g)} />
+                    <IconButton icon={Download} label="Скачать PDF" color="text-green-600" onClick={() => exportEduGameToPDF(g)} />
+                    <IconButton
+                      icon={Share2}
+                      label="Поделиться игрой"
+                      color="text-blue-600"
+                      onClick={() =>
+                        downloadTextFile(
+                          sanitizeFileName(`игра_${g.title}.json`),
+                          serializeEduGame(g),
+                          'application/json;charset=utf-8',
+                        )
+                      }
+                    />
+                    <IconButton
+                      icon={Trash2}
+                      label="Удалить игру"
+                      color="text-red-500"
+                      onClick={() => {
+                        deleteEduGame(g.id);
+                        refresh();
+                      }}
+                    />
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           )}
-        </div>
+        </Collapse>
 
         {/* 2) ГОТОВЫЕ ИГРЫ — всегда после «Мои игры» */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => setShowPresets(!showPresets)}
-            className="w-full px-5 py-4 flex items-center justify-between gap-2"
-          >
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-600" />
-              <h2 className="text-lg font-semibold text-purple-700">Готовые игры</h2>
-              <span className="text-xs font-bold text-purple-400">{presetEduGames.length}</span>
-            </div>
-            {showPresets ? (
-              <ChevronUp className="w-5 h-5 text-purple-600" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-purple-600" />
-            )}
-          </button>
-          {showPresets && (
-            <div className="px-5 pb-5 space-y-2">
-              {presetEduGames.map((g) => (
-                <div
-                  key={g.id}
-                  className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-gray-50"
+        <Collapse
+          open={sections.presets}
+          onToggle={() => toggle('presets')}
+          icon={Sparkles}
+          title="Готовые игры"
+          count={presetEduGames.length}
+        >
+          <div className="space-y-2">
+            {presetEduGames.map((g) => (
+              <div key={g.id} className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-gray-50">
+                <button
+                  onClick={() => setProjectorGame(g)}
+                  className="flex-1 min-w-0 text-left flex items-center gap-3"
                 >
-                  <button
-                    onClick={() => setProjectorGame(g)}
-                    className="flex-1 min-w-0 text-left flex items-center gap-3"
-                  >
-                    <div className="shrink-0 w-11 h-11 rounded-xl bg-white border border-purple-200 flex items-center justify-center">
-                      <Trophy className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
-                        {g.title}
-                      </h4>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)}
-                      </p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => handleCopyPreset(g)}
-                    className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
-                    aria-label="Скопировать в Мои игры и редактировать"
-                  >
-                    <Pencil className="w-5 h-5" />
-                  </button>
-                </div>
-              ))}
-              <p className="text-xs text-gray-500">
-                Нажми на набор — сразу откроется проектор для игры. Карандаш — скопировать в «Мои игры» и отредактировать под свой класс.
-              </p>
-            </div>
-          )}
-        </div>
+                  <div className="shrink-0 w-11 h-11 rounded-xl bg-white border border-purple-200 flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">{g.title}</h4>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)}
+                    </p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleCopyPreset(g)}
+                  className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
+                  aria-label="Скопировать в Мои игры и редактировать"
+                >
+                  <Pencil className="w-5 h-5" />
+                </button>
+              </div>
+            ))}
+            <p className="text-xs text-gray-500">
+              Нажми на набор — сразу откроется проектор для игры. Карандаш — скопировать в «Мои игры» и отредактировать под свой класс.
+            </p>
+          </div>
+        </Collapse>
 
         {/* Инструкции */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => setShowHow(!showHow)}
-            className="w-full px-5 py-4 flex items-center justify-between gap-2"
-          >
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-purple-600" />
-              <h3 className="font-bold text-purple-700">Инструкции</h3>
-              <span className="text-xs font-bold text-purple-400">{howItems.length}</span>
-            </div>
-            {showHow ? (
-              <ChevronUp className="w-5 h-5 text-purple-600" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-purple-600" />
-            )}
-          </button>
-          {showHow && (
-            <div className="px-5 pb-5 space-y-2">
-              {howItems.map((item, idx) => (
-                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => setOpenHow(openHow === idx ? null : idx)}
-                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
-                  >
-                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
-                    {openHow === idx ? (
-                      <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
-                    )}
-                  </button>
-                  {openHow === idx && (
-                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
-                      {item.a}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <Collapse
+          open={sections.how}
+          onToggle={() => toggle('how')}
+          icon={GraduationCap}
+          title="Инструкции"
+          count={HOW_ITEMS.length}
+        >
+          <FaqList items={HOW_ITEMS} />
+        </Collapse>
 
         {/* Вопросы и сценарии */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => setShowFaq(!showFaq)}
-            className="w-full px-5 py-4 flex items-center justify-between gap-2"
-          >
-            <div className="flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-purple-600" />
-              <h3 className="font-bold text-purple-700">Вопросы и сценарии</h3>
-              <span className="text-xs font-bold text-purple-400">{faqItems.length}</span>
-            </div>
-            {showFaq ? (
-              <ChevronUp className="w-5 h-5 text-purple-600" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-purple-600" />
-            )}
-          </button>
-          {showFaq && (
-            <div className="px-5 pb-5 space-y-2">
-              {faqItems.map((item, idx) => (
-                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
-                  >
-                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
-                    {openFaq === idx ? (
-                      <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
-                    )}
-                  </button>
-                  {openFaq === idx && (
-                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
-                      {item.a}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <Collapse
+          open={sections.faq}
+          onToggle={() => toggle('faq')}
+          icon={HelpCircle}
+          title="Вопросы и сценарии"
+          count={FAQ_ITEMS.length}
+        >
+          <FaqList items={FAQ_ITEMS} />
+        </Collapse>
       </main>
     </div>
   );
