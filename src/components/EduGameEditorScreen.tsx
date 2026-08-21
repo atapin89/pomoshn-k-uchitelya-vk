@@ -44,7 +44,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const [projectorGame, setProjectorGame] = useState<EduGame | null>(null);
 
   const [showMyGames, setShowMyGames] = useState(false);
-  const [showPresets, setShowPresets] = useState(false);
+  const [showPresets, setShowPresets] = useState(true);
   const [showHow, setShowHow] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [openHow, setOpenHow] = useState<number | null>(null);
