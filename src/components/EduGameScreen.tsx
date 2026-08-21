@@ -179,8 +179,8 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
       <EduGameEditorScreen
         game={editingGame}
         onBack={() => {
-          setEditingGame(null);
           refresh();
+          onBack();
         }}
         onSave={(g) => upsertEduGame(g)}
       />
@@ -189,7 +189,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
 
   // ===== РЕЖИМ ПРОЕКТОРА =====
   if (projectorGame) {
-    return <EduGameProjectorScreen game={projectorGame} onBack={() => setProjectorGame(null)} />;
+    return <EduGameProjectorScreen game={projectorGame} onBack={() => onBack()} />;
   }
 
   // ===== ГЛАВНЫЙ ЭКРАН РАЗДЕЛА =====
