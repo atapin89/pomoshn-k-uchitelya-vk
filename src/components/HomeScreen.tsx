@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Clock, Dices, Volume2, Layers, HelpCircle, Grid3x3, BookOpen, Calculator } from 'lucide-react';
+import { Clock, Dices, Volume2, Layers, HelpCircle, Grid3x3, BookOpen, Calculator, Trophy } from 'lucide-react';
 import { HelpModal } from './HelpModal';
 import { helpTexts } from '@/data/helpTexts';
 
 interface HomeScreenProps {
-  onNavigate: (route: 'timer' | 'generator' | 'noise' | 'flashcards' | 'wordsearch' | 'manual' | 'calculators' | 'bingo') => void;
+  onNavigate: (route: 'timer' | 'generator' | 'noise' | 'flashcards' | 'wordsearch' | 'manual' | 'calculators' | 'bingo' | 'edugame') => void;
 }
 
 export default function HomeScreen({ onNavigate }: HomeScreenProps) {
@@ -22,7 +22,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       id: 'generator',
       title: 'Жеребьёвка',
       description: 'Случайный выбор',
-      hint: 'Выбор ученика рулеткой, деление класса на группы и случайная рассадка по партам.',
+      hint: 'Выбор ученика рулеткой, деление класса на группы и случайная рассадка по партам. Импорт/экспорт списков, чередование по полу.',
       icon: Dices,
     },
     {
@@ -36,7 +36,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       id: 'flashcards',
       title: 'Флэш-карточки',
       description: 'Колоды и изучение',
-      hint: 'Интервальное повторение: создавайте колоды, изучайте карточки, проходите тесты с выбором ответа, вводом текста и соответствием.',
+      hint: 'Интервальное повторение: создавайте колоды, изучайте карточки, проходите тесты с выбором ответа, вводом текста и соответствием. Готовые колоды и режим проектора.',
       icon: Layers,
     },
     {
@@ -57,8 +57,15 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       id: 'bingo',
       title: 'Бинго',
       description: 'Карточки и проектор',
-      hint: 'Конструктор карточек бинго. Готовые наборы (1 сентября, история, Новый год), режим проектора, скачивание PDF.',
+      hint: 'Конструктор карточек бинго с настраиваемыми параметрами: размер сетки, количество карточек, свободная клетка. Готовые наборы (1 сентября, история, Новый год), режим проектора для ведущего, скачивание PDF для печати, методичка со сценариями использования.',
       icon: Grid3x3,
+    },
+    {
+      id: 'edugame',
+      title: 'Обучающие игры',
+      description: 'Викторина и рейтинг',
+      hint: 'Викторина по принципу «Своей игры»: режим разработчика для создания игр, проектор с табло и начислением баллов, индивидуальный рейтинг участников, двусторонняя печать карточек для игры без компьютера, обмен играми между учителями через JSON.',
+      icon: Trophy,
     },
   ];
 
