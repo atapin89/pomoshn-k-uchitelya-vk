@@ -34,8 +34,6 @@ import BackButton from './BackButton';
 import EduGameEditorScreen from './EduGameEditorScreen';
 import EduGameProjectorScreen from './EduGameProjectorScreen';
 
-const SEEDED_KEY = 'edu-presets-seeded';
-
 interface EduGameScreenProps {
   onBack: () => void;
 }
@@ -55,13 +53,20 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // При первом входе добавляем готовые игры в «Мои игры»
+    // Проверяем, какие готовые игры уже есть в «Мои игры» по названиям
+    // Если какой-то пресет отсутствует — добавляем его копию
     try {
-      if (!localStorage.getItem(SEEDED_KEY)) {
-        const copies = presetEduGames.map((p) => ({
-          ...p,
+      const existingGames = loadEduGames();
+      const existingTitles = new Set(existingGames.map((g) => g.title.toLowerCase()));
+      const missingPresets = presetEduGames.filter(
+        (p) => !existingTitles.has(p.title.toLowerCase()),
+      );
+
+      if (missingPresets.length > 0) {
+        const newCopies: EduGame[] = missingPresets.map((preset) => ({
+          ...preset,
           id: generateEduId('edugame'),
-          rounds: p.rounds.map((r) => ({
+          rounds: preset.rounds.map((r) => ({
             ...r,
             id: generateEduId('round'),
             questions: r.questions.map((q) => ({ ...q, id: generateEduId('q') })),
@@ -69,11 +74,10 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
           createdAt: Date.now(),
           updatedAt: Date.now(),
         }));
-        saveEduGames([...loadEduGames(), ...copies]);
-        localStorage.setItem(SEEDED_KEY, '1');
+        saveEduGames([...existingGames, ...newCopies]);
       }
     } catch {
-      // ignore
+      // ignore quota errors
     }
     setGames(loadEduGames());
   }, []);
