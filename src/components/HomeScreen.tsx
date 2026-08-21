@@ -35,7 +35,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     {
       id: 'flashcards',
       title: 'Флэш-карточки',
-      description: 'Колоды и изучение',
+      description: 'Изучение и запоминание',
       hint: 'Интервальное повторение: создавайте колоды, изучайте карточки, проходите тесты с выбором ответа, вводом текста и соответствием. Готовые колоды и режим проектора.',
       icon: Layers,
     },
@@ -57,17 +57,19 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       id: 'bingo',
       title: 'Бинго',
       description: 'Закрывай карточку и выигрывай',
-      hint: 'Бинго — конструктор карточек с настраиваемыми параметрами: размер сетки, количество карточек, свободная клетка. Готовые наборы (1 сентября, история, Новый год), режим проектора для ведущего, скачивание PDF для печати, методичка со сценариями использования.',
+      hint: 'Конструктор карточек с настраиваемыми параметрами: размер сетки, количество карточек, свободная клетка. Готовые наборы (1 сентября, история, Новый год), режим проектора для ведущего, скачивание PDF для печати, методичка со сценариями использования.',
       icon: Grid3x3,
     },
     {
       id: 'edugame',
       title: 'Своя игра',
       description: 'Интеллектуальная викторина',
-      hint: 'Своя игра — интеллектуальная викторина по принципу телевизионной игры: режим разработчика для создания игр, проектор с табло и начислением баллов, индивидуальный рейтинг участников, двусторонняя печать карточек для игры без компьютера, обмен играми между учителями через JSON.',
+      hint: 'Интеллектуальная викторина по принципу телевизионной «Своей игры»: режим разработчика для создания игр, проектор с табло и начислением баллов, индивидуальный рейтинг участников, двусторонняя печать карточек для игры без компьютера, обмен играми между учителями через JSON.',
       icon: Trophy,
     },
   ];
+
+  const activeSection = sections.find((s) => s.id === activeHelpModal);
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
@@ -150,12 +152,18 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       <HelpModal
         isOpen={activeHelpModal !== null}
         onClose={() => setActiveHelpModal(null)}
-        title={activeHelpModal ? helpTexts[activeHelpModal as keyof typeof helpTexts]?.title || '' : ''}
+        title={
+          activeHelpModal
+            ? helpTexts[activeHelpModal as keyof typeof helpTexts]?.title ||
+              activeSection?.title ||
+              ''
+            : ''
+        }
         content={
           activeHelpModal
-            ? (sections.find((s) => s.id === activeHelpModal)?.hint ||
-                helpTexts[activeHelpModal as keyof typeof helpTexts]?.content ||
-                'Описание скоро появится')
+            ? activeSection?.hint ||
+              helpTexts[activeHelpModal as keyof typeof helpTexts]?.content ||
+              'Описание скоро появится'
             : ''
         }
       />
