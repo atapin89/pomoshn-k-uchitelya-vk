@@ -17,9 +17,11 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import type { EduGame } from '@/types/eduGame';
-import { createEmptyGame, gameQuestionsCount } from '@/types/eduGame';
+import { createEmptyGame, gameQuestionsCount, generateEduId } from '@/types/eduGame';
+import { presetEduGames } from '@/data/presetEduGames';
 import {
   loadEduGames,
+  saveEduGames,
   upsertEduGame,
   deleteEduGame,
   serializeEduGame,
@@ -32,6 +34,8 @@ import BackButton from './BackButton';
 import EduGameEditorScreen from './EduGameEditorScreen';
 import EduGameProjectorScreen from './EduGameProjectorScreen';
 
+const SEEDED_KEY = 'edu-presets-seeded';
+
 interface EduGameScreenProps {
   onBack: () => void;
 }
@@ -41,7 +45,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const [editingGame, setEditingGame] = useState<EduGame | null>(null);
   const [projectorGame, setProjectorGame] = useState<EduGame | null>(null);
 
-  const [showMyGames, setShowMyGames] = useState(false);
+  const [showMyGames, setShowMyGames] = useState(true);
   const [showHow, setShowHow] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [openHow, setOpenHow] = useState<number | null>(null);
@@ -51,6 +55,26 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // При первом входе добавляем готовые игры в «Мои игры»
+    try {
+      if (!localStorage.getItem(SEEDED_KEY)) {
+        const copies = presetEduGames.map((p) => ({
+          ...p,
+          id: generateEduId('edugame'),
+          rounds: p.rounds.map((r) => ({
+            ...r,
+            id: generateEduId('round'),
+            questions: r.questions.map((q) => ({ ...q, id: generateEduId('q') })),
+          })),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        }));
+        saveEduGames([...loadEduGames(), ...copies]);
+        localStorage.setItem(SEEDED_KEY, '1');
+      }
+    } catch {
+      // ignore
+    }
     setGames(loadEduGames());
   }, []);
 
@@ -110,7 +134,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
     },
     {
       q: 'Печать карточек: двусторонняя',
-      a: 'Кнопка PDF создаёт файл, где каждая карточка — пара страниц: лицевая — вопрос, оборот — баллы и ответ. В настройках печати выберите «двусторонняя печать, переворот по длинному краю». Вырежьте по пунктирной рамке — и играйте без компьютера: вопрос для игроков, оборот для ведущего.',
+      a: 'Кнопка PDF создаёт файл, где каждая карточка — пара страниц: лицевая — вопрос, оборот — баллы и ответ. В настройках печати выберите «двусторонняя печать, переворот по длинному краю». Вырежьте по пунктирной рамке — и играйте без компьютера.',
     },
     {
       q: 'Обмен играми между учителями',
@@ -173,8 +197,8 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
             <BackButton onClick={onBack} variant="light" />
           </div>
           <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">Обучающие игры</h1>
-            <p className="text-xs text-purple-200 leading-tight">Викторина по принципу «Своей игры»</p>
+            <h1 className="text-lg font-bold text-white leading-tight truncate">Своя игра</h1>
+            <p className="text-xs text-purple-200 leading-tight">Интеллектуальная викторина</p>
           </div>
           <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
             <Trophy className="w-5 h-5 text-white" />
@@ -217,11 +241,11 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
             </p>
           )}
           <p className="text-xs text-gray-500">
-            Импорт принимает файлы .json из «Помощника учителя» — так учителя делятся готовыми играми.
+            Готовые игры «Окружающий мир» и «Литературное чтение» уже добавлены в «Мои игры» — их можно менять и запускать.
           </p>
         </div>
 
-        {/* Мои игры */}
+        {/* Мои игры (раскрыт по умолчанию, готовые игры уже внутри) */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowMyGames(!showMyGames)}
