@@ -32,7 +32,7 @@ type Route =
   | 'calculators' 
   | 'bingo' 
   | 'edugame'
-  | 'tapper';
+  | 'activity';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -44,7 +44,6 @@ export default function App() {
   const [studyDeckId, setStudyDeckId] = useState<string | null>(null);
   const [quizDeckId, setQuizDeckId] = useState<string | null>(null);
 
-  // Состояние для сохранения позиции Flashcards
   const [flashcardsState, setFlashcardsState] = useState<{
     scrollPosition: number;
     filter: string;
@@ -55,7 +54,6 @@ export default function App() {
     setCustomTemplates(loadCustomTemplates());
   }, []);
 
-  // Очистка ID при уходе на главный экран
   const navigateHome = useCallback(() => {
     setStudyDeckId(null);
     setQuizDeckId(null);
@@ -105,7 +103,6 @@ export default function App() {
 
   const allTemplates = [...presetTemplates, ...customTemplates];
 
-  // Словарь маршрутов
   const routes: Record<Route, React.ReactNode> = {
     home: <HomeScreen onNavigate={setRoute} />,
     generator: <GeneratorScreen onBack={navigateHome} />,
@@ -142,11 +139,10 @@ export default function App() {
     calculators: <CalculatorsScreen onBack={navigateHome} />,
     bingo: <BingoGeneratorScreen onBack={navigateHome} />,
     edugame: <EduGameScreen onBack={navigateHome} />,
-    tapper: <TapperScreen onBack={navigateHome} />,
-    timer: null, // Обрабатывается отдельно
+    activity: <TapperScreen onBack={navigateHome} />,
+    timer: null,
   };
 
-  // Обработка таймера
   if (activeTemplate) {
     return (
       <ActiveTimer
@@ -157,7 +153,6 @@ export default function App() {
     );
   }
 
-  // Если маршрут study/quiz, но нет deckId — возврат на flashcards
   if (route === 'study' && !studyDeckId) {
     return <FlashcardsScreen
       onBack={navigateHome}
@@ -178,13 +173,11 @@ export default function App() {
     />;
   }
 
-  // Рендер выбранного маршрута
   const currentRoute = routes[route];
   if (currentRoute !== null) {
     return <div className="animate-fadeIn">{currentRoute}</div>;
   }
 
-  // По умолчанию — список таймеров
   return (
     <>
       <div className="animate-fadeIn">
