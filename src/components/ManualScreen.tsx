@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   Users,
   Timer,
+  Triangle,
   ChevronDown,
   ChevronUp,
   type LucideIcon,
@@ -144,6 +145,32 @@ const MANUAL_SECTIONS: ManualSection[] = [
       { title: 'Термины по биологии', text: 'Колода с терминами и определениями. Режим «Insane» — добавьте картинки-подсказки на третью сторону.' },
       { title: 'Подготовка к контрольной', text: 'Создайте колоду с вопросами по теме. Ученики проходят тест — сразу видят пробелы в знаниях.' },
       { title: 'Правила русского языка', text: 'Колода «Правила орфографии». Карточка: правило → примеры. Ученики повторяют в своём темпе.' },
+    ],
+  },
+  {
+    id: 'tarsia',
+    title: 'Тарсия пазлы',
+    icon: Triangle,
+    description: 'Генератор головоломок Тарсия для раздаточных материалов.',
+    instructions: [
+      'Нажмите «Тарсия пазлы» на главном экране.',
+      'Нажмите «Создать» или загрузите демо «Окружающий мир».',
+      'Выберите форму: треугольник, шестиугольник или домино.',
+      'Введите пары «Вопрос — Ответ» в таблицу (минимум 3 пары).',
+      'Настройте заголовки: для задания и для решения.',
+      'Выберите размер карточек: маленькие, средние или большие.',
+      'Включите или выключите показ решения в PDF.',
+      'Нажмите «Скачать PDF» — получите задание (перемешанное) и решение.',
+      'Или «Скачать PNG» — изображение для чата или проектора.',
+      'Сохраните головоломку в «Моих пазлах» для повторного использования.',
+      'Импорт/экспорт: .json для обмена, .txt для простого формата.',
+    ],
+    scenarios: [
+      { title: 'Математика: устный счёт', text: 'Пары: «15+27» → «42». Ученики собирают треугольник, решая примеры. Фигура не сойдётся, если есть ошибка.' },
+      { title: 'Окружающий мир: география', text: 'Используйте демо «Окружающий мир»: столицы, реки, горы. Ученики собирают карту России из треугольников.' },
+      { title: 'Иностранный язык: перевод', text: 'Пары: «Apple» → «Яблоко». Форма домино идеальна для парных карточек с переводом.' },
+      { title: 'История: даты и события', text: 'Пары: «1812 год» → «Бородинское сражение». Шестиугольник — большая «сота» из 18+ карточек.' },
+      { title: 'Групповая работа', text: 'Раздайте одну головоломку на группу из 3-4 учеников. Побеждает команда, собравшая фигуру первой.' },
     ],
   },
   {
@@ -289,7 +316,6 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-3 pb-8 overflow-y-auto">
-        {/* Разделы */}
         {MANUAL_SECTIONS.map((section) => {
           const Icon = section.icon;
           const isOpen = openSection === section.id;
@@ -297,7 +323,6 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
 
           return (
             <div key={section.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-purple-100">
-              {/* Заголовок раздела */}
               <button
                 onClick={() => setOpenSection(isOpen ? null : section.id)}
                 className="w-full px-5 py-4 flex items-center gap-3 hover:bg-purple-50/50 transition-colors"
@@ -317,10 +342,8 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
 
               {isOpen && (
                 <div className="px-5 pb-5 space-y-3">
-                  {/* Описание */}
                   <p className="text-sm text-gray-600">{section.description}</p>
 
-                  {/* Инструкция */}
                   <div className="border border-purple-100 rounded-xl overflow-hidden">
                     <button
                       onClick={() => setOpenInstructions(isInstructionsOpen ? null : section.id)}
@@ -346,7 +369,6 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
                     )}
                   </div>
 
-                  {/* Сценарии */}
                   <div>
                     <p className="font-semibold text-sm text-purple-700 mb-2">💡 5 сценариев использования</p>
                     <div className="space-y-2">
@@ -366,7 +388,6 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
           );
         })}
 
-        {/* Общие советы */}
         <div className="bg-violet-100 rounded-2xl p-5 border border-violet-200">
           <h2 className="text-lg font-bold text-violet-800 mb-3 flex items-center gap-2">
             <Lightbulb className="w-5 h-5" /> Общие советы
@@ -376,6 +397,7 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
             <li>Список класса в «Жеребьёвке» и «Счётчике активности» сохраняется автоматически.</li>
             <li>Максимальный эффект достигается при выводе на проектор: Таймера, Жеребьёвки, Шумомера и Бинго.</li>
             <li>Скачивание PDF стабильнее всего работает с компьютера.</li>
+            <li>Печатайте Тарсию на цветной бумаге — разные цвета для разных тем.</li>
             <li>Используйте экспорт/импорт для переноса данных между устройствами.</li>
           </ul>
         </div>
