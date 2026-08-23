@@ -1,11 +1,28 @@
 import type { EduGame } from '@/types/eduGame';
 
+/**
+ * Готовые игры для раздела «Своя игра».
+ * 
+ * Как добавить новую игру:
+ * 1. Скопируйте один из объектов ниже
+ * 2. Измените id (должен начинаться с 'preset-')
+ * 3. Заполните rounds и questions
+ * 
+ * Важно:
+ * - В каждом раунде баллы должны быть уникальными
+ * - Рекомендуемые баллы: 10, 20, 30, 40, 50
+ * - Оптимально 3-5 раундов по 4-6 вопросов
+ */
+
+// Фиксированная дата для всех пресетов (1 января 2024)
+const PRESET_DATE = 1704067200000;
+
 export const presetEduGames: EduGame[] = [
   {
     id: 'preset-edugame-world',
     title: 'Окружающий мир',
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: PRESET_DATE,
+    updatedAt: PRESET_DATE,
     rounds: [
       {
         id: 'pw-r1',
@@ -56,8 +73,8 @@ export const presetEduGames: EduGame[] = [
   {
     id: 'preset-edugame-liter',
     title: 'Литературное чтение',
-    createdAt: 0,
-    updatedAt: 0,
+    createdAt: PRESET_DATE,
+    updatedAt: PRESET_DATE,
     rounds: [
       {
         id: 'pl-r1',
@@ -106,3 +123,17 @@ export const presetEduGames: EduGame[] = [
     ],
   },
 ];
+
+// Проверка на дубликаты баллов в рантайме
+if (import.meta.env.DEV) {
+  presetEduGames.forEach((game) => {
+    game.rounds.forEach((round) => {
+      const points = round.questions.map((q) => q.points);
+      if (new Set(points).size !== points.length) {
+        console.warn(
+          `[presetEduGames] В раунде «${round.title}» игры «${game.title}» есть дубликаты баллов`
+        );
+      }
+    });
+  });
+}
