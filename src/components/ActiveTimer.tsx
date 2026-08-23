@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Check, Plus } from 'lucide-react';
 import type { LessonTemplate } from '@/types';
 import { formatTime } from '@/lib/format';
@@ -24,8 +24,13 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
   const [stageDurations, setStageDurations] = useState(() =>
     template.stages.map((s) => s.duration * 60),
   );
-  const totalSeconds = stageDurations.reduce((s, d) => s + d, 0);
-  const stageBoundaries = (() => {
+  
+  const totalSeconds = useMemo(
+    () => stageDurations.reduce((s, d) => s + d, 0),
+    [stageDurations],
+  );
+  
+  const stageBoundaries = useMemo(() => {
     const arr: number[] = [];
     let acc = 0;
     for (const d of stageDurations) {
@@ -33,13 +38,12 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
       arr.push(acc);
     }
     return arr;
-  })();
+  }, [stageDurations]);
 
   const [isRunning, setIsRunning] = useState(true);
   const [endAt, setEndAt] = useState(() => Date.now() + totalSeconds * 1000);
   const [now, setNow] = useState(() => Date.now());
-  const rafRef = useRef<number | null>(null);
-  const lastTickRef = useRef<number>(0);
+  const intervalRef = useRef<number | null>(null);
 
   const remainingMs = Math.max(0, endAt - now);
   const remainingSec = Math.ceil(remainingMs / 1000);
@@ -70,22 +74,30 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
         : 'stroke-purple-800';
   const pulse = fraction < 0.15;
 
+  // Таймер с setInterval + requestAnimationFrame для плавности
   useEffect(() => {
     if (!isRunning) return;
-    const loop = (t: number) => {
-      if (t - lastTickRef.current >= TICK_MS) {
-        lastTickRef.current = t;
-        setNow(Date.now());
-      }
-      rafRef.current = requestAnimationFrame(loop);
+    
+    // Основной таймер
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, TICK_MS);
+    
+    // Дополнительный RAF для плавности
+    let rafId: number;
+    const raf = () => {
+      setNow(Date.now());
+      rafId = requestAnimationFrame(raf);
     };
-    lastTickRef.current = performance.now();
-    rafRef.current = requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(raf);
+    
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      clearInterval(interval);
+      cancelAnimationFrame(rafId);
     };
   }, [isRunning]);
 
+  // Wake Lock
   useEffect(() => {
     if (!isRunning) return;
     void requestWakeLock();
@@ -96,6 +108,7 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
     };
   }, [isRunning]);
 
+  // Отслеживание смены этапа
   const prevStageIdxRef = useRef(stageIdx);
   useEffect(() => {
     if (prevStageIdxRef.current !== stageIdx) {
@@ -108,6 +121,7 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
     }
   }, [stageIdx]);
 
+  // Завершение урока
   const finishedRef = useRef(false);
   useEffect(() => {
     if (remainingSec <= 0 && !finishedRef.current) {
@@ -118,6 +132,7 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
     }
   }, [remainingSec]);
 
+  // Сброс при смене шаблона
   useEffect(() => {
     finishedRef.current = false;
     prevStageIdxRef.current = stageIdx;
@@ -134,12 +149,13 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
 
   const handleNext = () => {
     if (stageIdx >= stageDurations.length - 1) return;
+    
     setStageDurations((prev) => {
       const next = [...prev];
       const prevBoundary = stageIdx > 0 ? stageBoundaries[stageIdx - 1] : 0;
       const elapsedInCurrent = Math.max(0, elapsedSec - prevBoundary);
       const remainingInCurrent = next[stageIdx] - elapsedInCurrent;
-      next[stageIdx] = elapsedInCurrent;
+      next[stageIdx] = Math.max(0, elapsedInCurrent);
 
       const futureIndices: number[] = [];
       for (let i = stageIdx + 1; i < next.length; i++) futureIndices.push(i);
@@ -160,10 +176,8 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
   };
 
   const canAddMinute = (idx: number): boolean => {
-    for (let i = idx + 1; i < stageDurations.length; i++) {
-      if (stageDurations[i] > 60) return true;
-    }
-    return false;
+    if (idx === stageDurations.length - 1) return true;
+    return stageDurations.slice(idx + 1).some((d) => d > 60);
   };
 
   const addMinuteToStage = (idx: number) => {
@@ -174,19 +188,24 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
       for (let i = idx + 1; i < next.length; i++) {
         if (next[i] > 60) remainingIdxs.push(i);
       }
-      if (remainingIdxs.length === 0) return prev;
+      if (remainingIdxs.length === 0 && idx !== prev.length - 1) return prev;
+      
       next[idx] += 60;
-      const largest = remainingIdxs.reduce(
-        (max, i) => (next[i] > next[max] ? i : max),
-        remainingIdxs[0],
-      );
-      next[largest] -= 60;
+      
+      if (remainingIdxs.length > 0) {
+        const largest = remainingIdxs.reduce(
+          (max, i) => (next[i] > next[max] ? i : max),
+          remainingIdxs[0],
+        );
+        next[largest] -= 60;
+      }
       return next;
     });
     triggerHaptic('light');
   };
 
   const handleReset = () => {
+    finishedRef.current = false;
     void releaseWakeLock();
     onReset();
   };
@@ -195,7 +214,7 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
         <div className="max-w-md mx-auto px-5 py-4">
-          <BackButton onClick={onReset} variant="light" />
+          <BackButton onClick={handleReset} variant="light" />
           <div className="mt-3">
             <p className="text-sm text-white/70">Урок</p>
             <h1 className="text-xl font-bold text-white truncate">{template.name}</h1>
@@ -344,6 +363,7 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
                             : 'bg-gray-100 text-gray-300'
                         }`}
                         aria-label="Добавить 1 минуту"
+                        title="Добавить 1 минуту"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         1 мин
@@ -352,6 +372,8 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
                         <button
                           onClick={handleNext}
                           className="flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1.5 min-h-8 bg-gray-100 text-purple-700 active:scale-95 transition-all touch-manipulation"
+                          aria-label="Перейти к следующему этапу"
+                          title="Перейти к следующему этапу"
                         >
                           <SkipForward className="w-3.5 h-3.5" />
                           Далее
@@ -378,14 +400,16 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={handleReset}
-            className="bg-white shadow-md rounded-2xl p-4 min-h-14 min-w-14 flex items-center justify-center text-purple-600 active:scale-95 transition-transform touch-manipulation"
-            aria-label="Сброс"
+            className="bg-white shadow-md rounded-2xl p-4 min-h-14 min-w-14 flex items-center justify-center text-purple-600 active:scale-95 transition-transform touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-400"
+            aria-label="Сброс таймера"
+            title="Сброс"
           >
             <RotateCcw className="w-6 h-6" />
           </button>
           <button
             onClick={togglePlay}
-            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-lg font-semibold rounded-2xl py-4 min-h-14 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-md touch-manipulation"
+            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-lg font-semibold rounded-2xl py-4 min-h-14 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-md touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-400"
+            aria-label={isRunning ? 'Пауза' : 'Старт'}
           >
             {isRunning ? (
               <>
@@ -400,8 +424,9 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
           <button
             onClick={handleNext}
             disabled={stageIdx >= stageDurations.length - 1}
-            className="bg-white shadow-md rounded-2xl p-4 min-h-14 min-w-14 flex items-center justify-center text-purple-600 active:scale-95 transition-transform disabled:opacity-40 touch-manipulation"
+            className="bg-white shadow-md rounded-2xl p-4 min-h-14 min-w-14 flex items-center justify-center text-purple-600 active:scale-95 transition-transform disabled:opacity-40 touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-400"
             aria-label="Следующий этап"
+            title="Следующий этап"
           >
             <SkipForward className="w-6 h-6" />
           </button>
