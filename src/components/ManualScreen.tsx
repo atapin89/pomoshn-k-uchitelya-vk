@@ -1,8 +1,277 @@
-import { Clock, Dices, Volume2, Layers, Grid3x3, BookOpen, Lightbulb, Calculator, Trophy, LayoutGrid } from 'lucide-react';
+import { useState } from 'react';
+import {
+  Clock,
+  Dices,
+  Volume2,
+  Layers,
+  Grid3x3,
+  BookOpen,
+  Lightbulb,
+  Calculator,
+  Trophy,
+  LayoutGrid,
+  Users,
+  Timer,
+  ChevronDown,
+  ChevronUp,
+  type LucideIcon,
+} from 'lucide-react';
 import BackButton from './BackButton';
 import YandexAdBlock from './YandexAdBlock';
 
+interface ManualSection {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  description: string;
+  instructions: string[];
+  scenarios: { title: string; text: string }[];
+}
+
+const MANUAL_SECTIONS: ManualSection[] = [
+  {
+    id: 'timer',
+    title: 'Таймер урока',
+    icon: Clock,
+    description: 'Визуальный контроль времени и управление темпом занятия.',
+    instructions: [
+      'Нажмите «Таймер урока» на главном экране.',
+      'Выберите готовый шаблон (стандартный урок, контрольная, пятиминутка) или создайте свой.',
+      'Для своего шаблона: нажмите «Создать», введите название и добавьте этапы с длительностью.',
+      'Нажмите «Старт» — таймер запустится.',
+      'Цвет таймера меняется: зелёный → оранжевый → красный при окончании времени.',
+      'Кнопка «Далее» — перейти к следующему этапу досрочно.',
+      'Кнопка «+1 мин» — добавить минуту к текущему этапу (отнимается у следующего).',
+      'Кнопка «Пауза» — приостановить таймер, «Старт» — продолжить.',
+      'Кнопка сброса — вернуться к списку шаблонов.',
+    ],
+    scenarios: [
+      { title: 'Стандартный урок', text: 'Используйте шаблон «Стандартный урок» на 40 минут: разминка 5 мин, объяснение 15 мин, практика 15 мин, закрепление 5 мин.' },
+      { title: 'Контрольная работа', text: 'Шаблон «Контрольная»: раздача заданий 3 мин, выполнение 30 мин, сбор работ 2 мин. Ученики видят оставшееся время на проекторе.' },
+      { title: 'Групповая работа', text: 'Создайте шаблон с этапом «Работа в группах» 20 минут. Таймер на проекторе помогает группам следить за темпом.' },
+      { title: 'Пятиминутка', text: 'Шаблон «Пятиминутка» для быстрой проверки: 1 мин на вопрос, 3 мин на ответы, 1 мин на обсуждение.' },
+      { title: 'Открытый урок', text: 'Для открытого урока создайте шаблон с точными временными рамками каждого этапа — комиссия оценит организованность.' },
+    ],
+  },
+  {
+    id: 'pomodoro',
+    title: 'Таймер Помодоро',
+    icon: Timer,
+    description: 'Техника Помодоро для личной продуктивности и планирования.',
+    instructions: [
+      'Нажмите «Помодоро» на главном экране.',
+      'Добавьте задачу: введите название в поле и нажмите «+» или Enter.',
+      'Укажите оценку задачи — сколько «помидорок» займёт (1-20).',
+      'Кликните по задаче — она станет активной.',
+      'Нажмите «Старт» — начнётся 25-минутный фокус.',
+      'Во время фокуса не отвлекайтесь! Работайте только над активной задачей.',
+      'Когда таймер сработает — отдохните 5 минут.',
+      'После 4 «помидорок» — длинный перерыв 15 минут.',
+      'Настройки (шестерёнка): длительность, автозапуск, звук, экспорт.',
+      'Статистика (график): отслеживайте продуктивность за 7 дней.',
+    ],
+    scenarios: [
+      { title: 'Подготовка к уроку', text: 'Создайте задачи: «Написать план урока» (2 🍅), «Проверить тетради» (4 🍅), «Подготовить презентацию» (3 🍅). Работайте по очереди.' },
+      { title: 'Проверка работ', text: 'Задача «Проверить контрольные 5А» с оценкой 4 🍅. Работайте сериями по 25 минут — глаза меньше устают, внимание не рассеивается.' },
+      { title: 'Планирование недели', text: 'В понедельник добавьте все задачи на неделю. В конце недели откройте статистику — увидите, сколько времени ушло на каждую задачу.' },
+      { title: 'Самообразование', text: 'Задача «Прочитать методичку» (2 🍅), «Изучить новый учебник» (3 🍅). Техника помогает выделить время на профессиональный рост.' },
+      { title: 'Отчётность', text: 'Задача «Заполнить электронный журнал» (2 🍅). Одна «помидорка» — один класс. Перерывы между классами — отдых для глаз.' },
+    ],
+  },
+  {
+    id: 'generator',
+    title: 'Жеребьёвка',
+    icon: Dices,
+    description: 'Объективный и игровой способ выбора учеников.',
+    instructions: [
+      'Нажмите «Жеребьёвка» на главном экране.',
+      'Введите список учеников — по одному на строку.',
+      'Пол можно указать в скобках: «Иван Петров (м)», «Аня Смирнова, ж».',
+      'Режим «Выбрать одного»: нажмите «Выбрать одного» — колесо фортуны выберет случайного ученика.',
+      'Режим «Разделить на группы»: укажите количество групп и нажмите «Распределить».',
+      'Режим «Случайная рассадка»: задайте ряды и колонки, включите чередование по полу.',
+      'Результат можно скопировать или отправить через «Поделиться».',
+      'Сохраните список: введите название и нажмите «Сохранить».',
+      'Импорт/экспорт: кнопки «Импорт» и «Экспорт» для файлов .txt.',
+    ],
+    scenarios: [
+      { title: 'Справедливый опрос', text: 'Откройте колесо фортуны на проекторе. Ученики видят случайность выбора — никто не обижается на «любимчиков».' },
+      { title: 'Команды за 10 секунд', text: 'Перед проектной работой нажмите «Разделить на группы». Нужно иначе — нажмите ещё раз. Результат отправьте в чат класса.' },
+      { title: 'Рассадка без обид', text: 'Новая четверть — новая рассадка. Сгенерируйте случайную схему и выведите на проектор. Включите чередование по полу.' },
+      { title: 'Несколько классов', text: 'Сохраните списки «5А», «5Б», «5В». Переключайтесь в один тап. Экспортируйте файл и передайте коллеге на замену.' },
+      { title: 'Выбор докладчика', text: 'Используйте колесо фортуны для выбора, кто первым представит проект. Атмосфера игры снимает стресс.' },
+    ],
+  },
+  {
+    id: 'noise',
+    title: 'Контроль шума',
+    icon: Volume2,
+    description: 'Геймифицированный индикатор громкости через микрофон.',
+    instructions: [
+      'Нажмите «Контроль шума» на главном экране.',
+      'Нажмите «Включить микрофон» и разрешите доступ.',
+      'Выберите тип визуализации: шарики, смайлики или пузыри.',
+      'Настройте чувствительность под акустику кабинета.',
+      'Выведите экран на проектор.',
+      'При превышении порога: звуковой сигнал и красный экран «ТИШЕ!».',
+      'Ученики сами регулируют громкость, видя визуальную обратную связь.',
+    ],
+    scenarios: [
+      { title: 'Групповая работа', text: 'Во время работы в группах включите шумомер на проекторе. Ученики сами следят за громкостью, чтобы не «зажечь» красный экран.' },
+      { title: 'Самостоятельная работа', text: 'Тихая самостоятельная работа: установите высокую чувствительность. Даже шёпот будет виден — ученики соблюдают тишину.' },
+      { title: 'Игровая переменка', text: 'Устройте соревнование: кто дольше продержит тишину? Шумомер с шариками — наглядный индикатор для младших классов.' },
+      { title: 'Открытый урок', text: 'На открытом уроке шумомер показывает дисциплину класса. Красный экран ни разу не появился — отличный показатель.' },
+      { title: 'Работа с тьютором', text: 'При индивидуальной работе с учеником включите шумомер, чтобы отслеживать уровень шума в классе, не оборачиваясь.' },
+    ],
+  },
+  {
+    id: 'flashcards',
+    title: 'Флэш-карточки',
+    icon: Layers,
+    description: 'Система интервального повторения для запоминания.',
+    instructions: [
+      'Нажмите «Флэш-карточки» на главном экране.',
+      'Создайте колоду: название + карточки с вопросом и ответом.',
+      'Тип «Lame» — 2 стороны (вопрос/ответ).',
+      'Тип «Insane» — до 10 сторон для сложных тем.',
+      'Режим «Изучение»: переворачивайте карточку и оценивайте «Знаю» или «Повторить».',
+      'Режим «Проверка»: тесты с выбором ответа или вводом текста.',
+      'Готовые колоды — для быстрого старта.',
+      'Режим проектора — показывайте карточки на доске.',
+    ],
+    scenarios: [
+      { title: 'Разминка в начале урока', text: 'Выведите карточки на проектор — класс хором отвечает. 5 минут на повторение пройденного.' },
+      { title: 'Иностранные слова', text: 'Создайте колоду «Английские слова 5 класс». Ученики изучают дома, на уроке — быстрая проверка.' },
+      { title: 'Термины по биологии', text: 'Колода с терминами и определениями. Режим «Insane» — добавьте картинки-подсказки на третью сторону.' },
+      { title: 'Подготовка к контрольной', text: 'Создайте колоду с вопросами по теме. Ученики проходят тест — сразу видят пробелы в знаниях.' },
+      { title: 'Правила русского языка', text: 'Колода «Правила орфографии». Карточка: правило → примеры. Ученики повторяют в своём темпе.' },
+    ],
+  },
+  {
+    id: 'wordsearch',
+    title: 'Филворды',
+    icon: Grid3x3,
+    description: 'Генератор головоломок «Найди слово».',
+    instructions: [
+      'Нажмите «Филворды» на главном экране.',
+      'Введите слова — по одному на строку.',
+      'Выберите размер сетки: 10×10, 15×15 или 20×20.',
+      'Выберите сложность: простая, средняя или сложная.',
+      'Нажмите «Создать 1 вариант» или «Пакетная генерация» (до 30 вариантов).',
+      'Переключатель «Ответы» — подсветка найденных слов.',
+      'Переключатель «Слова» — список слов под сеткой.',
+      'Скачайте PNG (для телефона) или PDF (для печати).',
+    ],
+    scenarios: [
+      { title: 'Последние 10 минут урока', text: 'Сгенерируйте филворд по теме урока. Отправьте скриншот в чат — ученики решают, пока есть время.' },
+      { title: 'Домашнее задание', text: 'Создайте филворд по новой теме. Скачайте PDF и раздайте как домашнее задание на повторение.' },
+      { title: 'Разные варианты', text: 'Пакетная генерация 30 вариантов — каждому ученику свой. Исключает списывание.' },
+      { title: 'Словарный диктант', text: 'Слова для диктанта спрятаны в филворде. Ученики находят слова — запоминают написание.' },
+      { title: 'Предметная неделя', text: 'Филворды по предмету для стенда. Сложный режим с диагоналями — для старшеклассников.' },
+    ],
+  },
+  {
+    id: 'calculators',
+    title: 'Калькуляторы',
+    icon: Calculator,
+    description: '6 инструментов для расчёта успеваемости.',
+    instructions: [
+      'Нажмите «Калькуляторы» на главном экране.',
+      'Выберите нужный калькулятор.',
+      'Средний балл: введите оценки и веса, получите средневзвешенный балл.',
+      'Итоговая оценка: текущая + экзамен с весами.',
+      'Оценка за четверть: узнайте, какую оценку нужно получить для желаемого результата.',
+      'Оценка за тест: перевод баллов в оценку по шкале.',
+      'Качество знаний: процент «4» и «5» от общего числа.',
+      'СОУ: доля учащихся, усвоивших программу.',
+    ],
+    scenarios: [
+      { title: 'Быстрый расчёт', text: 'Вместо ручного подсчёта введите оценки в калькулятор — мгновенный результат для отчёта.' },
+      { title: 'Прогноз для ученика', text: 'Ученик спрашивает: «Что будет в четверти?» — покажите расчёт в калькуляторе «Оценка за четверть».' },
+      { title: 'Анализ класса', text: 'После контрольной введите оценки в «Качество знаний» — сразу видите процент успеваемости.' },
+      { title: 'Родительское собрание', text: 'Подготовьте статистику класса по калькуляторам — цифры для отчёта перед родителями.' },
+      { title: 'Отчёт за четверть', text: 'Используйте «СОУ» и «Качество знаний» для аналитической справки. Экспортируйте результаты.' },
+    ],
+  },
+  {
+    id: 'bingo',
+    title: 'Бинго',
+    icon: LayoutGrid,
+    description: 'Конструктор карточек для игры в бинго.',
+    instructions: [
+      'Нажмите «Бинго» на главном экране.',
+      'Введите название и слова для карточек (минимум 24 для 5×5).',
+      'Выберите размер сетки: 3×3, 4×4 или 5×5.',
+      'Настройте FREE-клетку (для 5×5).',
+      'Укажите количество карточек (1-30).',
+      'Нажмите «Сгенерировать карточки».',
+      'Режим проектора — для игры на доске.',
+      'Скачайте PDF карточек и список ведущего.',
+      'Или используйте готовые наборы: «1 сентября», «История», «Новый год».',
+    ],
+    scenarios: [
+      { title: 'Разминка-повторение', text: 'Набор по пройденному материалу. Называйте событие — ученики отмечают дату на карточке.' },
+      { title: 'Терминологическое лото', text: 'Читайте определение — ученики отмечают термин. Закрепление терминов по любому предмету.' },
+      { title: 'Математическая перестрелка', text: 'Называйте задание («15% от 200») — ученики отмечают ответ. Устный счёт в игровой форме.' },
+      { title: 'Новогодний урок', text: 'Набор «Новый год»: загадки — дети отмечают отгадки. Праздничный урок с игрой.' },
+      { title: 'Командный турнир', text: 'Класс делится на команды. Побеждает команда, первой собравшая 3 линии. Проверка по табло проектора.' },
+    ],
+  },
+  {
+    id: 'edugame',
+    title: 'Своя игра',
+    icon: Trophy,
+    description: 'Интеллектуальная викторина по типу телеигры.',
+    instructions: [
+      'Нажмите «Своя игра» на главном экране.',
+      'Создайте игру: название, раунды (темы), вопросы с баллами и ответами.',
+      'Баллы внутри раунда: 10 → 20 → 30 → 40 → 50.',
+      'Режим проектора: табло с клетками-баллами.',
+      'Нажмите на баллы — вопрос крупно на экране.',
+      '«Показать вопрос» → «Показать ответ» → «Закрыть клетку».',
+      'Индивидуальный рейтинг: включите в настройках участников.',
+      'Добавьте имена учеников — кнопки «+» и «−» для начисления баллов.',
+      'Экспорт результатов в .txt для грамот.',
+      'Печать карточек: двусторонняя для игры без компьютера.',
+      'Обмен играми: экспорт/импорт .json между учителями.',
+    ],
+    scenarios: [
+      { title: 'Урок-викторина', text: 'Класс делится на команды. Открывайте вопросы по выбору учеников. Рейтинг — соревнование до последнего вопроса.' },
+      { title: 'Предметная неделя', text: 'Отборочные игры в классах, финал — на сцене с проектором. Результаты экспортируйте для грамот.' },
+      { title: 'Игра без компьютера', text: 'Распечатайте карточки двусторонней печатью. Раздайте вопросы игрокам — ведущий читает по оборотам.' },
+      { title: 'Повторение перед контрольной', text: 'Создайте игру по теме контрольной. Ученики повторяют материал в игровой форме.' },
+      { title: 'Обмен с коллегами', text: 'Поделитесь игрой через .json файл. Коллега импортирует её и адаптирует под свой класс.' },
+    ],
+  },
+  {
+    id: 'activity',
+    title: 'Счётчик активности',
+    icon: Users,
+    description: 'Отслеживание опросов и активности учеников.',
+    instructions: [
+      'Нажмите «Счётчик активности» на главном экране.',
+      'Создайте список класса или загрузите демо-список.',
+      'Добавьте учеников — по одному на строку.',
+      'Нажимайте на карточку ученика — счётчик ответов увеличивается.',
+      'ПКМ (долгое нажатие) — сбросить счётчик ученика.',
+      'Кнопка «Итоги» — сводка: кто ответил, кто нет, кто отсутствовал.',
+      'Экспорт .txt — результаты для отчёта.',
+      'Импорт .txt или .json — загрузка готового списка.',
+    ],
+    scenarios: [
+      { title: 'Устный опрос', text: 'Нажимайте на ученика при каждом ответе. В конце урока видно, кого не спросили — вызовите на следующем уроке.' },
+      { title: 'Дискуссия', text: 'Фиксируйте каждое выступление. Счётчик покажет самых активных и тех, кто отмалчивается.' },
+      { title: 'Групповая работа', text: 'Отмечайте вклад каждого ученика. Сводка покажет лидеров и пассивных участников.' },
+      { title: 'Накопление за неделю', text: 'Ведите один список всю неделю. Счётчики накопят статистику по всем урокам.' },
+      { title: 'Отчёт для родителей', text: 'Экспортируйте результаты в .txt — объективные данные об активности ученика на уроке.' },
+    ],
+  },
+];
+
 export default function ManualScreen({ onBack }: { onBack: () => void }) {
+  const [openSection, setOpenSection] = useState<string | null>('timer');
+  const [openInstructions, setOpenInstructions] = useState<string | null>(null);
+
   return (
     <div className="min-h-[100dvh] bg-gray-50 flex flex-col">
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
@@ -12,7 +281,7 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
           </div>
           <div className="flex-1 min-w-0 flex flex-col justify-center">
             <h1 className="text-lg font-bold text-white leading-tight truncate">Руководство</h1>
-            <p className="text-xs text-purple-200 leading-tight">Как пользоваться приложением</p>
+            <p className="text-xs text-purple-200 leading-tight">Подробные инструкции и сценарии</p>
           </div>
           <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
             <BookOpen className="w-5 h-5 text-white" />
@@ -20,206 +289,97 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-6 space-y-6 pb-8 overflow-y-auto">
-        
-        {/* Оглавление */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-3">Содержание</h2>
-          <ol className="list-decimal list-inside text-sm text-gray-700 space-y-1.5">
-            <li>Таймер урока</li>
-            <li>Жеребьёвка</li>
-            <li>Контроль шума</li>
-            <li>Флэш-карточки</li>
-            <li>Генератор филвордов</li>
-            <li>Калькуляторы</li>
-            <li>Бинго</li>
-            <li>Своя игра</li>
-          </ol>
-        </section>
+      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-3 pb-8 overflow-y-auto">
+        {/* Разделы */}
+        {MANUAL_SECTIONS.map((section) => {
+          const Icon = section.icon;
+          const isOpen = openSection === section.id;
+          const isInstructionsOpen = openInstructions === section.id;
 
-        {/* Введение */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-2">Как запустить</h2>
-          <p className="text-sm text-gray-600 mb-3">Приложение работает прямо в мессенджере MAX, ничего скачивать не нужно.</p>
-          <ol className="list-decimal list-inside text-sm text-gray-700 space-y-1">
-            <li>Перейдите по ссылке на бота приложения.</li>
-            <li>Нажмите кнопку <strong>«Запустить»</strong> (или «Старт») в чате.</li>
-            <li>В открывшемся окне нажмите кнопку <strong>«Старт»</strong>.</li>
-          </ol>
-        </section>
+          return (
+            <div key={section.id} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-purple-100">
+              {/* Заголовок раздела */}
+              <button
+                onClick={() => setOpenSection(isOpen ? null : section.id)}
+                className="w-full px-5 py-4 flex items-center gap-3 hover:bg-purple-50/50 transition-colors"
+                aria-expanded={isOpen}
+              >
+                <Icon className="w-6 h-6 text-purple-600 shrink-0" />
+                <div className="flex-1 min-w-0 text-left">
+                  <h2 className="font-bold text-purple-700 text-base">{section.title}</h2>
+                  <p className="text-xs text-gray-500 truncate">{section.description}</p>
+                </div>
+                {isOpen ? (
+                  <ChevronUp className="w-5 h-5 text-purple-600 shrink-0" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-purple-600 shrink-0" />
+                )}
+              </button>
 
-        {/* Таймер */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-purple-500" /> 1. Таймер урока
-          </h2>
-          <p className="text-sm text-gray-600 mb-3">Визуальный контроль времени и управление темпом занятия.</p>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
-            <li>Готовые шаблоны (стандартный урок, контрольная, пятиминутка).</li>
-            <li>Цветовая индикация: зеленый → оранжевый → красный.</li>
-            <li>Тактильная вибрация при смене этапа.</li>
-          </ul>
-          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
-            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
-              <Lightbulb className="w-4 h-4" /> Сценарий:
-            </p>
-            <p className="text-xs text-purple-700">Выведите таймер на проектор. Ученики видят, сколько времени осталось на задание, и сами следят за темпом, не отвлекая вас вопросами.</p>
-          </div>
-        </section>
+              {isOpen && (
+                <div className="px-5 pb-5 space-y-3">
+                  {/* Описание */}
+                  <p className="text-sm text-gray-600">{section.description}</p>
 
-        {/* Жеребьёвка */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
-            <Dices className="w-5 h-5 text-purple-500" /> 2. Жеребьёвка
-          </h2>
-          <p className="text-sm text-gray-600 mb-3">Объективный и игровой способ выбора учеников. Список класса сохраняется автоматически.</p>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
-            <li><strong>Выбрать одного:</strong> Анимация «Колесо фортуны» с плавным замедлением.</li>
-            <li><strong>Разделить на группы:</strong> Равномерное случайное распределение.</li>
-            <li><strong>Случайная рассадка:</strong> Генерация схемы класса по рядам и колонкам.</li>
-            <li>Результаты можно скопировать или отправить.</li>
-          </ul>
-          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
-            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
-              <Lightbulb className="w-4 h-4" /> Сценарий:
-            </p>
-            <p className="text-xs text-purple-700">Запустите колесо фортуны вместо традиционного вызова к доске. Это превращает процесс в игру и снимает с учителя обвинения в предвзятости.</p>
-          </div>
-        </section>
+                  {/* Инструкция */}
+                  <div className="border border-purple-100 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setOpenInstructions(isInstructionsOpen ? null : section.id)}
+                      className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left bg-purple-50/50 hover:bg-purple-50 transition-colors"
+                      aria-expanded={isInstructionsOpen}
+                    >
+                      <span className="font-semibold text-sm text-purple-700">📋 Пошаговая инструкция</span>
+                      {isInstructionsOpen ? (
+                        <ChevronUp className="w-4 h-4 text-purple-600" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-purple-600" />
+                      )}
+                    </button>
+                    {isInstructionsOpen && (
+                      <ol className="px-4 py-3 space-y-2">
+                        {section.instructions.map((step, i) => (
+                          <li key={i} className="text-sm text-gray-700 flex gap-2">
+                            <span className="font-bold text-purple-500 shrink-0">{i + 1}.</span>
+                            <span>{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </div>
 
-        {/* Контроль шума */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
-            <Volume2 className="w-5 h-5 text-purple-500" /> 3. Контроль шума
-          </h2>
-          <p className="text-sm text-gray-600 mb-3">Геймифицированный индикатор громкости, работающий через микрофон.</p>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
-            <li>Объекты (шарики/смайлики) подпрыгивают при повышении шума.</li>
-            <li>Настройка чувствительности под акустику кабинета.</li>
-            <li>При превышении порога: звуковой сигнал и красный экран с надписью «ТИШЕ!».</li>
-          </ul>
-          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
-            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
-              <Lightbulb className="w-4 h-4" /> Сценарий:
-            </p>
-            <p className="text-xs text-purple-700">Выведите экран на проектор во время групповой работы. Ученики сами регулируют громкость, чтобы не «зажечь» красный экран.</p>
-          </div>
-        </section>
-
-        {/* Флэш-карточки */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
-            <Layers className="w-5 h-5 text-purple-500" /> 4. Флэш-карточки
-          </h2>
-          <p className="text-sm text-gray-600 mb-3">Система интервального повторения для запоминания терминов и правил.</p>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
-            <li>Создание колод с неограниченным количеством сторон.</li>
-            <li>Режим изучения: оценка «Знаю» или «Повторить».</li>
-            <li>Режим проверки: тесты с выбором ответа или вводом текста.</li>
-          </ul>
-          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
-            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
-              <Lightbulb className="w-4 h-4" /> Сценарий:
-            </p>
-            <p className="text-xs text-purple-700">Используйте первые 5 минут урока для разминки: выводите карточки на проектор, а класс хором дает ответы.</p>
-          </div>
-        </section>
-
-        {/* Генератор филвордов */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
-            <Grid3x3 className="w-5 h-5 text-purple-500" /> 5. Генератор филвордов
-          </h2>
-          <p className="text-sm text-gray-600 mb-3">Мгновенное создание головоломок «Найди слово» для печати или отправки в чат.</p>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
-            <li>Настройка размера сетки (10×10, 15×15, 20×20) и сложности.</li>
-            <li>Пакетная генерация до 30 уникальных вариантов за раз.</li>
-            <li>Режим «Ответы»: подсветка слов и красные стрелки направления чтения.</li>
-            <li>Экспорт в PNG (для телефона) или PDF (для компьютера).</li>
-          </ul>
-          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
-            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
-              <Lightbulb className="w-4 h-4" /> Сценарий:
-            </p>
-            <p className="text-xs text-purple-700">Идеальный «заполнитель» на последние 7-10 минут урока. Сгенерируйте филворд по новой теме и отправьте скриншот в учебный чат.</p>
-          </div>
-        </section>
-
-        {/* Калькуляторы */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-purple-500" /> 6. Калькуляторы
-          </h2>
-          <p className="text-sm text-gray-600 mb-3">Набор из 6 инструментов для точных расчетов успеваемости и быстрой подготовки отчетов.</p>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
-            <li><strong>Средний балл:</strong> расчет с учетом веса оценок.</li>
-            <li><strong>Итоговая оценка:</strong> расчет финальной оценки.</li>
-            <li><strong>Оценка за четверть:</strong> прогноз желаемого балла.</li>
-            <li><strong>Оценка за тест:</strong> перевод правильных ответов в оценку.</li>
-            <li><strong>Качество знаний:</strong> процент «4» и «5».</li>
-            <li><strong>СОУ:</strong> доля учащихся, усвоивших программу.</li>
-          </ul>
-          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
-            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
-              <Lightbulb className="w-4 h-4" /> Сценарий:
-            </p>
-            <p className="text-xs text-purple-700">Вместо ручного подсчета всего класса, просто введите количество оценок в калькулятор. Мгновенный результат готов для отчета.</p>
-          </div>
-        </section>
-
-        {/* Бинго */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
-            <LayoutGrid className="w-5 h-5 text-purple-500" /> 7. Бинго
-          </h2>
-          <p className="text-sm text-gray-600 mb-3">Конструктор карточек для игры в бинго с готовыми наборами.</p>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
-            <li>Размеры сетки: 3×3, 4×4, 5×5 с FREE-клеткой.</li>
-            <li>Готовые наборы: «1 сентября», «История», «Новый год».</li>
-            <li>Режим проектора для ведущего.</li>
-            <li>PDF-карточки для печати и онлайн-игра на телефонах.</li>
-          </ul>
-          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
-            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
-              <Lightbulb className="w-4 h-4" /> Сценарий:
-            </p>
-            <p className="text-xs text-purple-700">Идеально для повторения терминов: читайте определение, ученики отмечают термин на карточке. Первая линия — мини-победа!</p>
-          </div>
-        </section>
-
-        {/* Своя игра */}
-        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
-          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-purple-500" /> 8. Своя игра
-          </h2>
-          <p className="text-sm text-gray-600 mb-3">Интеллектуальная викторина по принципу телевизионной «Своей игры».</p>
-          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
-            <li>Режим разработчика: создание игр с раундами и баллами.</li>
-            <li>Режим проектора: табло с клетками-баллами.</li>
-            <li>Индивидуальный рейтинг участников с начислением баллов.</li>
-            <li>Двусторонняя печать карточек для игры без компьютера.</li>
-            <li>Обмен играми между учителями через JSON.</li>
-          </ul>
-          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
-            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
-              <Lightbulb className="w-4 h-4" /> Сценарий:
-            </p>
-            <p className="text-xs text-purple-700">Идеально для урока-викторины: класс делится на команды, открывайте вопросы по выбору учеников. С рейтингом — соревнование до последнего вопроса!</p>
-          </div>
-        </section>
+                  {/* Сценарии */}
+                  <div>
+                    <p className="font-semibold text-sm text-purple-700 mb-2">💡 5 сценариев использования</p>
+                    <div className="space-y-2">
+                      {section.scenarios.map((scenario, i) => (
+                        <div key={i} className="bg-purple-50/50 rounded-xl p-3 border border-purple-100">
+                          <p className="text-sm font-semibold text-purple-800 mb-1">
+                            {i + 1}. {scenario.title}
+                          </p>
+                          <p className="text-xs text-gray-600 leading-relaxed">{scenario.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Общие советы */}
-        <section className="bg-violet-100 rounded-2xl p-5 border border-violet-200">
-          <h2 className="text-lg font-bold text-violet-800 mb-2 flex items-center gap-2">
+        <div className="bg-violet-100 rounded-2xl p-5 border border-violet-200">
+          <h2 className="text-lg font-bold text-violet-800 mb-3 flex items-center gap-2">
             <Lightbulb className="w-5 h-5" /> Общие советы
           </h2>
           <ul className="list-disc list-inside text-sm text-violet-900 space-y-2">
             <li>Для работы «Контроля шума» разрешите приложению MAX доступ к микрофону в настройках телефона.</li>
-            <li>Список класса в «Жеребьёвке» сохраняется автоматически. Введите его один раз.</li>
-            <li>Максимальный эффект достигается при выводе Таймера, Жеребьёвки и Шумомера на проектор.</li>
-            <li>Скачивание PDF с филвордами стабильнее всего работает с компьютера.</li>
+            <li>Список класса в «Жеребьёвке» и «Счётчике активности» сохраняется автоматически.</li>
+            <li>Максимальный эффект достигается при выводе на проектор: Таймера, Жеребьёвки, Шумомера и Бинго.</li>
+            <li>Скачивание PDF стабильнее всего работает с компьютера.</li>
+            <li>Используйте экспорт/импорт для переноса данных между устройствами.</li>
           </ul>
-        </section>
+        </div>
 
         <YandexAdBlock />
       </main>
