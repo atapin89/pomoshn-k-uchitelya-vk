@@ -5,30 +5,37 @@ import type { TarsiaPuzzle, TarsiaPair, TarsiaShape } from '@/types/tarsia';
 import { CARD_SIZES } from '@/types/tarsia';
 import { sanitizeFileName } from '@/lib/eduGameStorage';
 
-// ===== ГЕНЕРАЦИЯ РАСПОЛОЖЕНИЯ ФИГУР =====
+// ===== РАСКЛАДКА ФИГУР =====
 
 interface TarsiaCell {
   pair: TarsiaPair;
-  rotation: number; // 0, 60, 120, 180, 240, 300 градусов
+  rotation: number;
   x: number;
   y: number;
 }
 
 function generateTriangleLayout(pairs: TarsiaPair[]): TarsiaCell[] {
   const cells: TarsiaCell[] = [];
-  const side = Math.ceil(Math.sqrt(pairs.length));
-  
   let index = 0;
-  for (let row = 0; row < side && index < pairs.length; row++) {
-    for (let col = 0; col <= row && index < pairs.length; col++) {
+  
+  // Строим треугольник рядами
+  // Каждый ряд: количество карточек = номер ряда
+  let row = 1;
+  let rowStart = 0;
+  
+  while (index < pairs.length) {
+    const rowCount = Math.min(row, pairs.length - index);
+    
+    for (let col = 0; col < rowCount; col++) {
       cells.push({
         pair: pairs[index],
-        rotation: (index * 60) % 360,
-        x: col * 30 - row * 15,
-        y: row * 26,
+        rotation: (col * 60) % 360,
+        x: col * 60 - row * 30,
+        y: row * 52,
       });
       index++;
     }
+    row++;
   }
   
   return cells;
@@ -46,7 +53,7 @@ function generateHexagonLayout(pairs: TarsiaPair[]): TarsiaCell[] {
     
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * 2 * Math.PI;
-      const radius = ring * 35;
+      const radius = ring * 55;
       cells.push({
         pair: pairs[index],
         rotation: (i * 60) % 360,
@@ -71,76 +78,12 @@ function generateDominoLayout(pairs: TarsiaPair[]): TarsiaCell[] {
     cells.push({
       pair,
       rotation: 0,
-      x: col * 70,
-      y: row * 35,
+      x: col * 120,
+      y: row * 60,
     });
   });
   
   return cells;
-}
-
-// ===== ЭКСПОРТ В PDF =====
-
-export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
-  const validPairs = puzzle.pairs.filter((p) => p.left.trim() && p.right.trim());
-  
-  if (validPairs.length === 0) {
-    alert('Добавьте хотя бы одну пару «Вопрос — Ответ»');
-    return;
-  }
-  
-  const scale = CARD_SIZES.find((s) => s.id === puzzle.cardSize)?.scale || 1;
-  const doc = new jsPDF();
-  const W = doc.internal.pageSize.getWidth();
-  const H = doc.internal.pageSize.getHeight();
-  
-  // Загружаем шрифт с поддержкой кириллицы
-  await loadRobotoFont(doc);
-  doc.setFont('Roboto', 'normal');
-  
-  // ===== СТРАНИЦА 1: РЕШЕНИЕ (если включено) =====
-  if (puzzle.showSolution) {
-    doc.setFontSize(16);
-    doc.setTextColor(107, 33, 168);
-    doc.text(puzzle.solutionTitle, W / 2, 20, { align: 'center' });
-    
-    doc.setFontSize(10);
-    doc.setTextColor(31, 41, 55);
-    
-    const solutionCells = generateLayout(puzzle.shape, validPairs);
-    
-    solutionCells.forEach((cell) => {
-      const cx = W / 2 + cell.x * scale;
-      const cy = H / 2 + cell.y * scale;
-      
-      drawShape(doc, puzzle.shape, cx, cy, cell.rotation, scale, cell.pair);
-    });
-    
-    if (puzzle.showSolution) {
-      doc.addPage();
-    }
-  }
-  
-  // ===== СТРАНИЦА 2 (или 1): ЗАДАНИЕ (перемешанное) =====
-  doc.setFontSize(16);
-  doc.setTextColor(107, 33, 168);
-  doc.text(puzzle.puzzleTitle || puzzle.title, W / 2, 20, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.setTextColor(31, 41, 55);
-  
-  // Перемешиваем
-  const shuffledPairs = [...validPairs].sort(() => Math.random() - 0.5);
-  const puzzleCells = generateLayout(puzzle.shape, shuffledPairs);
-  
-  puzzleCells.forEach((cell) => {
-    const cx = W / 2 + cell.x * scale;
-    const cy = H / 2 + cell.y * scale;
-    
-    drawShape(doc, puzzle.shape, cx, cy, cell.rotation, scale, cell.pair);
-  });
-  
-  doc.save(sanitizeFileName(`тарсия_${puzzle.title}.pdf`));
 }
 
 function generateLayout(shape: TarsiaShape, pairs: TarsiaPair[]): TarsiaCell[] {
@@ -154,7 +97,74 @@ function generateLayout(shape: TarsiaShape, pairs: TarsiaPair[]): TarsiaCell[] {
   }
 }
 
-function drawShape(
+// ===== ЭКСПОРТ В PDF =====
+
+export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
+  const validPairs = puzzle.pairs.filter((p) => p.left.trim() && p.right.trim());
+  
+  if (validPairs.length === 0) {
+    alert('Добавьте хотя бы одну пару «Вопрос — Ответ»');
+    return;
+  }
+  
+  const scale = CARD_SIZES.find((s) => s.id === puzzle.cardSize)?.scale || 1;
+  
+  try {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+    
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+    
+    // Загружаем шрифт
+    await loadRobotoFont(doc);
+    
+    // ===== СТРАНИЦА 1: РЕШЕНИЕ =====
+    if (puzzle.showSolution) {
+      doc.setFont('Roboto', 'normal');
+      doc.setFontSize(16);
+      doc.setTextColor(107, 33, 168);
+      doc.text(puzzle.solutionTitle, W / 2, 20, { align: 'center' });
+      
+      const solutionCells = generateLayout(puzzle.shape, validPairs);
+      
+      solutionCells.forEach((cell) => {
+        const cx = W / 2 + cell.x * scale * 0.35;
+        const cy = H / 2 - 20 + cell.y * scale * 0.35;
+        
+        drawShapeOnPdf(doc, puzzle.shape, cx, cy, cell.rotation, scale, cell.pair);
+      });
+      
+      doc.addPage();
+    }
+    
+    // ===== СТРАНИЦА 2: ЗАДАНИЕ =====
+    doc.setFont('Roboto', 'normal');
+    doc.setFontSize(16);
+    doc.setTextColor(107, 33, 168);
+    doc.text(puzzle.puzzleTitle || puzzle.title, W / 2, 20, { align: 'center' });
+    
+    const shuffledPairs = [...validPairs].sort(() => Math.random() - 0.5);
+    const puzzleCells = generateLayout(puzzle.shape, shuffledPairs);
+    
+    puzzleCells.forEach((cell) => {
+      const cx = W / 2 + cell.x * scale * 0.35;
+      const cy = H / 2 - 20 + cell.y * scale * 0.35;
+      
+      drawShapeOnPdf(doc, puzzle.shape, cx, cy, cell.rotation, scale, cell.pair);
+    });
+    
+    doc.save(sanitizeFileName(`тарсия_${puzzle.title}.pdf`));
+  } catch (error) {
+    console.error('Ошибка генерации PDF:', error);
+    alert('Не удалось создать PDF. Попробуйте PNG.');
+  }
+}
+
+function drawShapeOnPdf(
   doc: jsPDF,
   shape: TarsiaShape,
   cx: number,
@@ -163,62 +173,58 @@ function drawShape(
   scale: number,
   pair: TarsiaPair,
 ): void {
-  const size = 25 * scale;
+  const size = 20 * scale;
   
   doc.saveGraphicsState();
   doc.translate(cx, cy);
   doc.rotate(rotation);
   
   if (shape === 'triangle') {
-    drawTriangle(doc, size);
-    drawTriangleText(doc, size, pair);
+    drawTriangleOnPdf(doc, size, pair);
   } else if (shape === 'hexagon') {
-    drawHexagon(doc, size);
-    drawHexagonText(doc, size, pair);
+    drawHexagonOnPdf(doc, size, pair);
   } else {
-    drawDomino(doc, size, pair);
+    drawDominoOnPdf(doc, size, pair);
   }
   
   doc.restoreGraphicsState();
 }
 
-function drawTriangle(doc: jsPDF, size: number): void {
+function drawTriangleOnPdf(doc: jsPDF, size: number, pair: TarsiaPair): void {
   const h = size * Math.sqrt(3) / 2;
   
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(1.5);
+  doc.setLineWidth(0.5);
+  doc.setFont('Roboto', 'normal');
+  doc.setFontSize(6);
+  doc.setTextColor(31, 41, 55);
+  
+  // Рисуем треугольник
   doc.line(-size / 2, h / 2, size / 2, h / 2);
   doc.line(size / 2, h / 2, 0, -h / 2);
   doc.line(0, -h / 2, -size / 2, h / 2);
+  
+  // Текст на нижней грани
+  const leftLines = doc.splitTextToSize(pair.left, size - 6);
+  doc.text(leftLines, 0, h / 2 - 6, { align: 'center' });
+  
+  // Текст на левой грани
+  const rightLines = doc.splitTextToSize(pair.right, size - 6);
+  doc.text(rightLines, -size / 2 + 3, 4, { align: 'center', angle: 60 });
 }
 
-function drawTriangleText(doc: jsPDF, size: number, pair: TarsiaPair): void {
-  const h = size * Math.sqrt(3) / 2;
-  
-  // Текст на гранях
-  doc.setFontSize(7);
+function drawHexagonOnPdf(doc: jsPDF, size: number, pair: TarsiaPair): void {
+  doc.setDrawColor(124, 58, 237);
+  doc.setLineWidth(0.5);
+  doc.setFont('Roboto', 'normal');
+  doc.setFontSize(6);
   doc.setTextColor(31, 41, 55);
   
-  // Нижняя грань
-  doc.text(pair.left, 0, h / 2 - 5, { align: 'center', maxWidth: size - 8 });
-  
-  // Левая грань
-  doc.text(pair.right, -size / 2 + 5, 2, { align: 'center', maxWidth: 18, angle: 60 });
-  
-  // Правая грань
-  doc.text(pair.right, size / 2 - 5, 2, { align: 'center', maxWidth: 18, angle: -60 });
-}
-
-function drawHexagon(doc: jsPDF, size: number): void {
-  doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(1.5);
-  
+  // Рисуем шестиугольник
   const sides = 6;
-  const angleStep = (2 * Math.PI) / sides;
-  
   for (let i = 0; i < sides; i++) {
-    const angle1 = i * angleStep;
-    const angle2 = (i + 1) * angleStep;
+    const angle1 = (i * Math.PI) / 3;
+    const angle2 = ((i + 1) * Math.PI) / 3;
     
     const x1 = Math.cos(angle1) * size;
     const y1 = Math.sin(angle1) * size;
@@ -227,38 +233,37 @@ function drawHexagon(doc: jsPDF, size: number): void {
     
     doc.line(x1, y1, x2, y2);
   }
+  
+  // Текст
+  const leftLines = doc.splitTextToSize(pair.left, size * 1.5);
+  doc.text(leftLines, 0, -size + 4, { align: 'center' });
+  
+  const rightLines = doc.splitTextToSize(pair.right, size * 1.5);
+  doc.text(rightLines, 0, size - 4, { align: 'center' });
 }
 
-function drawHexagonText(doc: jsPDF, size: number, pair: TarsiaPair): void {
-  doc.setFontSize(7);
-  doc.setTextColor(31, 41, 55);
-  
-  // Верхняя грань
-  doc.text(pair.left, 0, -size + 4, { align: 'center', maxWidth: size * 1.5 });
-  
-  // Нижняя грань
-  doc.text(pair.right, 0, size - 4, { align: 'center', maxWidth: size * 1.5 });
-}
-
-function drawDomino(doc: jsPDF, size: number, pair: TarsiaPair): void {
-  const w = size * 2.5;
+function drawDominoOnPdf(doc: jsPDF, size: number, pair: TarsiaPair): void {
+  const w = size * 2;
   const h = size;
   
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(1.5);
+  doc.setLineWidth(0.5);
+  doc.setFont('Roboto', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(31, 41, 55);
+  
+  // Прямоугольник
   doc.rect(-w / 2, -h / 2, w, h);
   
   // Разделитель
   doc.line(0, -h / 2, 0, h / 2);
   
-  doc.setFontSize(8);
-  doc.setTextColor(31, 41, 55);
+  // Текст
+  const leftLines = doc.splitTextToSize(pair.left, w / 2 - 6);
+  doc.text(leftLines, -w / 4, 0, { align: 'center' });
   
-  // Левая часть
-  doc.text(pair.left, -w / 4, 0, { align: 'center', maxWidth: w / 2 - 6 });
-  
-  // Правая часть
-  doc.text(pair.right, w / 4, 0, { align: 'center', maxWidth: w / 2 - 6 });
+  const rightLines = doc.splitTextToSize(pair.right, w / 2 - 6);
+  doc.text(rightLines, w / 4, 0, { align: 'center' });
 }
 
 // ===== ЭКСПОРТ В PNG =====
@@ -272,57 +277,82 @@ export async function exportTarsiaToPNG(puzzle: TarsiaPuzzle): Promise<void> {
   }
   
   const scale = CARD_SIZES.find((s) => s.id === puzzle.cardSize)?.scale || 1;
-  const canvas = document.createElement('canvas');
-  const size = 800 * scale;
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
   
-  // Белый фон
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, size, size);
-  
-  // Заголовок
-  ctx.fillStyle = '#6d28d9';
-  ctx.font = `bold ${24 * scale}px Arial, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText(puzzle.puzzleTitle || puzzle.title, size / 2, 40 * scale);
-  
-  // Перемешиваем
-  const shuffledPairs = [...validPairs].sort(() => Math.random() - 0.5);
-  const cells = generateLayout(puzzle.shape, shuffledPairs);
-  
-  ctx.strokeStyle = '#7c3aed';
-  ctx.lineWidth = 1.5;
-  ctx.fillStyle = '#1f2937';
-  
-  cells.forEach((cell) => {
-    const cx = size / 2 + cell.x * scale;
-    const cy = size / 2 + cell.y * scale;
+  try {
+    // Вычисляем размеры канваса на основе раскладки
+    const cells = generateLayout(puzzle.shape, validPairs);
+    const spacing = 55 * scale;
     
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate((cell.rotation * Math.PI) / 180);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    cells.forEach((cell) => {
+      minX = Math.min(minX, cell.x);
+      maxX = Math.max(maxX, cell.x);
+      minY = Math.min(minY, cell.y);
+      maxY = Math.max(maxY, cell.y);
+    });
     
-    if (puzzle.shape === 'triangle') {
-      drawTriangleCanvas(ctx, 25 * scale, cell.pair);
-    } else if (puzzle.shape === 'hexagon') {
-      drawHexagonCanvas(ctx, 25 * scale, cell.pair);
-    } else {
-      drawDominoCanvas(ctx, 25 * scale, cell.pair);
-    }
+    const width = (maxX - minX) * scale + spacing * 4;
+    const height = (maxY - minY) * scale + spacing * 4;
     
-    ctx.restore();
-  });
-  
-  // Скачивание
-  const link = document.createElement('a');
-  link.download = sanitizeFileName(`тарсия_${puzzle.title}.png`);
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(400, Math.ceil(width));
+    canvas.height = Math.max(400, Math.ceil(height));
+    const ctx = canvas.getContext('2d')!;
+    
+    // Белый фон
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Заголовок
+    ctx.fillStyle = '#6d28d9';
+    ctx.font = `bold ${18 * scale}px Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(puzzle.puzzleTitle || puzzle.title, canvas.width / 2, 30 * scale);
+    
+    // Перемешиваем для задания
+    const shuffledPairs = [...validPairs].sort(() => Math.random() - 0.5);
+    const shuffledCells = generateLayout(puzzle.shape, shuffledPairs);
+    
+    const offsetX = canvas.width / 2 - ((minX + maxX) / 2) * scale;
+    const offsetY = canvas.height / 2 + 20 * scale - ((minY + maxY) / 2) * scale;
+    
+    ctx.strokeStyle = '#7c3aed';
+    ctx.lineWidth = 2;
+    ctx.fillStyle = '#1f2937';
+    
+    shuffledCells.forEach((cell) => {
+      const cx = offsetX + cell.x * scale;
+      const cy = offsetY + cell.y * scale;
+      
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate((cell.rotation * Math.PI) / 180);
+      
+      if (puzzle.shape === 'triangle') {
+        drawTriangleOnCanvas(ctx, 22 * scale, cell.pair);
+      } else if (puzzle.shape === 'hexagon') {
+        drawHexagonOnCanvas(ctx, 22 * scale, cell.pair);
+      } else {
+        drawDominoOnCanvas(ctx, 22 * scale, cell.pair);
+      }
+      
+      ctx.restore();
+    });
+    
+    // Скачивание
+    const link = document.createElement('a');
+    link.download = sanitizeFileName(`тарсия_${puzzle.title}.png`);
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Ошибка генерации PNG:', error);
+    alert('Не удалось создать PNG');
+  }
 }
 
-function drawTriangleCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
+function drawTriangleOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
   const h = size * Math.sqrt(3) / 2;
   
   ctx.beginPath();
@@ -332,24 +362,22 @@ function drawTriangleCanvas(ctx: CanvasRenderingContext2D, size: number, pair: T
   ctx.closePath();
   ctx.stroke();
   
-  ctx.font = `${7}px Arial, sans-serif`;
+  ctx.fillStyle = '#1f2937';
+  ctx.font = `${Math.max(7, size * 0.3)}px Arial, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(pair.left, 0, h / 2 - 5);
   
+  // Нижняя грань — вопрос
+  wrapText(ctx, pair.left, 0, h / 2 - 8, size - 10);
+  
+  // Левая грань — ответ
   ctx.save();
-  ctx.translate(-size / 2 + 5, 2);
+  ctx.translate(-size / 2 + 5, 3);
   ctx.rotate(Math.PI / 3);
-  ctx.fillText(pair.right, 0, 0);
-  ctx.restore();
-  
-  ctx.save();
-  ctx.translate(size / 2 - 5, 2);
-  ctx.rotate(-Math.PI / 3);
-  ctx.fillText(pair.right, 0, 0);
+  wrapText(ctx, pair.right, 0, 0, size - 10);
   ctx.restore();
 }
 
-function drawHexagonCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
+function drawHexagonOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
   ctx.beginPath();
   for (let i = 0; i < 6; i++) {
     const angle = (i * Math.PI) / 3;
@@ -361,26 +389,61 @@ function drawHexagonCanvas(ctx: CanvasRenderingContext2D, size: number, pair: Ta
   ctx.closePath();
   ctx.stroke();
   
-  ctx.font = `${7}px Arial, sans-serif`;
+  ctx.fillStyle = '#1f2937';
+  ctx.font = `${Math.max(7, size * 0.3)}px Arial, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(pair.left, 0, -size + 4);
-  ctx.fillText(pair.right, 0, size - 4);
+  
+  wrapText(ctx, pair.left, 0, -size + 5, size * 1.5);
+  wrapText(ctx, pair.right, 0, size - 5, size * 1.5);
 }
 
-function drawDominoCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
-  const w = size * 2.5;
+function drawDominoOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
+  const w = size * 2;
   const h = size;
   
   ctx.strokeRect(-w / 2, -h / 2, w, h);
+  
   ctx.beginPath();
   ctx.moveTo(0, -h / 2);
   ctx.lineTo(0, h / 2);
   ctx.stroke();
   
-  ctx.font = `${8}px Arial, sans-serif`;
+  ctx.fillStyle = '#1f2937';
+  ctx.font = `${Math.max(8, size * 0.35)}px Arial, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(pair.left, -w / 4, 0);
-  ctx.fillText(pair.right, w / 4, 0);
+  
+  wrapText(ctx, pair.left, -w / 4, 0, w / 2 - 8);
+  wrapText(ctx, pair.right, w / 4, 0, w / 2 - 8);
+}
+
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+): void {
+  const words = text.split(' ');
+  let line = '';
+  let lineY = y;
+  const lineHeight = 10;
+  
+  for (const word of words) {
+    const testLine = line ? `${line} ${word}` : word;
+    const metrics = ctx.measureText(testLine);
+    
+    if (metrics.width > maxWidth && line) {
+      ctx.fillText(line, x, lineY);
+      line = word;
+      lineY += lineHeight;
+    } else {
+      line = testLine;
+    }
+  }
+  
+  if (line) {
+    ctx.fillText(line, x, lineY);
+  }
 }
 
 // ===== ЗАГРУЗКА ШРИФТА =====
@@ -399,8 +462,8 @@ async function loadRobotoFont(doc: jsPDF): Promise<void> {
     doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
     fontLoaded = true;
   } catch {
-    console.warn('Не удалось загрузить шрифт Roboto. Кириллица может не отображаться.');
-    fontLoaded = true;
+    console.warn('Не удалось загрузить шрифт Roboto. Использую стандартный.');
+    fontLoaded = true; // Чтобы не пытаться снова
   }
 }
 
