@@ -10,6 +10,7 @@ import {
   Calculator, 
   Trophy,
   LayoutGrid,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -26,7 +27,8 @@ type SectionId =
   | 'manual' 
   | 'calculators' 
   | 'bingo' 
-  | 'edugame';
+  | 'edugame'
+  | 'tapper';
 
 interface Section {
   id: SectionId;
@@ -98,6 +100,13 @@ const SECTIONS: Section[] = [
     description: 'Интеллектуальная викторина',
     hint: 'Интеллектуальная викторина по принципу телевизионной «Своей игры»: режим разработчика для создания игр, проектор с табло и начислением баллов, индивидуальный рейтинг участников, двусторонняя печать карточек для игры без компьютера, обмен играми между учителями через JSON.',
     icon: Trophy,
+  },
+  {
+    id: 'tapper',
+    title: 'Таппер',
+    description: 'Опрос учеников',
+    hint: 'Отслеживайте, кого опросили и кто был активен на уроке. Нажимайте на ученика — счётчик ответов. Сводка в конце урока.',
+    icon: Users,
   },
 ];
 
