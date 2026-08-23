@@ -193,8 +193,8 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const [projectorGame, setProjectorGame] = useState<EduGame | null>(null);
   const [isNewGame, setIsNewGame] = useState(false);
 
-  const [showMyGames, setShowMyGames] = useState(true);   // Мои игры первыми и развёрнуты
-  const [showPresets, setShowPresets] = useState(false);  // Пресеты свёрнуты
+  const [showMyGames, setShowMyGames] = useState(true);
+  const [showPresets, setShowPresets] = useState(false);
   const [showHow, setShowHow] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
 
@@ -216,7 +216,6 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   };
 
   const handleCopyPreset = (preset: EduGame) => {
-    // Проверка на дубликат
     const existingCopy = games.find(
       (g) => g.title === preset.title && g.rounds.length === preset.rounds.length
     );
@@ -251,18 +250,6 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
     reader.onload = () => {
       const game = parseEduGameFile(String(reader.result || ''));
       if (game) {
-        // Проверка на дубликат
-        const exists = games.some((g) => g.id === game.id);
-        if (exists) {
-          const overwrite = window.confirm(
-            `Игра с ID «${game.id}» уже существует. Перезаписать?`
-          );
-          if (!overwrite) {
-            setImportMsg('error');
-            setTimeout(() => setImportMsg(null), 2500);
-            return;
-          }
-        }
         upsertEduGame(game);
         refresh();
         setImportMsg('ok');
@@ -294,7 +281,6 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   };
 
   const handleEditorBack = () => {
-    // Если это новая игра и она пустая — удаляем
     if (editingGame && isNewGame) {
       const empty = gameQuestionsCount(editingGame) === 0;
       const renamed = editingGame.title.trim() !== 'Новая игра';
@@ -390,7 +376,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
           </p>
         </div>
 
-        {/* 1) МОИ ИГРЫ — всегда первые */}
+        {/* 1) МОИ ИГРЫ */}
         <CollapseSection
           open={showMyGames}
           onToggle={() => setShowMyGames(!showMyGames)}
