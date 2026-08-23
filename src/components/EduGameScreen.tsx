@@ -35,7 +35,7 @@ import BackButton from './BackButton';
 import EduGameEditorScreen from './EduGameEditorScreen';
 import EduGameProjectorScreen from './EduGameProjectorScreen';
 
-// ===== Внутренние компоненты (оптимизация: без дублирования разметки) =====
+// ===== Внутренние компоненты =====
 
 function Collapse({
   open,
@@ -54,11 +54,17 @@ function Collapse({
 }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-      <button onClick={onToggle} className="w-full px-5 py-4 flex items-center justify-between gap-2">
+      <button 
+        onClick={onToggle} 
+        className="w-full px-5 py-4 flex items-center justify-between gap-2 hover:bg-purple-50/50 transition-colors"
+        aria-expanded={open}
+      >
         <div className="flex items-center gap-2">
           <Icon className="w-5 h-5 text-purple-600" />
           <h2 className="text-lg font-semibold text-purple-700">{title}</h2>
-          <span className="text-xs font-bold text-purple-400">{count}</span>
+          <span className="text-xs font-bold text-purple-400 bg-purple-50 px-2 py-0.5 rounded-full">
+            {count}
+          </span>
         </div>
         {open ? (
           <ChevronUp className="w-5 h-5 text-purple-600" />
@@ -80,6 +86,7 @@ function FaqList({ items }: { items: { q: string; a: string }[] }) {
           <button
             onClick={() => setOpen(open === idx ? null : idx)}
             className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+            aria-expanded={open === idx}
           >
             <span className="font-semibold text-sm text-gray-800">{item.q}</span>
             {open === idx ? (
@@ -115,6 +122,7 @@ function IconButton({
       onClick={onClick}
       className={`bg-white hover:bg-gray-100 ${color} rounded-lg py-2 flex items-center justify-center transition-colors`}
       aria-label={label}
+      title={label}
     >
       <Icon className="w-4 h-4" />
     </button>
@@ -201,6 +209,17 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
 
   // Копия пресета в «Мои игры» + редактор
   const handleCopyPreset = (preset: EduGame) => {
+    // Проверка на дубликат
+    const existingCopy = games.find(
+      (g) => g.title === preset.title && g.rounds.length === preset.rounds.length
+    );
+    if (existingCopy) {
+      const proceed = window.confirm(
+        `Игра «${preset.title}» уже есть в «Моих играх». Создать ещё одну копию?`
+      );
+      if (!proceed) return;
+    }
+
     const copy: EduGame = {
       ...preset,
       id: generateEduId('edugame'),
@@ -218,17 +237,19 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
     setIsNewGame(false);
   };
 
-  // Выход из редактора: пустую новую игру удаляем, возврат на домашний экран
+  // Выход из редактора: возврат в раздел «Своя игра»
   const handleEditorBack = () => {
     if (editingGame && isNewGame) {
       const empty = gameQuestionsCount(editingGame) === 0;
       const renamed = editingGame.title.trim() !== 'Новая игра';
-      if (empty && !renamed) deleteEduGame(editingGame.id);
+      if (empty && !renamed) {
+        deleteEduGame(editingGame.id);
+      }
     }
     setEditingGame(null);
     setIsNewGame(false);
     refresh();
-    onBack();
+    // НЕ вызываем onBack() — остаёмся в разделе
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,6 +259,18 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
     reader.onload = () => {
       const game = parseEduGameFile(String(reader.result || ''));
       if (game) {
+        // Проверка на дубликат
+        const exists = games.some((g) => g.id === game.id);
+        if (exists) {
+          const overwrite = window.confirm(
+            `Игра с таким ID уже существует. Перезаписать?`
+          );
+          if (!overwrite) {
+            setImportMsg('error');
+            setTimeout(() => setImportMsg(null), 2500);
+            return;
+          }
+        }
         upsertEduGame(game);
         refresh();
         setImportMsg('ok');
@@ -253,6 +286,15 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
   const openEditor = (game: EduGame) => {
     setEditingGame(game);
     setIsNewGame(false);
+  };
+
+  // Удаление с подтверждением
+  const handleDelete = (game: EduGame) => {
+    const proceed = window.confirm(`Удалить игру «${game.title}»? Это действие нельзя отменить.`);
+    if (proceed) {
+      deleteEduGame(game.id);
+      refresh();
+    }
   };
 
   // ===== РЕЖИМ РАЗРАБОТЧИКА =====
@@ -271,10 +313,7 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
     return (
       <EduGameProjectorScreen
         game={projectorGame}
-        onBack={() => {
-          setProjectorGame(null);
-          onBack();
-        }}
+        onBack={() => setProjectorGame(null)}  // Только возврат в раздел
       />
     );
   }
@@ -322,12 +361,12 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
             onChange={handleImportFile}
           />
           {importMsg === 'ok' && (
-            <p className="text-sm font-semibold text-green-600 flex items-center gap-1.5">
+            <p className="text-sm font-semibold text-green-600 flex items-center gap-1.5" role="alert">
               <Check className="w-4 h-4" /> Игра импортирована — смотрите в «Мои игры»
             </p>
           )}
           {importMsg === 'error' && (
-            <p className="text-sm font-semibold text-red-600 flex items-center gap-1.5">
+            <p className="text-sm font-semibold text-red-600 flex items-center gap-1.5" role="alert">
               <AlertTriangle className="w-4 h-4" /> Не удалось прочитать файл игры
             </p>
           )}
@@ -336,7 +375,7 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
           </p>
         </div>
 
-        {/* 1) МОИ ИГРЫ — всегда первые */}
+        {/* 1) МОИ ИГРЫ */}
         <Collapse
           open={sections.my}
           onToggle={() => toggle('my')}
@@ -345,55 +384,65 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
           count={games.length}
         >
           {games.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">
-              Пока нет игр — создайте первую или импортируйте файл
-            </p>
+            <div className="text-center py-6">
+              <p className="text-sm text-gray-400 mb-3">
+                Пока нет игр — создайте первую или импортируйте файл
+              </p>
+              <button
+                onClick={handleCreate}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg font-semibold text-sm hover:bg-purple-200 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Создать первую игру
+              </button>
+            </div>
           ) : (
             <div className="space-y-2">
-              {games.map((g) => (
-                <div key={g.id} className="border-2 border-purple-100 rounded-xl p-3 space-y-2 bg-gray-50">
-                  <button onClick={() => openEditor(g)} className="w-full text-left min-w-0">
-                    <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">
-                      {g.title}
-                    </h4>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)} ·{' '}
-                      {new Date(g.updatedAt).toLocaleDateString('ru-RU')}
-                    </p>
-                  </button>
-                  <div className="grid grid-cols-5 gap-1">
-                    <IconButton icon={Pencil} label="Редактировать" color="text-purple-600" onClick={() => openEditor(g)} />
-                    <IconButton icon={Monitor} label="Режим проектора" color="text-gray-700" onClick={() => setProjectorGame(g)} />
-                    <IconButton icon={Download} label="Скачать PDF" color="text-green-600" onClick={() => exportEduGameToPDF(g)} />
-                    <IconButton
-                      icon={Share2}
-                      label="Поделиться игрой"
-                      color="text-blue-600"
-                      onClick={() =>
-                        downloadTextFile(
-                          sanitizeFileName(`игра_${g.title}.json`),
-                          serializeEduGame(g),
-                          'application/json;charset=utf-8',
-                        )
-                      }
-                    />
-                    <IconButton
-                      icon={Trash2}
-                      label="Удалить игру"
-                      color="text-red-500"
-                      onClick={() => {
-                        deleteEduGame(g.id);
-                        refresh();
-                      }}
-                    />
+              {[...games]
+                .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+                .map((g) => (
+                  <div key={g.id} className="border-2 border-purple-100 rounded-xl p-3 space-y-2 bg-gray-50">
+                    <button 
+                      onClick={() => openEditor(g)} 
+                      className="w-full text-left min-w-0 group"
+                    >
+                      <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate group-hover:text-purple-700 transition-colors">
+                        {g.title}
+                      </h4>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)} ·{' '}
+                        {new Date(g.updatedAt).toLocaleDateString('ru-RU')}
+                      </p>
+                    </button>
+                    <div className="grid grid-cols-5 gap-1">
+                      <IconButton icon={Pencil} label="Редактировать" color="text-purple-600" onClick={() => openEditor(g)} />
+                      <IconButton icon={Monitor} label="Режим проектора" color="text-gray-700" onClick={() => setProjectorGame(g)} />
+                      <IconButton icon={Download} label="Скачать PDF" color="text-green-600" onClick={() => exportEduGameToPDF(g)} />
+                      <IconButton
+                        icon={Share2}
+                        label="Поделиться игрой"
+                        color="text-blue-600"
+                        onClick={() =>
+                          downloadTextFile(
+                            sanitizeFileName(`игра_${g.title}.json`),
+                            serializeEduGame(g),
+                            'application/json;charset=utf-8',
+                          )
+                        }
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        label="Удалить игру"
+                        color="text-red-500"
+                        onClick={() => handleDelete(g)}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           )}
         </Collapse>
 
-        {/* 2) ГОТОВЫЕ ИГРЫ — всегда после «Мои игры» */}
+        {/* 2) ГОТОВЫЕ ИГРЫ */}
         <Collapse
           open={sections.presets}
           onToggle={() => toggle('presets')}
@@ -406,13 +455,15 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
               <div key={g.id} className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-gray-50">
                 <button
                   onClick={() => setProjectorGame(g)}
-                  className="flex-1 min-w-0 text-left flex items-center gap-3"
+                  className="flex-1 min-w-0 text-left flex items-center gap-3 group"
                 >
-                  <div className="shrink-0 w-11 h-11 rounded-xl bg-white border border-purple-200 flex items-center justify-center">
+                  <div className="shrink-0 w-11 h-11 rounded-xl bg-white border border-purple-200 flex items-center justify-center group-hover:border-purple-400 transition-colors">
                     <Trophy className="w-5 h-5 text-purple-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate">{g.title}</h4>
+                    <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate group-hover:text-purple-700 transition-colors">
+                      {g.title}
+                    </h4>
                     <p className="text-xs text-gray-500 mt-0.5">
                       раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)}
                     </p>
@@ -421,7 +472,8 @@ export default function EduGameScreen({ onBack }: { onBack: () => void }) {
                 <button
                   onClick={() => handleCopyPreset(g)}
                   className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
-                  aria-label="Скопировать в Мои игры и редактировать"
+                  aria-label={`Скопировать «${g.title}» в Мои игры`}
+                  title="Скопировать в Мои игры и редактировать"
                 >
                   <Pencil className="w-5 h-5" />
                 </button>
