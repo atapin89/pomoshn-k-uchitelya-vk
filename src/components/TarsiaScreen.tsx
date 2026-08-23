@@ -21,6 +21,7 @@ import {
   Hexagon,
   LayoutGrid,
   List,
+  Sparkles,
 } from 'lucide-react';
 import type { TarsiaPuzzle, TarsiaPair, TarsiaShape } from '@/types/tarsia';
 import {
@@ -55,6 +56,42 @@ const SHAPE_ICONS: Record<TarsiaShape, typeof Triangle> = {
   hexagon: Hexagon,
   domino: LayoutGrid,
 };
+
+// ===== ДЕМО-ВАРИАНТ: Окружающий мир =====
+
+const DEMO_PAIRS: { left: string; right: string }[] = [
+  { left: 'Столица России', right: 'Москва' },
+  { left: 'Самая длинная река России', right: 'Обь' },
+  { left: 'Самое глубокое озеро', right: 'Байкал' },
+  { left: 'Самая высокая гора России', right: 'Эльбрус' },
+  { left: 'Море на юге России', right: 'Чёрное море' },
+  { left: 'Полуостров с вулканами', right: 'Камчатка' },
+  { left: 'Самое большое озеро', right: 'Каспийское море' },
+  { left: 'Река в Санкт-Петербурге', right: 'Нева' },
+  { left: 'Горы между Европой и Азией', right: 'Уральские горы' },
+  { left: 'Столица Татарстана', right: 'Казань' },
+  { left: 'Крупнейший остров России', right: 'Сахалин' },
+  { left: 'Город-герой на Волге', right: 'Волгоград' },
+];
+
+function createDemoPuzzle(): TarsiaPuzzle {
+  return {
+    id: generateTarsiaId('tarsia'),
+    title: 'Окружающий мир (демо)',
+    shape: 'triangle',
+    pairs: DEMO_PAIRS.map((p) => ({
+      id: generateTarsiaId('pair'),
+      left: p.left,
+      right: p.right,
+    })),
+    puzzleTitle: 'Собери карту России',
+    solutionTitle: 'Решение — карта России',
+    showSolution: true,
+    cardSize: 'medium',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
 
 const HOW_ITEMS = [
   {
@@ -93,8 +130,8 @@ const FAQ_ITEMS = [
     a: 'Пары: «1812 год» → «Бородинское сражение». Шестиугольная форма позволяет собрать большую «соту» из 18+ карточек.',
   },
   {
-    q: 'Сценарий 4 · Химия: формулы',
-    a: 'Пары: «H2O» → «Вода». Ученики сопоставляют формулы с названиями. Треугольная форма — классика для такой головоломки.',
+    q: 'Сценарий 4 · Окружающий мир: география',
+    a: 'Пары: «Столица России» → «Москва». Ученики собирают карту страны из треугольников. Используйте демо-вариант для знакомства!',
   },
   {
     q: 'Сценарий 5 · Групповая работа',
@@ -131,6 +168,14 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
     triggerHaptic('light');
   };
 
+  const handleLoadDemo = () => {
+    const demo = createDemoPuzzle();
+    upsertTarsiaPuzzle(demo);
+    refreshPuzzles();
+    setActivePuzzle(demo);
+    triggerHaptic('medium');
+  };
+
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -138,10 +183,8 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
     reader.onload = () => {
       const text = String(reader.result || '');
       
-      // Пробуем JSON
       let puzzle = parseTarsiaPuzzleFile(text);
       
-      // Если не JSON — пробуем TXT
       if (!puzzle) {
         const pairs = parseTarsiaTxtFile(text);
         if (pairs.length > 0) {
@@ -477,6 +520,14 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
           </button>
         </div>
 
+        {/* Демо-вариант */}
+        <button
+          onClick={handleLoadDemo}
+          className="w-full bg-gradient-to-r from-amber-100 to-orange-100 border-2 border-orange-300 text-orange-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        >
+          <Sparkles className="w-5 h-5" /> Загрузить демо: «Окружающий мир»
+        </button>
+
         <input
           ref={fileRef}
           type="file"
@@ -499,7 +550,9 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
         {/* Мои пазлы */}
         {puzzles.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-400 text-sm">Пока нет головоломок. Создайте первую!</p>
+            <p className="text-gray-400 text-sm">
+              Пока нет головоломок. Создайте свою или загрузите демо!
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
