@@ -17,11 +17,7 @@ interface TarsiaCell {
 function generateTriangleLayout(pairs: TarsiaPair[]): TarsiaCell[] {
   const cells: TarsiaCell[] = [];
   let index = 0;
-  
-  // Строим треугольник рядами
-  // Каждый ряд: количество карточек = номер ряда
   let row = 1;
-  let rowStart = 0;
   
   while (index < pairs.length) {
     const rowCount = Math.min(row, pairs.length - index);
@@ -97,7 +93,7 @@ function generateLayout(shape: TarsiaShape, pairs: TarsiaPair[]): TarsiaCell[] {
   }
 }
 
-// ===== ЭКСПОРТ В PDF =====
+// ===== ЭКСПОРТ В PDF (без внешних шрифтов) =====
 
 export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
   const validPairs = puzzle.pairs.filter((p) => p.left.trim() && p.right.trim());
@@ -119,12 +115,9 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
     const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
     
-    // Загружаем шрифт
-    await loadRobotoFont(doc);
-    
     // ===== СТРАНИЦА 1: РЕШЕНИЕ =====
     if (puzzle.showSolution) {
-      doc.setFont('Roboto', 'normal');
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(16);
       doc.setTextColor(107, 33, 168);
       doc.text(puzzle.solutionTitle, W / 2, 20, { align: 'center' });
@@ -142,7 +135,7 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
     }
     
     // ===== СТРАНИЦА 2: ЗАДАНИЕ =====
-    doc.setFont('Roboto', 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(16);
     doc.setTextColor(107, 33, 168);
     doc.text(puzzle.puzzleTitle || puzzle.title, W / 2, 20, { align: 'center' });
@@ -160,7 +153,7 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
     doc.save(sanitizeFileName(`тарсия_${puzzle.title}.pdf`));
   } catch (error) {
     console.error('Ошибка генерации PDF:', error);
-    alert('Не удалось создать PDF. Попробуйте PNG.');
+    alert('Не удалось создать PDF: ' + (error instanceof Error ? error.message : 'неизвестная ошибка'));
   }
 }
 
@@ -194,33 +187,31 @@ function drawTriangleOnPdf(doc: jsPDF, size: number, pair: TarsiaPair): void {
   const h = size * Math.sqrt(3) / 2;
   
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(0.5);
-  doc.setFont('Roboto', 'normal');
-  doc.setFontSize(6);
+  doc.setLineWidth(0.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
   doc.setTextColor(31, 41, 55);
   
-  // Рисуем треугольник
   doc.line(-size / 2, h / 2, size / 2, h / 2);
   doc.line(size / 2, h / 2, 0, -h / 2);
   doc.line(0, -h / 2, -size / 2, h / 2);
   
-  // Текст на нижней грани
-  const leftLines = doc.splitTextToSize(pair.left, size - 6);
-  doc.text(leftLines, 0, h / 2 - 6, { align: 'center' });
+  // Нижняя грань
+  const leftLines = doc.splitTextToSize(pair.left, size - 5);
+  doc.text(leftLines, 0, h / 2 - 5, { align: 'center' });
   
-  // Текст на левой грани
-  const rightLines = doc.splitTextToSize(pair.right, size - 6);
-  doc.text(rightLines, -size / 2 + 3, 4, { align: 'center', angle: 60 });
+  // Левая грань
+  const rightLines = doc.splitTextToSize(pair.right, size - 5);
+  doc.text(rightLines, -size / 2 + 3, 3, { align: 'center', angle: 60 });
 }
 
 function drawHexagonOnPdf(doc: jsPDF, size: number, pair: TarsiaPair): void {
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(0.5);
-  doc.setFont('Roboto', 'normal');
-  doc.setFontSize(6);
+  doc.setLineWidth(0.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
   doc.setTextColor(31, 41, 55);
   
-  // Рисуем шестиугольник
   const sides = 6;
   for (let i = 0; i < sides; i++) {
     const angle1 = (i * Math.PI) / 3;
@@ -234,12 +225,11 @@ function drawHexagonOnPdf(doc: jsPDF, size: number, pair: TarsiaPair): void {
     doc.line(x1, y1, x2, y2);
   }
   
-  // Текст
-  const leftLines = doc.splitTextToSize(pair.left, size * 1.5);
-  doc.text(leftLines, 0, -size + 4, { align: 'center' });
+  const leftLines = doc.splitTextToSize(pair.left, size * 1.3);
+  doc.text(leftLines, 0, -size + 3, { align: 'center' });
   
-  const rightLines = doc.splitTextToSize(pair.right, size * 1.5);
-  doc.text(rightLines, 0, size - 4, { align: 'center' });
+  const rightLines = doc.splitTextToSize(pair.right, size * 1.3);
+  doc.text(rightLines, 0, size - 3, { align: 'center' });
 }
 
 function drawDominoOnPdf(doc: jsPDF, size: number, pair: TarsiaPair): void {
@@ -247,26 +237,22 @@ function drawDominoOnPdf(doc: jsPDF, size: number, pair: TarsiaPair): void {
   const h = size;
   
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(0.5);
-  doc.setFont('Roboto', 'normal');
-  doc.setFontSize(7);
+  doc.setLineWidth(0.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
   doc.setTextColor(31, 41, 55);
   
-  // Прямоугольник
   doc.rect(-w / 2, -h / 2, w, h);
-  
-  // Разделитель
   doc.line(0, -h / 2, 0, h / 2);
   
-  // Текст
-  const leftLines = doc.splitTextToSize(pair.left, w / 2 - 6);
+  const leftLines = doc.splitTextToSize(pair.left, w / 2 - 5);
   doc.text(leftLines, -w / 4, 0, { align: 'center' });
   
-  const rightLines = doc.splitTextToSize(pair.right, w / 2 - 6);
+  const rightLines = doc.splitTextToSize(pair.right, w / 2 - 5);
   doc.text(rightLines, w / 4, 0, { align: 'center' });
 }
 
-// ===== ЭКСПОРТ В PNG =====
+// ===== ЭКСПОРТ В PNG (высокое качество) =====
 
 export async function exportTarsiaToPNG(puzzle: TarsiaPuzzle): Promise<void> {
   const validPairs = puzzle.pairs.filter((p) => p.left.trim() && p.right.trim());
@@ -279,9 +265,7 @@ export async function exportTarsiaToPNG(puzzle: TarsiaPuzzle): Promise<void> {
   const scale = CARD_SIZES.find((s) => s.id === puzzle.cardSize)?.scale || 1;
   
   try {
-    // Вычисляем размеры канваса на основе раскладки
     const cells = generateLayout(puzzle.shape, validPairs);
-    const spacing = 55 * scale;
     
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     cells.forEach((cell) => {
@@ -291,12 +275,16 @@ export async function exportTarsiaToPNG(puzzle: TarsiaPuzzle): Promise<void> {
       maxY = Math.max(maxY, cell.y);
     });
     
-    const width = (maxX - minX) * scale + spacing * 4;
-    const height = (maxY - minY) * scale + spacing * 4;
+    // Высокое разрешение: 2x для чёткости
+    const RESOLUTION = 2;
+    const spacing = 70 * scale * RESOLUTION;
+    
+    const width = Math.ceil((maxX - minX) * scale * RESOLUTION + spacing * 4);
+    const height = Math.ceil((maxY - minY) * scale * RESOLUTION + spacing * 4);
     
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(400, Math.ceil(width));
-    canvas.height = Math.max(400, Math.ceil(height));
+    canvas.width = Math.max(800, width);
+    canvas.height = Math.max(800, height);
     const ctx = canvas.getContext('2d')!;
     
     // Белый фон
@@ -305,54 +293,65 @@ export async function exportTarsiaToPNG(puzzle: TarsiaPuzzle): Promise<void> {
     
     // Заголовок
     ctx.fillStyle = '#6d28d9';
-    ctx.font = `bold ${18 * scale}px Arial, sans-serif`;
+    ctx.font = `bold ${32 * scale}px Arial, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(puzzle.puzzleTitle || puzzle.title, canvas.width / 2, 30 * scale);
+    ctx.fillText(
+      puzzle.puzzleTitle || puzzle.title,
+      canvas.width / 2,
+      50 * scale,
+    );
     
-    // Перемешиваем для задания
+    // Перемешиваем
     const shuffledPairs = [...validPairs].sort(() => Math.random() - 0.5);
     const shuffledCells = generateLayout(puzzle.shape, shuffledPairs);
     
-    const offsetX = canvas.width / 2 - ((minX + maxX) / 2) * scale;
-    const offsetY = canvas.height / 2 + 20 * scale - ((minY + maxY) / 2) * scale;
+    const offsetX = canvas.width / 2 - ((minX + maxX) / 2) * scale * RESOLUTION;
+    const offsetY = canvas.height / 2 + 30 * scale - ((minY + maxY) / 2) * scale * RESOLUTION;
     
     ctx.strokeStyle = '#7c3aed';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.fillStyle = '#1f2937';
     
     shuffledCells.forEach((cell) => {
-      const cx = offsetX + cell.x * scale;
-      const cy = offsetY + cell.y * scale;
+      const cx = offsetX + cell.x * scale * RESOLUTION;
+      const cy = offsetY + cell.y * scale * RESOLUTION;
       
       ctx.save();
       ctx.translate(cx, cy);
       ctx.rotate((cell.rotation * Math.PI) / 180);
       
+      const shapeSize = 35 * scale * RESOLUTION;
+      
       if (puzzle.shape === 'triangle') {
-        drawTriangleOnCanvas(ctx, 22 * scale, cell.pair);
+        drawTriangleOnCanvas(ctx, shapeSize, cell.pair, RESOLUTION);
       } else if (puzzle.shape === 'hexagon') {
-        drawHexagonOnCanvas(ctx, 22 * scale, cell.pair);
+        drawHexagonOnCanvas(ctx, shapeSize, cell.pair, RESOLUTION);
       } else {
-        drawDominoOnCanvas(ctx, 22 * scale, cell.pair);
+        drawDominoOnCanvas(ctx, shapeSize, cell.pair, RESOLUTION);
       }
       
       ctx.restore();
     });
     
-    // Скачивание
+    // Скачивание в высоком качестве
     const link = document.createElement('a');
     link.download = sanitizeFileName(`тарсия_${puzzle.title}.png`);
-    link.href = canvas.toDataURL('image/png');
+    link.href = canvas.toDataURL('image/png', 1.0); // Максимальное качество
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   } catch (error) {
     console.error('Ошибка генерации PNG:', error);
-    alert('Не удалось создать PNG');
+    alert('Не удалось создать PNG: ' + (error instanceof Error ? error.message : 'неизвестная ошибка'));
   }
 }
 
-function drawTriangleOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
+function drawTriangleOnCanvas(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  pair: TarsiaPair,
+  resolution: number,
+): void {
   const h = size * Math.sqrt(3) / 2;
   
   ctx.beginPath();
@@ -363,21 +362,25 @@ function drawTriangleOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair:
   ctx.stroke();
   
   ctx.fillStyle = '#1f2937';
-  ctx.font = `${Math.max(7, size * 0.3)}px Arial, sans-serif`;
+  ctx.font = `${Math.max(12, size * 0.28)}px Arial, sans-serif`;
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   
-  // Нижняя грань — вопрос
-  wrapText(ctx, pair.left, 0, h / 2 - 8, size - 10);
+  wrapText(ctx, pair.left, 0, h / 2 - size * 0.2, size - size * 0.3);
   
-  // Левая грань — ответ
   ctx.save();
-  ctx.translate(-size / 2 + 5, 3);
+  ctx.translate(-size / 2 + size * 0.15, size * 0.1);
   ctx.rotate(Math.PI / 3);
-  wrapText(ctx, pair.right, 0, 0, size - 10);
+  wrapText(ctx, pair.right, 0, 0, size - size * 0.3);
   ctx.restore();
 }
 
-function drawHexagonOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
+function drawHexagonOnCanvas(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  pair: TarsiaPair,
+  resolution: number,
+): void {
   ctx.beginPath();
   for (let i = 0; i < 6; i++) {
     const angle = (i * Math.PI) / 3;
@@ -390,14 +393,20 @@ function drawHexagonOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: 
   ctx.stroke();
   
   ctx.fillStyle = '#1f2937';
-  ctx.font = `${Math.max(7, size * 0.3)}px Arial, sans-serif`;
+  ctx.font = `${Math.max(12, size * 0.28)}px Arial, sans-serif`;
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   
-  wrapText(ctx, pair.left, 0, -size + 5, size * 1.5);
-  wrapText(ctx, pair.right, 0, size - 5, size * 1.5);
+  wrapText(ctx, pair.left, 0, -size + size * 0.25, size * 1.2);
+  wrapText(ctx, pair.right, 0, size - size * 0.25, size * 1.2);
 }
 
-function drawDominoOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
+function drawDominoOnCanvas(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  pair: TarsiaPair,
+  resolution: number,
+): void {
   const w = size * 2;
   const h = size;
   
@@ -409,11 +418,12 @@ function drawDominoOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: T
   ctx.stroke();
   
   ctx.fillStyle = '#1f2937';
-  ctx.font = `${Math.max(8, size * 0.35)}px Arial, sans-serif`;
+  ctx.font = `${Math.max(12, size * 0.3)}px Arial, sans-serif`;
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   
-  wrapText(ctx, pair.left, -w / 4, 0, w / 2 - 8);
-  wrapText(ctx, pair.right, w / 4, 0, w / 2 - 8);
+  wrapText(ctx, pair.left, -w / 4, 0, w / 2 - size * 0.3);
+  wrapText(ctx, pair.right, w / 4, 0, w / 2 - size * 0.3);
 }
 
 function wrapText(
@@ -426,7 +436,7 @@ function wrapText(
   const words = text.split(' ');
   let line = '';
   let lineY = y;
-  const lineHeight = 10;
+  const lineHeight = 16;
   
   for (const word of words) {
     const testLine = line ? `${line} ${word}` : word;
@@ -444,36 +454,4 @@ function wrapText(
   if (line) {
     ctx.fillText(line, x, lineY);
   }
-}
-
-// ===== ЗАГРУЗКА ШРИФТА =====
-
-let fontLoaded = false;
-const FONT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf';
-
-async function loadRobotoFont(doc: jsPDF): Promise<void> {
-  if (fontLoaded) return;
-  
-  try {
-    const response = await fetch(FONT_URL);
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = arrayBufferToBase64(arrayBuffer);
-    doc.addFileToVFS('Roboto-Regular.ttf', base64);
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-    fontLoaded = true;
-  } catch {
-    console.warn('Не удалось загрузить шрифт Roboto. Использую стандартный.');
-    fontLoaded = true; // Чтобы не пытаться снова
-  }
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  return btoa(binary);
 }
