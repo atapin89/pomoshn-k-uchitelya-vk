@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { X, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { X, Plus, Trash2 } from 'lucide-react';
 import type { Deck, FlashCard } from '@/types';
 import { generateCardId } from '@/lib/storage';
 import { triggerHaptic } from '@/lib/haptic';
 
 interface DeckEditorModalProps {
-  deck: Deck | null; // null = создание новой
+  deck: Deck | null;
   onClose: () => void;
   onSave: (deck: Deck) => void;
 }
+
+const MAX_SIDES = 10;
+const MIN_SIDES = 2;
 
 export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorModalProps) {
   const [title, setTitle] = useState(deck?.title || '');
@@ -22,6 +25,14 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
   };
 
   const removeCard = (index: number) => {
+    const card = cards[index];
+    const hasContent = card.sides.some(s => s.trim() !== '');
+    
+    if (hasContent) {
+      const proceed = window.confirm('Удалить карточку с заполненными данными?');
+      if (!proceed) return;
+    }
+    
     triggerHaptic('medium');
     setCards(cards.filter((_, i) => i !== index));
   };
@@ -35,29 +46,49 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
   };
 
   const addSide = (cardIndex: number) => {
+    const card = cards[cardIndex];
+    if (card.sides.length >= MAX_SIDES) {
+      alert(`Максимум ${MAX_SIDES} сторон на карточку`);
+      return;
+    }
+    
     triggerHaptic('light');
     const updated = [...cards];
-    const newSides = [...updated[cardIndex].sides, ''];
-    updated[cardIndex] = { ...updated[cardIndex], sides: newSides };
+    const newSides = [...card.sides, ''];
+    updated[cardIndex] = { ...card, sides: newSides };
     setCards(updated);
   };
 
   const removeSide = (cardIndex: number, sideIndex: number) => {
+    const card = cards[cardIndex];
+    if (card.sides.length <= MIN_SIDES) {
+      alert(`Минимум ${MIN_SIDES} стороны`);
+      return;
+    }
+    
     const updated = [...cards];
-    const newSides = updated[cardIndex].sides.filter((_, i) => i !== sideIndex);
-    updated[cardIndex] = { ...updated[cardIndex], sides: newSides };
+    const newSides = card.sides.filter((_, i) => i !== sideIndex);
+    updated[cardIndex] = { ...card, sides: newSides };
     setCards(updated);
   };
 
   const handleSave = () => {
-    if (!title.trim()) return;
-    // Фильтруем карточки с хотя бы одной заполненной стороной
+    if (!title.trim()) {
+      alert('Введите название колоды');
+      return;
+    }
+    
     const validCards = cards
       .filter(c => c.sides.some(s => s.trim() !== ''))
       .map(c => ({
         ...c,
         sides: c.sides.map(s => s.trim()),
       }));
+
+    if (validCards.length === 0) {
+      alert('Добавьте хотя бы одну карточку с заполненной стороной');
+      return;
+    }
 
     const newDeck: Deck = {
       id: deck?.id || generateCardId(),
@@ -70,7 +101,12 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div 
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={deck ? 'Редактировать колоду' : 'Новая колода'}
+    >
       <div className="bg-white w-full max-w-md max-h-[90vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
         {/* Шапка */}
         <div className="bg-purple-700 text-white p-4 flex items-center justify-between">
@@ -79,7 +115,9 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
+            aria-label="Закрыть"
+            title="Закрыть"
           >
             <X className="w-5 h-5" />
           </button>
@@ -87,16 +125,15 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
 
         {/* Содержимое */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Название колоды */}
           <input
             type="text"
             placeholder="Название колоды (например, 'Английские слова')"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full p-4 rounded-xl border-2 border-purple-200 focus:outline-none focus:border-purple-500 font-semibold text-lg"
+            aria-label="Название колоды"
           />
 
-          {/* Карточки */}
           {cards.map((card, cardIdx) => {
             const isInsane = card.sides.length > 2;
             return (
@@ -113,14 +150,15 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
                   {cards.length > 1 && (
                     <button
                       onClick={() => removeCard(cardIdx)}
-                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200"
+                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                      aria-label={`Удалить карточку ${cardIdx + 1}`}
+                      title="Удалить карточку"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
 
-                {/* Стороны карточки */}
                 <div className="space-y-2">
                   {card.sides.map((side, sideIdx) => (
                     <div key={sideIdx} className="flex gap-2">
@@ -138,12 +176,15 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
                           value={side}
                           onChange={(e) => updateCardSide(cardIdx, sideIdx, e.target.value)}
                           className="w-full p-3 pl-8 rounded-lg bg-white border border-purple-200 focus:outline-none focus:border-purple-500"
+                          aria-label={`Сторона ${sideIdx + 1} карточки ${cardIdx + 1}`}
                         />
                       </div>
                       {card.sides.length > 2 && (
                         <button
                           onClick={() => removeSide(cardIdx, sideIdx)}
-                          className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100"
+                          className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                          aria-label={`Удалить сторону ${sideIdx + 1}`}
+                          title="Удалить сторону"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -152,10 +193,10 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
                   ))}
                 </div>
 
-                {/* Кнопка добавления стороны (переход в Insane) */}
                 <button
                   onClick={() => addSide(cardIdx)}
-                  className="mt-3 w-full py-2 rounded-lg border-2 border-dashed border-purple-300 text-purple-600 text-sm font-semibold flex items-center justify-center gap-1 hover:bg-purple-50"
+                  disabled={card.sides.length >= MAX_SIDES}
+                  className="mt-3 w-full py-2 rounded-lg border-2 border-dashed border-purple-300 text-purple-600 text-sm font-semibold flex items-center justify-center gap-1 hover:bg-purple-50 disabled:opacity-40 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Добавить сторону (Insane режим)
@@ -164,10 +205,9 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
             );
           })}
 
-          {/* Добавить карточку */}
           <button
             onClick={addCard}
-            className="w-full py-3 rounded-xl border-2 border-dashed border-purple-300 text-purple-600 font-semibold flex items-center justify-center gap-2 hover:bg-purple-50"
+            className="w-full py-3 rounded-xl border-2 border-dashed border-purple-300 text-purple-600 font-semibold flex items-center justify-center gap-2 hover:bg-purple-50 transition-colors"
           >
             <Plus className="w-5 h-5" />
             Добавить карточку
@@ -179,7 +219,7 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
           <button
             onClick={handleSave}
             disabled={!title.trim()}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl text-lg disabled:opacity-50 active:scale-95 transition-transform"
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl text-lg disabled:opacity-50 active:scale-95 transition-transform focus:outline-none focus:ring-2 focus:ring-purple-400"
           >
             {deck ? 'Сохранить изменения' : 'Создать колоду'}
           </button>
