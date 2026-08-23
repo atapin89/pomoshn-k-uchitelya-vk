@@ -16,6 +16,11 @@ import {
   UserX,
   List,
   AlertTriangle,
+  HelpCircle,
+  GraduationCap,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from 'lucide-react';
 import type { TapperList, TapperStudent } from '@/types/tapper';
 import { generateTapperId, createEmptyTapperList } from '@/types/tapper';
@@ -38,11 +43,101 @@ interface TapperScreenProps {
   onBack: () => void;
 }
 
+// ===== Демо-список =====
+
+const DEMO_STUDENTS = [
+  'Иванов Иван',
+  'Петрова Анна',
+  'Смирнов Пётр',
+  'Кузнецова Мария',
+  'Васильев Дмитрий',
+  'Соколова Елена',
+  'Михайлов Артём',
+  'Новикова Софья',
+  'Фёдоров Кирилл',
+  'Морозова Дарья',
+  'Волков Максим',
+  'Лебедева Виктория',
+];
+
+function createDemoList(): TapperList {
+  const students: TapperStudent[] = DEMO_STUDENTS.map((name) => ({
+    id: generateTapperId('student'),
+    name,
+    answerCount: 0,
+    isPresent: true,
+  }));
+  
+  return {
+    id: generateTapperId('tapper-list'),
+    name: 'Демо-класс (5А)',
+    students,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+// ===== Инструкции и FAQ =====
+
+const HOW_ITEMS = [
+  {
+    q: 'Как начать работу',
+    a: '1) Создайте список класса или импортируйте готовый.\n2) Нажимайте на карточку ученика, когда он отвечает — счётчик увеличится.\n3) ПКМ (долгое нажатие) — сбросить счётчик конкретного ученика.\n4) Кнопка «Итоги» покажет сводку в конце урока.\n\nДля быстрого знакомства нажмите «Загрузить демо-список».',
+  },
+  {
+    q: 'Как добавить учеников',
+    a: 'В поле ввода добавьте имена — по одному на строку:\n\nИванов Иван\nПетрова Анна\nСмирнов Пётр\n\nНажмите «Добавить учеников». Дубликаты (без учёта регистра) автоматически отфильтруются.',
+  },
+  {
+    q: 'Как отметить отсутствующих',
+    a: 'Нажмите ПКМ (долгое нажатие на телефоне) на карточке ученика и выберите «Отметить отсутствующим». Ученик станет серым и не будет учитываться в статистике. Повторное действие вернёт его в список присутствующих.',
+  },
+  {
+    q: 'Как работает счётчик',
+    a: 'Каждое нажатие на карточку ученика добавляет +1 ответ. Счётчик отображается в правом верхнем углу карточки. Зелёная карточка — ученик отвечал хотя бы раз. Белая — ещё не отвечал.',
+  },
+  {
+    q: 'Сохранение и восстановление',
+    a: 'Результаты сохраняются автоматически. При возвращении в список и повторном открытии счётчики восстановятся. Кнопка сброса (↺) очищает все результаты.',
+  },
+];
+
+const FAQ_ITEMS = [
+  {
+    q: 'Сценарий 1 · Устный опрос',
+    a: 'Используйте счётчик во время устного опроса. Нажимайте на ученика, когда он отвечает. В конце урока откройте «Итоги» и посмотрите, кого не спросили — их можно вызвать на следующем уроке.',
+  },
+  {
+    q: 'Сценарий 2 · Дискуссия',
+    a: 'Во время классной дискуссии фиксируйте каждое выступление. Счётчик покажет самых активных участников и тех, кто отмалчивается.',
+  },
+  {
+    q: 'Сценарий 3 · Групповая работа',
+    a: 'При работе в группах отмечайте вклад каждого ученика. Сводка покажет, кто был лидером, а кто пассивен.',
+  },
+  {
+    q: 'Сценарий 4 · Накопление за неделю',
+    a: 'Ведите один список в течение недели. Счётчики накопят статистику по всем урокам. Экспортируйте результат в .txt для отчёта.',
+  },
+  {
+    q: 'Импорт списка: формат и порядок',
+    a: 'Формат: .json (из этого приложения) или .txt (простой текст).\n\nДля .txt: каждая строка — один ученик:\nИванов Иван\nПетрова Анна\n\nНажмите «Импорт» и выберите файл. Список появится в «Моих списках».',
+  },
+  {
+    q: 'Экспорт списка: как поделиться',
+    a: 'Кнопка «Экспорт» (иконка ↓) на карточке списка скачивает файл .json. Его можно отправить коллеге — он импортирует через «Импорт». Для отчёта используйте «Экспорт .txt» на экране результатов.',
+  },
+];
+
 export default function TapperScreen({ onBack }: TapperScreenProps) {
   const [lists, setLists] = useState<TapperList[]>([]);
   const [activeList, setActiveList] = useState<TapperList | null>(null);
   const [importMsg, setImportMsg] = useState<'ok' | 'error' | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [showHow, setShowHow] = useState(false);
+  const [showFaq, setShowFaq] = useState(false);
+  const [openHow, setOpenHow] = useState<number | null>(null);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [results, setResults] = useState<Record<string, number>>({});
@@ -75,12 +170,50 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
     triggerHaptic('light');
   };
 
+  const handleLoadDemoList = () => {
+    const demoList = createDemoList();
+    upsertTapperList(demoList);
+    refreshLists();
+    setActiveList(demoList);
+    setResults({});
+    clearTapperSession();
+    triggerHaptic('medium');
+  };
+
   const handleImportList = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const list = parseTapperListFile(String(reader.result || ''));
+      // Пробуем JSON, если не получилось — парсим как TXT
+      const text = String(reader.result || '');
+      let list: TapperList | null = parseTapperListFile(text);
+      
+      if (!list) {
+        // Пробуем как TXT
+        const names = text
+          .split('\n')
+          .map((n) => n.trim())
+          .filter((n) => n);
+        
+        if (names.length > 0) {
+          const students: TapperStudent[] = names.map((name) => ({
+            id: generateTapperId('student'),
+            name,
+            answerCount: 0,
+            isPresent: true,
+          }));
+          
+          list = {
+            id: generateTapperId('tapper-list'),
+            name: file.name.replace(/\.[^.]+$/, '') || 'Импортированный список',
+            students,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+        }
+      }
+      
       if (list) {
         upsertTapperList(list);
         refreshLists();
@@ -399,6 +532,7 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
         </header>
 
         <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4">
+          {/* Кнопки */}
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handleCreateList}
@@ -413,6 +547,15 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
               <Upload className="w-5 h-5" /> Импорт
             </button>
           </div>
+
+          {/* Демо-список */}
+          <button
+            onClick={handleLoadDemoList}
+            className="w-full bg-gradient-to-r from-violet-100 to-purple-100 border-2 border-purple-300 text-purple-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <Sparkles className="w-5 h-5" /> Загрузить демо-список
+          </button>
+
           <input
             ref={fileRef}
             type="file"
@@ -431,12 +574,14 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
             </p>
           )}
 
+          {/* Мои списки */}
           {lists.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-400 text-sm">Пока нет списков. Создайте первый!</p>
+              <p className="text-gray-400 text-sm">Пока нет списков. Создайте первый или загрузите демо!</p>
             </div>
           ) : (
             <div className="space-y-2">
+              <h3 className="font-semibold text-purple-700 text-sm">Мои списки ({lists.length})</h3>
               {lists.map((list) => (
                 <div key={list.id} className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-white">
                   <button
@@ -455,8 +600,8 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
                   <button
                     onClick={() => handleExportList(list)}
                     className="p-2 text-gray-300 hover:text-green-600 transition-colors"
-                    aria-label="Экспорт"
-                    title="Экспорт"
+                    aria-label="Экспорт списка"
+                    title="Экспорт .json"
                   >
                     <Download className="w-4 h-4" />
                   </button>
@@ -483,6 +628,92 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
               ))}
             </div>
           )}
+
+          {/* Инструкции */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowHow(!showHow)}
+              className="w-full px-5 py-4 flex items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-purple-600" />
+                <h3 className="font-bold text-purple-700">Как пользоваться</h3>
+                <span className="text-xs font-bold text-purple-400">{HOW_ITEMS.length}</span>
+              </div>
+              {showHow ? (
+                <ChevronUp className="w-5 h-5 text-purple-600" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-purple-600" />
+              )}
+            </button>
+            {showHow && (
+              <div className="px-5 pb-5 space-y-2">
+                {HOW_ITEMS.map((item, idx) => (
+                  <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setOpenHow(openHow === idx ? null : idx)}
+                      className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                    >
+                      <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                      {openHow === idx ? (
+                        <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                      )}
+                    </button>
+                    {openHow === idx && (
+                      <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100 whitespace-pre-line">
+                        {item.a}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Вопросы и сценарии */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowFaq(!showFaq)}
+              className="w-full px-5 py-4 flex items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-purple-600" />
+                <h3 className="font-bold text-purple-700">Вопросы и сценарии</h3>
+                <span className="text-xs font-bold text-purple-400">{FAQ_ITEMS.length}</span>
+              </div>
+              {showFaq ? (
+                <ChevronUp className="w-5 h-5 text-purple-600" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-purple-600" />
+              )}
+            </button>
+            {showFaq && (
+              <div className="px-5 pb-5 space-y-2">
+                {FAQ_ITEMS.map((item, idx) => (
+                  <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                      className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                    >
+                      <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                      {openFaq === idx ? (
+                        <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                      )}
+                    </button>
+                    {openFaq === idx && (
+                      <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100 whitespace-pre-line">
+                        {item.a}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </main>
       </div>
     );
