@@ -28,7 +28,7 @@ type SectionId =
   | 'calculators' 
   | 'bingo' 
   | 'edugame'
-  | 'tapper';
+  | 'activity';
 
 interface Section {
   id: SectionId;
@@ -102,8 +102,8 @@ const SECTIONS: Section[] = [
     icon: Trophy,
   },
   {
-    id: 'tapper',
-    title: 'Таппер',
+    id: 'activity',
+    title: 'Счётчик активности',
     description: 'Опрос учеников',
     hint: 'Отслеживайте, кого опросили и кто был активен на уроке. Нажимайте на ученика — счётчик ответов. Сводка в конце урока.',
     icon: Users,
