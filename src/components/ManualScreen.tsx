@@ -1,4 +1,4 @@
-import { Clock, Dices, Volume2, Layers, Grid3x3, BookOpen, Lightbulb, Calculator } from 'lucide-react';
+import { Clock, Dices, Volume2, Layers, Grid3x3, BookOpen, Lightbulb, Calculator, Trophy, LayoutGrid } from 'lucide-react';
 import BackButton from './BackButton';
 import YandexAdBlock from './YandexAdBlock';
 
@@ -22,6 +22,21 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-6 space-y-6 pb-8 overflow-y-auto">
         
+        {/* Оглавление */}
+        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
+          <h2 className="text-lg font-bold text-purple-700 mb-3">Содержание</h2>
+          <ol className="list-decimal list-inside text-sm text-gray-700 space-y-1.5">
+            <li>Таймер урока</li>
+            <li>Жеребьёвка</li>
+            <li>Контроль шума</li>
+            <li>Флэш-карточки</li>
+            <li>Генератор филвордов</li>
+            <li>Калькуляторы</li>
+            <li>Бинго</li>
+            <li>Своя игра</li>
+          </ol>
+        </section>
+
         {/* Введение */}
         <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
           <h2 className="text-lg font-bold text-purple-700 mb-2">Как запустить</h2>
@@ -130,25 +145,66 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
           </div>
         </section>
 
-        {/* Калькуляторы (НОВЫЙ РАЗДЕЛ) */}
+        {/* Калькуляторы */}
         <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
           <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
             <Calculator className="w-5 h-5 text-purple-500" /> 6. Калькуляторы
           </h2>
           <p className="text-sm text-gray-600 mb-3">Набор из 6 инструментов для точных расчетов успеваемости и быстрой подготовки отчетов.</p>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
-            <li><strong>Средний балл:</strong> расчет с учетом веса оценок (контрольная = 100%, домашняя = 50%).</li>
-            <li><strong>Итоговая оценка:</strong> расчет финальной оценки на основе текущей успеваемости и экзамена.</li>
-            <li><strong>Оценка за четверть:</strong> показывает, какую оценку нужно получить на следующей работе для желаемого среднего балла.</li>
-            <li><strong>Оценка за тест:</strong> переводит количество правильных ответов в оценку по стандартной шкале.</li>
-            <li><strong>Качество знаний (для учителей):</strong> считает процент «4» и «5» от общего числа учащихся.</li>
-            <li><strong>СОУ (для учителей):</strong> показывает долю учащихся, усвоивших программу (оценки 3, 4, 5).</li>
+            <li><strong>Средний балл:</strong> расчет с учетом веса оценок.</li>
+            <li><strong>Итоговая оценка:</strong> расчет финальной оценки.</li>
+            <li><strong>Оценка за четверть:</strong> прогноз желаемого балла.</li>
+            <li><strong>Оценка за тест:</strong> перевод правильных ответов в оценку.</li>
+            <li><strong>Качество знаний:</strong> процент «4» и «5».</li>
+            <li><strong>СОУ:</strong> доля учащихся, усвоивших программу.</li>
           </ul>
           <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
             <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
               <Lightbulb className="w-4 h-4" /> Сценарий:
             </p>
-            <p className="text-xs text-purple-700">Вместо ручного подсчета всего класса, просто введите количество пятерок, четверок, троек и двоек в калькуляторе качества знаний или СОУ. Мгновенный результат готов для вставки в отчет или аналитическую справку за 10 секунд.</p>
+            <p className="text-xs text-purple-700">Вместо ручного подсчета всего класса, просто введите количество оценок в калькулятор. Мгновенный результат готов для отчета.</p>
+          </div>
+        </section>
+
+        {/* Бинго */}
+        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
+          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
+            <LayoutGrid className="w-5 h-5 text-purple-500" /> 7. Бинго
+          </h2>
+          <p className="text-sm text-gray-600 mb-3">Конструктор карточек для игры в бинго с готовыми наборами.</p>
+          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
+            <li>Размеры сетки: 3×3, 4×4, 5×5 с FREE-клеткой.</li>
+            <li>Готовые наборы: «1 сентября», «История», «Новый год».</li>
+            <li>Режим проектора для ведущего.</li>
+            <li>PDF-карточки для печати и онлайн-игра на телефонах.</li>
+          </ul>
+          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
+            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
+              <Lightbulb className="w-4 h-4" /> Сценарий:
+            </p>
+            <p className="text-xs text-purple-700">Идеально для повторения терминов: читайте определение, ученики отмечают термин на карточке. Первая линия — мини-победа!</p>
+          </div>
+        </section>
+
+        {/* Своя игра */}
+        <section className="bg-white rounded-2xl shadow-sm p-5 border border-purple-100">
+          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-purple-500" /> 8. Своя игра
+          </h2>
+          <p className="text-sm text-gray-600 mb-3">Интеллектуальная викторина по принципу телевизионной «Своей игры».</p>
+          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
+            <li>Режим разработчика: создание игр с раундами и баллами.</li>
+            <li>Режим проектора: табло с клетками-баллами.</li>
+            <li>Индивидуальный рейтинг участников с начислением баллов.</li>
+            <li>Двусторонняя печать карточек для игры без компьютера.</li>
+            <li>Обмен играми между учителями через JSON.</li>
+          </ul>
+          <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
+            <p className="text-xs font-semibold text-purple-800 flex items-center gap-1 mb-1">
+              <Lightbulb className="w-4 h-4" /> Сценарий:
+            </p>
+            <p className="text-xs text-purple-700">Идеально для урока-викторины: класс делится на команды, открывайте вопросы по выбору учеников. С рейтингом — соревнование до последнего вопроса!</p>
           </div>
         </section>
 
