@@ -17,7 +17,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import BackButton from './BackButton';
-import YandexAdBlock from './YandexAdBlock';
 
 interface ManualSection {
   id: string;
@@ -380,8 +379,6 @@ export default function ManualScreen({ onBack }: { onBack: () => void }) {
             <li>Используйте экспорт/импорт для переноса данных между устройствами.</li>
           </ul>
         </div>
-
-        <YandexAdBlock />
       </main>
     </div>
   );
