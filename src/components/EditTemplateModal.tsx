@@ -27,12 +27,25 @@ export default function EditTemplateModal({
   const totalMin = durations.reduce((a, b) => a + b, 0);
 
   const handleTotalChange = (newTotal: number) => {
+    // Валидация
+    if (newTotal < MIN_TOTAL || newTotal > MAX_TOTAL) return;
+    
     setDurations((prev) => {
+      if (prev.length === 0) return prev;
+      
       const oldTotal = prev.reduce((a, b) => a + b, 0);
-      if (oldTotal === 0) return prev.map(() => Math.floor(newTotal / prev.length));
+      if (oldTotal === 0) {
+        const base = Math.floor(newTotal / prev.length);
+        const remainder = newTotal - base * prev.length;
+        return prev.map((_, i) => base + (i < remainder ? 1 : 0));
+      }
+      
+      // Пропорциональное масштабирование
       const scaled = prev.map((d) =>
         Math.max(1, Math.round((d / oldTotal) * newTotal)),
       );
+      
+      // Корректировка суммы
       const diff = newTotal - scaled.reduce((a, b) => a + b, 0);
       if (diff !== 0) {
         const maxIdx = scaled.indexOf(Math.max(...scaled));
@@ -43,57 +56,75 @@ export default function EditTemplateModal({
   };
 
   const handleStageChange = (idx: number, value: number) => {
+    // Валидация
+    if (value < 1 || value > MAX_STAGE) return;
+    
     setDurations((prev) => {
-      const total = prev.reduce((a, b) => a + b, 0);
-      const delta = value - prev[idx];
-      if (delta === 0) return prev;
-      const others = prev.map((d, i) => (i === idx ? 0 : d));
-      const othersTotal = others.reduce((a, b) => a + b, 0);
       const next = [...prev];
+      const oldValue = next[idx];
       next[idx] = value;
-      if (othersTotal === 0) return next;
-      let remaining = delta;
-      for (let i = 0; i < next.length && remaining !== 0; i++) {
-        if (i === idx) continue;
-        const share = Math.round((others[i] / othersTotal) * delta);
-        const newVal = Math.max(1, next[i] - share);
-        const actual = next[i] - newVal;
-        remaining -= actual;
-        next[i] = newVal;
+      
+      const delta = value - oldValue;
+      if (delta === 0) return prev;
+      
+      const total = prev.reduce((a, b) => a + b, 0);
+      const otherIndices = prev.map((_, i) => i).filter(i => i !== idx);
+      
+      if (otherIndices.length === 0) return next;
+      
+      // Распределяем delta пропорционально между остальными
+      let remainingDelta = delta;
+      const othersTotal = total - oldValue;
+      
+      for (let i = 0; i < otherIndices.length - 1; i++) {
+        const otherIdx = otherIndices[i];
+        if (othersTotal > 0) {
+          const proportion = prev[otherIdx] / othersTotal;
+          const change = Math.round(delta * proportion);
+          next[otherIdx] = Math.max(1, prev[otherIdx] - change);
+          remainingDelta -= (prev[otherIdx] - next[otherIdx]);
+        } else {
+          next[otherIdx] = 1;
+          remainingDelta -= (prev[otherIdx] - 1);
+        }
       }
-      if (remaining !== 0) {
-        const maxIdx = next.reduce(
-          (max, v, i) => (i !== idx && v > next[max] ? i : max),
-          next.findIndex((_, i) => i !== idx),
-        );
-        if (maxIdx >= 0) next[maxIdx] = Math.max(1, next[maxIdx] - remaining);
-      }
-      const newTotal = next.reduce((a, b) => a + b, 0);
-      if (newTotal !== total) {
-        const maxIdx = next.indexOf(Math.max(...next));
-        next[maxIdx] = Math.max(1, next[maxIdx] + (total - newTotal));
-      }
+      
+      // Последний этап получает остаток
+      const lastIdx = otherIndices[otherIndices.length - 1];
+      next[lastIdx] = Math.max(1, prev[lastIdx] - remainingDelta);
+      
       return next;
     });
   };
 
   const handleSave = () => {
+    if (!name.trim()) {
+      alert('Введите название урока');
+      return;
+    }
+    
     onSave({
       ...template,
-      name: name.trim() || template.name,
+      name: name.trim(),
       stages: template.stages.map((s, i) => ({ ...s, duration: durations[i] })),
     });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/50">
+    <div 
+      className="fixed inset-0 z-50 flex flex-col bg-black/50"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Редактировать шаблон"
+    >
       <div className="mt-auto bg-gray-50 rounded-t-3xl max-h-[92vh] flex flex-col animate-[slideUp_0.25s_ease-out]">
         <div className="flex items-center justify-between px-5 py-4 bg-white rounded-t-3xl shadow-sm">
           <h2 className="text-xl font-bold text-purple-700">Редактировать шаблон</h2>
           <button
             onClick={onClose}
-            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 min-h-14 min-w-14 flex items-center justify-center touch-manipulation"
+            className="p-2 -mr-2 text-gray-400 hover:text-gray-600 min-h-14 min-w-14 flex items-center justify-center touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-400 rounded-xl"
             aria-label="Закрыть"
+            title="Закрыть"
           >
             <X className="w-6 h-6" />
           </button>
@@ -109,6 +140,7 @@ export default function EditTemplateModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              aria-label="Название урока"
             />
           </div>
 
@@ -128,6 +160,7 @@ export default function EditTemplateModal({
               value={totalMin}
               onChange={(e) => handleTotalChange(Number(e.target.value))}
               className="w-full accent-purple-600 h-2 cursor-pointer"
+              aria-label="Общее время урока"
             />
             <div className="flex justify-between text-xs text-gray-400 mt-1">
               <span>{MIN_TOTAL} мин</span>
@@ -163,6 +196,7 @@ export default function EditTemplateModal({
                       value={durations[i]}
                       onChange={(e) => handleStageChange(i, Number(e.target.value))}
                       className="w-full accent-purple-600 h-2 cursor-pointer"
+                      aria-label={`Длительность этапа: ${stage.name}`}
                     />
                   </div>
                 );
@@ -176,7 +210,7 @@ export default function EditTemplateModal({
         <div className="px-5 py-4 bg-white border-t border-gray-100 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button
             onClick={handleSave}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white text-lg font-semibold rounded-2xl py-4 min-h-14 active:scale-[0.98] transition-transform shadow-md touch-manipulation"
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white text-lg font-semibold rounded-2xl py-4 min-h-14 active:scale-[0.98] transition-transform shadow-md touch-manipulation focus:outline-none focus:ring-2 focus:ring-purple-400"
           >
             Сохранить
           </button>
