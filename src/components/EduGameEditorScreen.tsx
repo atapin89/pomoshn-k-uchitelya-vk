@@ -1,527 +1,497 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Trophy,
+  ArrowLeft,
   Plus,
-  Upload,
-  Pencil,
-  Monitor,
-  Download,
-  Share2,
   Trash2,
-  ChevronDown,
   ChevronUp,
-  HelpCircle,
-  GraduationCap,
-  List,
-  Check,
+  ChevronDown,
+  Save,
   AlertTriangle,
-  Sparkles,
-  type LucideIcon,
+  Check,
 } from 'lucide-react';
-import type { EduGame } from '@/types/eduGame';
-import { createEmptyGame, gameQuestionsCount, generateEduId } from '@/types/eduGame';
-import { presetEduGames } from '@/data/presetEduGames';
-import {
-  loadEduGames,
-  upsertEduGame,
-  deleteEduGame,
-  serializeEduGame,
-  parseEduGameFile,
-  downloadTextFile,
-  sanitizeFileName,
-} from '@/lib/eduGameStorage';
-import { exportEduGameToPDF } from '@/lib/eduGamePdf';
-import BackButton from './BackButton';
-import EduGameEditorScreen from './EduGameEditorScreen';
-import EduGameProjectorScreen from './EduGameProjectorScreen';
+import type { EduGame, EduRound, EduQuestion } from '@/types/eduGame';
+import { generateEduId, DEFAULT_POINTS, gameQuestionsCount } from '@/types/eduGame';
 
-interface EduGameScreenProps {
+interface EduGameEditorScreenProps {
+  game: EduGame;
   onBack: () => void;
+  onSave: (game: EduGame) => void;
 }
 
-// ===== Вспомогательные компоненты =====
+export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEditorScreenProps) {
+  const [title, setTitle] = useState(game.title);
+  const [rounds, setRounds] = useState<EduRound[]>(game.rounds);
+  const [saveMsg, setSaveMsg] = useState<'saved' | 'error' | null>(null);
+  const [expandedRound, setExpandedRound] = useState<string | null>(rounds[0]?.id || null);
+  const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
 
-function IconButton({
-  icon: Icon,
-  label,
-  color,
-  onClick,
-}: {
-  icon: LucideIcon;
-  label: string;
-  color: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`bg-white hover:bg-gray-100 ${color} rounded-lg py-2 flex items-center justify-center transition-colors`}
-      aria-label={label}
-      title={label}
-    >
-      <Icon className="w-4 h-4" />
-    </button>
-  );
-}
-
-function CollapseSection({
-  open,
-  onToggle,
-  icon: Icon,
-  title,
-  count,
-  children,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  icon: LucideIcon;
-  title: string;
-  count: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full px-5 py-4 flex items-center justify-between gap-2 hover:bg-purple-50/50 transition-colors"
-        aria-expanded={open}
-      >
-        <div className="flex items-center gap-2">
-          <Icon className="w-5 h-5 text-purple-600" />
-          <h2 className="text-lg font-semibold text-purple-700">{title}</h2>
-          <span className="text-xs font-bold text-purple-400 bg-purple-50 px-2 py-0.5 rounded-full">
-            {count}
-          </span>
-        </div>
-        {open ? (
-          <ChevronUp className="w-5 h-5 text-purple-600" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-purple-600" />
-        )}
-      </button>
-      {open && <div className="px-5 pb-5">{children}</div>}
-    </div>
-  );
-}
-
-function FaqList({ items }: { items: { q: string; a: string }[] }) {
-  const [open, setOpen] = useState<number | null>(null);
-  return (
-    <div className="space-y-2">
-      {items.map((item, idx) => (
-        <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
-          <button
-            onClick={() => setOpen(open === idx ? null : idx)}
-            className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
-            aria-expanded={open === idx}
-          >
-            <span className="font-semibold text-sm text-gray-800">{item.q}</span>
-            {open === idx ? (
-              <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
-            )}
-          </button>
-          {open === idx && (
-            <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">
-              {item.a}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ===== Данные =====
-
-const HOW_ITEMS = [
-  {
-    q: 'Как создать игру (режим разработчика)',
-    a: 'Нажмите «Создать игру»: введите название, добавьте раунды (темы) и вопросы с баллами и ответами. Баллы повышайте внутри раунда: 10 → 50. Изменения сохраняются автоматически. Карандаш на карточке игры — редактирование.',
-  },
-  {
-    q: 'Режим проектора',
-    a: 'Кнопка с монитором открывает табло: колонки — раунды, клетки — баллы. Нажмите на баллы — вопрос крупно на экране; «Показать вопрос» → «Показать ответ» → «Закрыть клетку» (клетка гаснет). Кнопка справа вверху — во весь экран для проектора или доски.',
-  },
-  {
-    q: 'Индивидуальный рейтинг участников',
-    a: 'В проекторе нажмите иконку «Люди» и включите «Индивидуальный рейтинг». Добавьте имена списком или импортом .txt (одно имя на строку). В окне вопроса у каждого ученика кнопки «+» и «−» начисляют или снимают стоимость вопроса. Иконка кубка — таблица результатов и экспорт в .txt.',
-  },
-  {
-    q: 'Печать карточек: двусторонняя',
-    a: 'Кнопка PDF создаёт файл, где каждая карточка — пара страниц: лицевая — вопрос, оборот — баллы и ответ. В настройках печати выберите «двусторонняя печать, переворот по длинному краю». Вырежьте по пунктирной рамке — и играйте без компьютера: вопрос для игроков, оборот для ведущего.',
-  },
-  {
-    q: 'Обмен играми между учителями',
-    a: 'Кнопка «Поделиться» скачивает игру файлом .json. Коллега в своём «Помощнике учителя» нажимает «Импорт игры» и выбирает файл — игра появляется в его «Моих играх» со всеми раундами, вопросами и баллами.',
-  },
-];
-
-const FAQ_ITEMS = [
-  {
-    q: 'Сценарий 1 · Урок-викторина',
-    a: 'Повторение темы: класс делится на команды или играет индивидуально. Открывайте вопросы по выбору учеников, обсуждайте и показывайте ответ. С рейтингом — соревнование до последнего вопроса.',
-  },
-  {
-    q: 'Сценарий 2 · Предметная неделя и финалы',
-    a: 'Отборочные игры в классах, финал — на сцене с проектором. Рейтинг участников ведётся в приложении, результаты экспортируются в .txt для грамот.',
-  },
-  {
-    q: 'Сценарий 3 · Игра без компьютера',
-    a: 'Распечатайте карточки двусторонней печатью и разрежьте. Раздайте вопросы игрокам, ведущий читает по оборотам. Подходит для поезда, дачи и класса без техники.',
-  },
-  {
-    q: 'Сколько раундов и вопросов делать?',
-    a: 'Оптимально 3–5 раундов по 4–6 вопросов. На урок 40 минут хватает 3 раундов по 5 вопросов. Баллы: 10–50, в финальном раунде можно удвоить.',
-  },
-  {
-    q: 'Где хранятся игры и результаты?',
-    a: 'Игры, участники и счёт — только на вашем устройстве. Для переноса на другое устройство используйте экспорт .json (игры) и .txt (результаты).',
-  },
-  {
-    q: '⚠️ Персональные данные',
-    a: 'Имена участников — персональные данные (152-ФЗ). Храните списки на своём устройстве, не публикуйте результаты с именами в открытом доступе; для публикаций обезличивайте («команда 1»). Удаляйте ненужные списки.',
-  },
-];
-
-// ===== Главный компонент =====
-
-export default function EduGameScreen({ onBack }: EduGameScreenProps) {
-  const [games, setGames] = useState<EduGame[]>([]);
-  const [editingGame, setEditingGame] = useState<EduGame | null>(null);
-  const [projectorGame, setProjectorGame] = useState<EduGame | null>(null);
-  const [isNewGame, setIsNewGame] = useState(false);
-
-  const [showMyGames, setShowMyGames] = useState(true);
-  const [showPresets, setShowPresets] = useState(false);
-  const [showHow, setShowHow] = useState(false);
-  const [showFaq, setShowFaq] = useState(false);
-
-  const [importMsg, setImportMsg] = useState<'ok' | 'error' | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
+  // Автосохранение при изменении
   useEffect(() => {
-    setGames(loadEduGames());
-  }, []);
+    const timer = setTimeout(() => {
+      handleSave();
+    }, 2000); // Задержка 2 секунды после последнего изменения
 
-  const refresh = () => setGames(loadEduGames());
+    return () => clearTimeout(timer);
+  }, [title, rounds]);
 
-  const handleCreate = () => {
-    const game = createEmptyGame('Новая игра');
-    upsertEduGame(game);
-    refresh();
-    setEditingGame(game);
-    setIsNewGame(true);
+  const handleSave = () => {
+    try {
+      const updatedGame: EduGame = {
+        ...game,
+        title: title.trim() || 'Новая игра',
+        rounds,
+        updatedAt: Date.now(),
+      };
+      onSave(updatedGame);
+      setSaveMsg('saved');
+      setTimeout(() => setSaveMsg(null), 2000);
+    } catch {
+      setSaveMsg('error');
+      setTimeout(() => setSaveMsg(null), 2000);
+    }
   };
 
-  const handleCopyPreset = (preset: EduGame) => {
-    const existingCopy = games.find(
-      (g) => g.title === preset.title && g.rounds.length === preset.rounds.length
+  // ===== Раунды =====
+
+  const addRound = () => {
+    const newRound: EduRound = {
+      id: generateEduId('round'),
+      title: `Раунд ${rounds.length + 1}`,
+      questions: [],
+    };
+    setRounds([...rounds, newRound]);
+    setExpandedRound(newRound.id);
+  };
+
+  const updateRoundTitle = (roundId: string, newTitle: string) => {
+    setRounds(rounds.map((r) => (r.id === roundId ? { ...r, title: newTitle } : r)));
+  };
+
+  const deleteRound = (roundId: string) => {
+    if (rounds.length <= 1) {
+      alert('Нельзя удалить последний раунд');
+      return;
+    }
+    const proceed = window.confirm('Удалить раунд со всеми вопросами?');
+    if (!proceed) return;
+    setRounds(rounds.filter((r) => r.id !== roundId));
+  };
+
+  const moveRound = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= rounds.length) return;
+    const newRounds = [...rounds];
+    [newRounds[index], newRounds[newIndex]] = [newRounds[newIndex], newRounds[index]];
+    setRounds(newRounds);
+  };
+
+  // ===== Вопросы =====
+
+  const addQuestion = (roundId: string) => {
+    const round = rounds.find((r) => r.id === roundId);
+    if (!round) return;
+    
+    // Определяем следующий балл
+    const existingPoints = round.questions.map((q) => q.points);
+    const nextPoint = DEFAULT_POINTS.find((p) => !existingPoints.includes(p)) || 
+      (existingPoints.length > 0 ? Math.max(...existingPoints) + 10 : DEFAULT_POINTS[0]);
+    
+    const newQuestion: EduQuestion = {
+      id: generateEduId('q'),
+      text: '',
+      answer: '',
+      points: nextPoint,
+    };
+    
+    setRounds(
+      rounds.map((r) =>
+        r.id === roundId ? { ...r, questions: [...r.questions, newQuestion] } : r
+      )
     );
-    if (existingCopy) {
+    setExpandedQuestion(newQuestion.id);
+  };
+
+  const updateQuestion = (
+    roundId: string,
+    questionId: string,
+    field: 'text' | 'answer' | 'points',
+    value: string | number
+  ) => {
+    setRounds(
+      rounds.map((r) =>
+        r.id === roundId
+          ? {
+              ...r,
+              questions: r.questions.map((q) =>
+                q.id === questionId ? { ...q, [field]: value } : q
+              ),
+            }
+          : r
+      )
+    );
+  };
+
+  const deleteQuestion = (roundId: string, questionId: string) => {
+    const proceed = window.confirm('Удалить вопрос?');
+    if (!proceed) return;
+    setRounds(
+      rounds.map((r) =>
+        r.id === roundId
+          ? { ...r, questions: r.questions.filter((q) => q.id !== questionId) }
+          : r
+      )
+    );
+  };
+
+  const moveQuestion = (roundId: string, questionId: string, direction: 'up' | 'down') => {
+    const round = rounds.find((r) => r.id === roundId);
+    if (!round) return;
+    
+    const index = round.questions.findIndex((q) => q.id === questionId);
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= round.questions.length) return;
+    
+    const newQuestions = [...round.questions];
+    [newQuestions[index], newQuestions[newIndex]] = [newQuestions[newIndex], newQuestions[index]];
+    
+    setRounds(
+      rounds.map((r) => (r.id === roundId ? { ...r, questions: newQuestions } : r))
+    );
+  };
+
+  const duplicateQuestion = (roundId: string, questionId: string) => {
+    const round = rounds.find((r) => r.id === roundId);
+    if (!round) return;
+    
+    const question = round.questions.find((q) => q.id === questionId);
+    if (!question) return;
+    
+    const duplicate: EduQuestion = {
+      ...question,
+      id: generateEduId('q'),
+      points: question.points + 10,
+    };
+    
+    setRounds(
+      rounds.map((r) =>
+        r.id === roundId ? { ...r, questions: [...r.questions, duplicate] } : r
+      )
+    );
+  };
+
+  // ===== Валидация =====
+
+  const validateGame = (): string[] => {
+    const errors: string[] = [];
+    
+    if (!title.trim()) {
+      errors.push('Название игры не может быть пустым');
+    }
+    
+    rounds.forEach((round, roundIndex) => {
+      if (!round.title.trim()) {
+        errors.push(`Раунд ${roundIndex + 1}: название не может быть пустым`);
+      }
+      
+      if (round.questions.length === 0) {
+        errors.push(`Раунд «${round.title || roundIndex + 1}»: добавьте хотя бы один вопрос`);
+      }
+      
+      round.questions.forEach((question, questionIndex) => {
+        if (!question.text.trim()) {
+          errors.push(`Раунд «${round.title || roundIndex + 1}», вопрос ${questionIndex + 1}: текст пустой`);
+        }
+        
+        if (!question.answer.trim()) {
+          errors.push(`Раунд «${round.title || roundIndex + 1}», вопрос ${questionIndex + 1}: ответ пустой`);
+        }
+        
+        if (question.points <= 0) {
+          errors.push(`Раунд «${round.title || roundIndex + 1}», вопрос ${questionIndex + 1}: баллы должны быть > 0`);
+        }
+      });
+      
+      // Проверка дубликатов баллов
+      const points = round.questions.map((q) => q.points);
+      if (new Set(points).size !== points.length) {
+        errors.push(`Раунд «${round.title || roundIndex + 1}»: есть дубликаты баллов`);
+      }
+    });
+    
+    return errors;
+  };
+
+  const handleBack = () => {
+    const errors = validateGame();
+    
+    if (errors.length > 0) {
       const proceed = window.confirm(
-        `Игра «${preset.title}» уже есть в «Моих играх». Создать ещё одну копию?`
+        `Есть проблемы:\n\n${errors.slice(0, 5).join('\n')}\n\nВыйти без исправления?`
       );
       if (!proceed) return;
     }
-
-    const copy: EduGame = {
-      ...preset,
-      id: generateEduId('edugame'),
-      rounds: preset.rounds.map((r) => ({
-        ...r,
-        id: generateEduId('round'),
-        questions: r.questions.map((q) => ({ ...q, id: generateEduId('q') })),
-      })),
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    upsertEduGame(copy);
-    refresh();
-    setEditingGame(copy);
-    setIsNewGame(false);
+    
+    onBack();
   };
 
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const game = parseEduGameFile(String(reader.result || ''));
-      if (game) {
-        upsertEduGame(game);
-        refresh();
-        setImportMsg('ok');
-      } else {
-        setImportMsg('error');
-      }
-      setTimeout(() => setImportMsg(null), 2500);
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
+  const totalQuestions = gameQuestionsCount({ ...game, rounds });
 
-  const handleExportGame = (game: EduGame) => {
-    downloadTextFile(
-      sanitizeFileName(`игра_${game.title}.json`),
-      serializeEduGame(game),
-      'application/json;charset=utf-8',
-    );
-  };
-
-  const handleDelete = (game: EduGame) => {
-    const proceed = window.confirm(
-      `Удалить игру «${game.title}»? Это действие нельзя отменить.`
-    );
-    if (proceed) {
-      deleteEduGame(game.id);
-      refresh();
-    }
-  };
-
-  const handleEditorBack = () => {
-    if (editingGame && isNewGame) {
-      const empty = gameQuestionsCount(editingGame) === 0;
-      const renamed = editingGame.title.trim() !== 'Новая игра';
-      if (empty && !renamed) {
-        deleteEduGame(editingGame.id);
-      }
-    }
-    setEditingGame(null);
-    setIsNewGame(false);
-    refresh();
-  };
-
-  const openEditor = (game: EduGame) => {
-    setEditingGame(game);
-    setIsNewGame(false);
-  };
-
-  // ===== РЕЖИМ РАЗРАБОТЧИКА =====
-  if (editingGame) {
-    return (
-      <EduGameEditorScreen
-        game={editingGame}
-        onBack={handleEditorBack}
-        onSave={(g) => upsertEduGame(g)}
-      />
-    );
-  }
-
-  // ===== РЕЖИМ ПРОЕКТОРА =====
-  if (projectorGame) {
-    return (
-      <EduGameProjectorScreen
-        game={projectorGame}
-        onBack={() => setProjectorGame(null)}
-      />
-    );
-  }
-
-  // ===== ГЛАВНЫЙ ЭКРАН РАЗДЕЛА =====
   return (
-    <div className="min-h-[100dvh] notebook-bg flex flex-col">
+    <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
+      {/* Шапка */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="shrink-0">
-            <BackButton onClick={onBack} variant="light" />
+          <button
+            onClick={handleBack}
+            className="text-white hover:text-purple-200 p-2 transition-colors"
+            aria-label="Назад"
+            title="Назад"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Редактор игры</h1>
+            <p className="text-xs text-purple-200">
+              раундов: {rounds.length} · вопросов: {totalQuestions}
+            </p>
           </div>
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">Своя игра</h1>
-            <p className="text-xs text-purple-200 leading-tight">Интеллектуальная викторина</p>
-          </div>
-          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-            <Trophy className="w-5 h-5 text-white" />
-          </div>
+          {saveMsg === 'saved' && (
+            <span className="text-green-300 text-sm font-semibold flex items-center gap-1">
+              <Check className="w-4 h-4" /> Сохранено
+            </span>
+          )}
+          {saveMsg === 'error' && (
+            <span className="text-red-300 text-sm font-semibold flex items-center gap-1">
+              <AlertTriangle className="w-4 h-4" /> Ошибка
+            </span>
+          )}
         </div>
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-10">
-        {/* Создание и импорт */}
-        <div className="bg-white rounded-2xl shadow-sm p-5 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={handleCreate}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-            >
-              <Plus className="w-5 h-5" /> Создать игру
-            </button>
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-            >
-              <Upload className="w-5 h-5" /> Импорт игры
-            </button>
-          </div>
+        {/* Название игры */}
+        <div className="bg-white rounded-2xl shadow-sm p-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Название игры
+          </label>
           <input
-            ref={fileRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={handleImportFile}
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Введите название игры"
+            className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
           />
-          {importMsg === 'ok' && (
-            <p className="text-sm font-semibold text-green-600 flex items-center gap-1.5" role="alert">
-              <Check className="w-4 h-4" /> Игра импортирована — смотрите в «Мои игры»
-            </p>
-          )}
-          {importMsg === 'error' && (
-            <p className="text-sm font-semibold text-red-600 flex items-center gap-1.5" role="alert">
-              <AlertTriangle className="w-4 h-4" /> Не удалось прочитать файл игры
-            </p>
-          )}
-          <p className="text-xs text-gray-500">
-            Импорт принимает файлы .json из «Помощника учителя» — так учителя делятся готовыми играми.
-          </p>
         </div>
 
-        {/* 1) МОИ ИГРЫ */}
-        <CollapseSection
-          open={showMyGames}
-          onToggle={() => setShowMyGames(!showMyGames)}
-          icon={List}
-          title="Мои игры"
-          count={games.length}
-        >
-          {games.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-sm text-gray-400 mb-3">
-                Пока нет игр — создайте первую или импортируйте файл
-              </p>
-              <button
-                onClick={handleCreate}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg font-semibold text-sm hover:bg-purple-200 transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Создать первую игру
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {[...games]
-                .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-                .map((g) => (
-                  <div
-                    key={g.id}
-                    className="border-2 border-purple-100 rounded-xl p-3 space-y-2 bg-gray-50"
-                  >
-                    <button
-                      onClick={() => openEditor(g)}
-                      className="w-full text-left min-w-0 group"
-                    >
-                      <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate group-hover:text-purple-700 transition-colors">
-                        {g.title}
-                      </h4>
-                      <p className="text-[10px] text-gray-500 mt-0.5">
-                        раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)} ·{' '}
-                        {new Date(g.updatedAt).toLocaleDateString('ru-RU')}
-                      </p>
-                    </button>
-                    <div className="grid grid-cols-5 gap-1">
-                      <IconButton
-                        icon={Pencil}
-                        label="Редактировать"
-                        color="text-purple-600"
-                        onClick={() => openEditor(g)}
-                      />
-                      <IconButton
-                        icon={Monitor}
-                        label="Режим проектора"
-                        color="text-gray-700"
-                        onClick={() => setProjectorGame(g)}
-                      />
-                      <IconButton
-                        icon={Download}
-                        label="Скачать PDF для печати"
-                        color="text-green-600"
-                        onClick={() => exportEduGameToPDF(g)}
-                      />
-                      <IconButton
-                        icon={Share2}
-                        label="Поделиться игрой"
-                        color="text-blue-600"
-                        onClick={() => handleExportGame(g)}
-                      />
-                      <IconButton
-                        icon={Trash2}
-                        label="Удалить игру"
-                        color="text-red-500"
-                        onClick={() => handleDelete(g)}
-                      />
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </CollapseSection>
-
-        {/* 2) ГОТОВЫЕ ИГРЫ */}
-        <CollapseSection
-          open={showPresets}
-          onToggle={() => setShowPresets(!showPresets)}
-          icon={Sparkles}
-          title="Готовые игры"
-          count={presetEduGames.length}
-        >
-          <div className="space-y-2">
-            {presetEduGames.map((g) => (
-              <div
-                key={g.id}
-                className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-gray-50"
-              >
+        {/* Раунды */}
+        {rounds.map((round, roundIndex) => (
+          <div key={round.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            {/* Заголовок раунда */}
+            <div className="p-4 border-b border-purple-100">
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setProjectorGame(g)}
-                  className="flex-1 min-w-0 text-left flex items-center gap-3 group"
+                  onClick={() => setExpandedRound(expandedRound === round.id ? null : round.id)}
+                  className="flex-1 min-w-0 flex items-center gap-2"
+                  aria-expanded={expandedRound === round.id}
                 >
-                  <div className="shrink-0 w-11 h-11 rounded-xl bg-white border border-purple-200 flex items-center justify-center group-hover:border-purple-400 transition-colors">
-                    <Trophy className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-800 text-sm leading-tight truncate group-hover:text-purple-700 transition-colors">
-                      {g.title}
-                    </h4>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      раундов: {g.rounds.length} · вопросов: {gameQuestionsCount(g)}
-                    </p>
-                  </div>
+                  {expandedRound === round.id ? (
+                    <ChevronUp className="w-5 h-5 text-purple-600 shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-purple-600 shrink-0" />
+                  )}
+                  <input
+                    type="text"
+                    value={round.title}
+                    onChange={(e) => updateRoundTitle(round.id, e.target.value)}
+                    placeholder={`Раунд ${roundIndex + 1}`}
+                    className="flex-1 min-w-0 font-semibold text-gray-800 bg-transparent focus:outline-none focus:ring-2 focus:ring-purple-400 rounded px-1"
+                    onClick={(e) => e.stopPropagation()}
+                  />
                 </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => moveRound(roundIndex, 'up')}
+                    disabled={roundIndex === 0}
+                    className="p-1.5 text-gray-400 hover:text-purple-600 disabled:opacity-30 transition-colors"
+                    aria-label="Переместить вверх"
+                    title="Переместить вверх"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => moveRound(roundIndex, 'down')}
+                    disabled={roundIndex === rounds.length - 1}
+                    className="p-1.5 text-gray-400 hover:text-purple-600 disabled:opacity-30 transition-colors"
+                    aria-label="Переместить вниз"
+                    title="Переместить вниз"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteRound(round.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                    aria-label="Удалить раунд"
+                    title="Удалить раунд"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 ml-7">
+                вопросов: {round.questions.length}
+              </p>
+            </div>
+
+            {/* Вопросы раунда */}
+            {expandedRound === round.id && (
+              <div className="p-4 space-y-3">
+                {round.questions.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    Нет вопросов. Добавьте первый вопрос.
+                  </p>
+                ) : (
+                  round.questions.map((question, questionIndex) => (
+                    <div
+                      key={question.id}
+                      className="border-2 border-purple-100 rounded-xl overflow-hidden"
+                    >
+                      <div className="p-3 bg-purple-50/50">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() =>
+                              setExpandedQuestion(
+                                expandedQuestion === question.id ? null : question.id
+                              )
+                            }
+                            className="flex-1 min-w-0 flex items-center gap-2"
+                            aria-expanded={expandedQuestion === question.id}
+                          >
+                            {expandedQuestion === question.id ? (
+                              <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                            )}
+                            <span className="font-semibold text-sm text-gray-700 truncate">
+                              {question.text || `Вопрос ${questionIndex + 1}`}
+                            </span>
+                          </button>
+                          <span className="text-sm font-bold text-purple-600 shrink-0">
+                            {question.points} б.
+                          </span>
+                          <button
+                            onClick={() => moveQuestion(round.id, question.id, 'up')}
+                            disabled={questionIndex === 0}
+                            className="p-1 text-gray-400 hover:text-purple-600 disabled:opacity-30 transition-colors"
+                            aria-label="Вопрос вверх"
+                            title="Вопрос вверх"
+                          >
+                            <ChevronUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => moveQuestion(round.id, question.id, 'down')}
+                            disabled={questionIndex === round.questions.length - 1}
+                            className="p-1 text-gray-400 hover:text-purple-600 disabled:opacity-30 transition-colors"
+                            aria-label="Вопрос вниз"
+                            title="Вопрос вниз"
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteQuestion(round.id, question.id)}
+                            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                            aria-label="Удалить вопрос"
+                            title="Удалить вопрос"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {expandedQuestion === question.id && (
+                        <div className="p-3 space-y-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">
+                              Текст вопроса
+                            </label>
+                            <textarea
+                              value={question.text}
+                              onChange={(e) =>
+                                updateQuestion(round.id, question.id, 'text', e.target.value)
+                              }
+                              placeholder="Введите текст вопроса"
+                              className="w-full rounded-lg border-2 border-purple-200 p-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y min-h-[60px]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">
+                              Ответ
+                            </label>
+                            <textarea
+                              value={question.answer}
+                              onChange={(e) =>
+                                updateQuestion(round.id, question.id, 'answer', e.target.value)
+                              }
+                              placeholder="Введите ответ"
+                              className="w-full rounded-lg border-2 border-purple-200 p-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y min-h-[50px]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 mb-1">
+                              Баллы
+                            </label>
+                            <select
+                              value={question.points}
+                              onChange={(e) =>
+                                updateQuestion(round.id, question.id, 'points', Number(e.target.value))
+                              }
+                              className="w-full rounded-lg border-2 border-purple-200 p-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            >
+                              {DEFAULT_POINTS.map((p) => (
+                                <option key={p} value={p}>
+                                  {p}
+                                </option>
+                              ))}
+                              <option value={question.points}>{question.points}</option>
+                            </select>
+                          </div>
+                          <button
+                            onClick={() => duplicateQuestion(round.id, question.id)}
+                            className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-semibold rounded-lg py-2 text-sm transition-colors"
+                          >
+                            Дублировать вопрос
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+
                 <button
-                  onClick={() => handleCopyPreset(g)}
-                  className="p-2 text-gray-300 hover:text-purple-600 transition-colors shrink-0"
-                  aria-label={`Скопировать «${g.title}» в Мои игры`}
-                  title="Скопировать в Мои игры и редактировать"
+                  onClick={() => addQuestion(round.id)}
+                  className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
                 >
-                  <Pencil className="w-5 h-5" />
+                  <Plus className="w-5 h-5" /> Добавить вопрос
                 </button>
               </div>
-            ))}
-            <p className="text-xs text-gray-500">
-              Нажми на набор — сразу откроется проектор для игры. Карандаш — скопировать в «Мои игры» и отредактировать под свой класс.
-            </p>
+            )}
           </div>
-        </CollapseSection>
+        ))}
 
-        {/* Инструкции */}
-        <CollapseSection
-          open={showHow}
-          onToggle={() => setShowHow(!showHow)}
-          icon={GraduationCap}
-          title="Инструкции"
-          count={HOW_ITEMS.length}
+        {/* Добавить раунд */}
+        <button
+          onClick={addRound}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 transition-colors"
         >
-          <FaqList items={HOW_ITEMS} />
-        </CollapseSection>
+          <Plus className="w-5 h-5" /> Добавить раунд
+        </button>
 
-        {/* Вопросы и сценарии */}
-        <CollapseSection
-          open={showFaq}
-          onToggle={() => setShowFaq(!showFaq)}
-          icon={HelpCircle}
-          title="Вопросы и сценарии"
-          count={FAQ_ITEMS.length}
+        {/* Сохранить */}
+        <button
+          onClick={handleSave}
+          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl py-4 flex items-center justify-center gap-2 transition-colors"
         >
-          <FaqList items={FAQ_ITEMS} />
-        </CollapseSection>
+          <Save className="w-5 h-5" /> Сохранить игру
+        </button>
       </main>
     </div>
   );
