@@ -6,9 +6,71 @@ import { sanitizeFileName } from '@/lib/eduGameStorage';
  * Двусторонняя печать: каждая карточка = 2 страницы PDF.
  * Страница 1 (лицевая): вопрос. Страница 2 (оборот): баллы + ответ.
  * Печатать нужно с опцией «двусторонняя печать, переворот по длинному краю».
+ * 
+ * ВАЖНО: Шрифт Roboto поддерживает кириллицу.
+ * Если шрифт не загрузился, используется helvetica (без кириллицы).
  */
-export function exportEduGameToPDF(game: EduGame): void {
+
+// Путь к шрифту Roboto (можно заменить на локальный)
+const FONT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf';
+const FONT_BOLD_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf';
+
+let fontLoaded = false;
+
+async function loadFonts(doc: jsPDF): Promise<void> {
+  if (fontLoaded) return;
+  
+  try {
+    // Загружаем шрифты
+    const [regularRes, boldRes] = await Promise.all([
+      fetch(FONT_URL),
+      fetch(FONT_BOLD_URL),
+    ]);
+    
+    const regularArrayBuffer = await regularRes.arrayBuffer();
+    const boldArrayBuffer = await boldRes.arrayBuffer();
+    
+    const regularBase64 = arrayBufferToBase64(regularArrayBuffer);
+    const boldBase64 = arrayBufferToBase64(boldArrayBuffer);
+    
+    doc.addFileToVFS('Roboto-Regular.ttf', regularBase64);
+    doc.addFileToVFS('Roboto-Bold.ttf', boldBase64);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+    
+    fontLoaded = true;
+  } catch {
+    console.warn('Не удалось загрузить шрифт Roboto. Кириллица может не отображаться.');
+    fontLoaded = true; // Чтобы не пытаться снова
+  }
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
+}
+
+export async function exportEduGameToPDF(game: EduGame): Promise<void> {
+  // Проверка на пустую игру
+  const totalQuestions = game.rounds.reduce((sum, r) => sum + r.questions.length, 0);
+  if (totalQuestions === 0) {
+    alert('В игре нет вопросов для печати');
+    return;
+  }
+
   const doc = new jsPDF();
+  
+  // Загружаем шрифты с поддержкой кириллицы
+  await loadFonts(doc);
+  
+  const fontName = fontLoaded ? 'Roboto' : 'helvetica';
+  
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
 
@@ -63,7 +125,7 @@ export function exportEduGameToPDF(game: EduGame): void {
       drawFrame();
 
       doc.setTextColor(107, 33, 168);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(fontName, 'bold');
       doc.setFontSize(14);
       doc.text(round.title, W / 2, 22, { align: 'center' });
 
@@ -73,7 +135,7 @@ export function exportEduGameToPDF(game: EduGame): void {
 
       doc.setTextColor(31, 41, 55);
       const { lines, size } = fitLines(q.text, W - 50, H - 80, [22, 18, 16, 14, 12, 10]);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(fontName, 'bold');
       doc.setFontSize(size);
       const lineH = size * 0.5;
       const startY = H / 2 - ((lines.length - 1) * lineH) / 2;
@@ -90,7 +152,7 @@ export function exportEduGameToPDF(game: EduGame): void {
       drawFrame();
 
       doc.setTextColor(107, 33, 168);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(fontName, 'bold');
       doc.setFontSize(14);
       doc.text(round.title, W / 2, 22, { align: 'center' });
 
