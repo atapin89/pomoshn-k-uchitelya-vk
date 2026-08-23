@@ -830,4 +830,85 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
             </div>
           )}
 
-          {/*
+          {/* Очистить выполненные */}
+          {tasks.some((t) => t.isCompleted) && (
+            <button
+              onClick={handleClearCompleted}
+              className="mt-3 w-full text-sm text-purple-600 hover:text-purple-800 font-semibold"
+            >
+              Очистить выполненные
+            </button>
+          )}
+        </div>
+
+        {/* Инструкции */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowHow(!showHow)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Как пользоваться</h3>
+            </div>
+            {showHow ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
+          </button>
+          {showHow && (
+            <div className="px-5 pb-5 space-y-2">
+              {HOW_ITEMS.map((item, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenHow(openHow === idx ? null : idx)}
+                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50"
+                  >
+                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                    {openHow === idx ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                  {openHow === idx && (
+                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 whitespace-pre-line">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Вопросы */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowFaq(!showFaq)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Вопросы и сценарии</h3>
+            </div>
+            {showFaq ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
+          </button>
+          {showFaq && (
+            <div className="px-5 pb-5 space-y-2">
+              {FAQ_ITEMS.map((item, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50"
+                  >
+                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                    {openFaq === idx ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                  {openFaq === idx && (
+                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 whitespace-pre-line">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
