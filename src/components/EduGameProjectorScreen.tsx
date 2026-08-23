@@ -11,6 +11,7 @@ import {
   Upload,
   Download,
   Plus,
+  RotateCcw,
 } from 'lucide-react';
 import type { EduGame, EduPlayer, EduQuestion, EduRound } from '@/types/eduGame';
 import {
@@ -51,6 +52,14 @@ function loadSession(gameId: string): { used: string[]; players: EduPlayer[]; ra
   return { used: [], players: [], rating: false };
 }
 
+function clearSession(gameId: string) {
+  try {
+    localStorage.removeItem(sessionKey(gameId));
+  } catch {
+    // ignore
+  }
+}
+
 export default function EduGameProjectorScreen({ game, onBack }: EduGameProjectorScreenProps) {
   const initial = useMemo(() => loadSession(game.id), [game.id]);
 
@@ -71,7 +80,7 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
 
   const usedSet = useMemo(() => new Set(used), [used]);
 
-  // Сохранение сессии (табло, участники, рейтинг)
+  // Сохранение сессии
   useEffect(() => {
     try {
       localStorage.setItem(sessionKey(game.id), JSON.stringify({ used, players, rating }));
@@ -80,11 +89,41 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
     }
   }, [used, players, rating, game.id]);
 
+  // Fullscreen
   useEffect(() => {
     const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
+
+  // Закрытие по Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (active) {
+          closeCell();
+        } else if (showPlayers) {
+          setShowPlayers(false);
+        } else if (showResults) {
+          setShowResults(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [active, showPlayers, showResults]);
+
+  // Блокировка прокрутки фона
+  useEffect(() => {
+    if (active || showPlayers || showResults) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [active, showPlayers, showResults]);
 
   const toggleFullscreen = async () => {
     try {
@@ -107,6 +146,8 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
       if (!usedSet.has(key)) setUsed([...used, key]);
     }
     setActive(null);
+    setShowQuestion(false);
+    setShowAnswer(false);
   };
 
   const changeScore = (playerId: string, delta: number) => {
@@ -142,9 +183,26 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
   };
 
   const resetAll = () => {
+    const proceed = window.confirm(
+      'Начать новую игру? Все результаты и использованные вопросы будут сброшены.'
+    );
+    if (!proceed) return;
     setUsed([]);
     setPlayers((ps) => ps.map((p) => ({ ...p, score: 0 })));
     setShowResults(false);
+    setActive(null);
+  };
+
+  const handleBack = () => {
+    // Проверяем, есть ли активный прогресс
+    const hasProgress = used.length > 0 || players.some((p) => p.score !== 0);
+    if (hasProgress) {
+      const proceed = window.confirm(
+        'Выйти из проектора? Прогресс будет сохранён, но игра не будет сброшена.'
+      );
+      if (!proceed) return;
+    }
+    onBack();
   };
 
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
@@ -154,7 +212,12 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
       {/* Шапка */}
       <header className="bg-gray-800/90 sticky top-0 z-20 shadow-lg">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-2">
-          <button onClick={onBack} className="text-gray-300 hover:text-white p-2" aria-label="Выход">
+          <button 
+            onClick={handleBack} 
+            className="text-gray-300 hover:text-white p-2 transition-colors" 
+            aria-label="Выход из проектора"
+            title="Выйти из проектора"
+          >
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex-1 min-w-0">
@@ -166,19 +229,34 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
           </div>
           <button
             onClick={() => setShowPlayers(true)}
-            className={`p-2 ${rating ? 'text-purple-400' : 'text-gray-300'} hover:text-white`}
+            className={`p-2 ${rating ? 'text-purple-400' : 'text-gray-300'} hover:text-white transition-colors`}
             aria-label="Участники и рейтинг"
+            title="Участники и рейтинг"
           >
             <Users className="w-5 h-5" />
           </button>
           <button
             onClick={() => setShowResults(true)}
-            className="p-2 text-gray-300 hover:text-white"
+            className="p-2 text-gray-300 hover:text-white transition-colors"
             aria-label="Результаты"
+            title="Результаты"
           >
             <Trophy className="w-5 h-5" />
           </button>
-          <button onClick={toggleFullscreen} className="p-2 text-gray-300 hover:text-white" aria-label="Во весь экран">
+          <button
+            onClick={resetAll}
+            className="p-2 text-gray-300 hover:text-orange-400 transition-colors"
+            aria-label="Новая игра"
+            title="Новая игра (сбросить прогресс)"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
+          <button 
+            onClick={toggleFullscreen} 
+            className="p-2 text-gray-300 hover:text-white transition-colors" 
+            aria-label={isFullscreen ? 'Выйти из полноэкранного режима' : 'Во весь экран'}
+            title={isFullscreen ? 'Выйти из полноэкранного режима' : 'Во весь экран'}
+          >
             {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
           </button>
         </div>
@@ -210,9 +288,10 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
                         onClick={() => openCell(round, q)}
                         className={`w-full rounded-xl py-4 sm:py-5 font-extrabold text-xl sm:text-2xl transition-all ${
                           isUsed
-                            ? 'bg-gray-800 text-gray-600 line-through'
+                            ? 'bg-gray-800 text-gray-600 line-through cursor-not-allowed'
                             : 'bg-purple-600 hover:bg-purple-500 text-white active:scale-95'
                         }`}
+                        aria-label={`${round.title}: ${q.points} баллов${isUsed ? ' (отвечено)' : ''}`}
                       >
                         {q.points}
                       </button>
@@ -236,7 +315,12 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
                 <p className="text-purple-300 text-sm font-semibold">{active.round.title}</p>
                 <p className="text-white font-extrabold text-3xl">{active.question.points} баллов</p>
               </div>
-              <button onClick={closeCell} className="p-2 text-gray-300 hover:text-white" aria-label="Закрыть">
+              <button 
+                onClick={closeCell} 
+                className="p-2 text-gray-300 hover:text-white transition-colors" 
+                aria-label="Закрыть вопрос"
+                title="Закрыть вопрос"
+              >
                 <X className="w-7 h-7" />
               </button>
             </div>
@@ -254,7 +338,7 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
             </div>
 
             {showQuestion && showAnswer && active.question.answer.trim() && (
-              <div className="bg-green-900/60 border-2 border-green-600 rounded-3xl p-6 text-center">
+              <div className="bg-green-900/60 border-2 border-green-600 rounded-3xl p-6 text-center animate-fadeIn">
                 <p className="text-green-300 text-sm mb-1">Ответ:</p>
                 <p className="text-white font-bold text-xl sm:text-3xl break-words">
                   {active.question.answer}
@@ -305,15 +389,17 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
                       <span className="text-purple-300 text-sm font-bold w-14 text-right">{p.score}</span>
                       <button
                         onClick={() => changeScore(p.id, -active.question.points)}
-                        className="w-9 h-9 rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-bold text-lg shrink-0"
-                        aria-label="Минус баллы"
+                        className="w-9 h-9 rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-bold text-lg shrink-0 transition-colors"
+                        aria-label={`Снять баллы у ${p.name}`}
+                        title={`Снять баллы у ${p.name}`}
                       >
                         −
                       </button>
                       <button
                         onClick={() => changeScore(p.id, active.question.points)}
-                        className="w-9 h-9 rounded-lg bg-green-600/80 hover:bg-green-600 text-white font-bold text-lg shrink-0"
-                        aria-label="Плюс баллы"
+                        className="w-9 h-9 rounded-lg bg-green-600/80 hover:bg-green-600 text-white font-bold text-lg shrink-0 transition-colors"
+                        aria-label={`Начислить баллы ${p.name}`}
+                        title={`Начислить баллы ${p.name}`}
                       >
                         +
                       </button>
@@ -329,8 +415,11 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
       {/* Панель участников */}
       {showPlayers && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-30 bg-black/60 flex items-end sm:items-center justify-center animate-fadeIn"
           onClick={() => setShowPlayers(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Участники и рейтинг"
         >
           <div
             className="bg-gray-800 w-full max-w-md max-h-[85dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl p-5 space-y-4"
@@ -338,7 +427,12 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
           >
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-white font-bold text-lg">Участники и рейтинг</h3>
-              <button onClick={() => setShowPlayers(false)} className="p-2 text-gray-300 hover:text-white" aria-label="Закрыть">
+              <button 
+                onClick={() => setShowPlayers(false)} 
+                className="p-2 text-gray-300 hover:text-white transition-colors" 
+                aria-label="Закрыть"
+                title="Закрыть"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -351,7 +445,9 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
                 className={`relative shrink-0 w-12 h-7 rounded-full transition-colors duration-200 ${
                   rating ? 'bg-purple-600' : 'bg-gray-600'
                 }`}
-                aria-label="Включить рейтинг"
+                aria-label={rating ? 'Выключить рейтинг' : 'Включить рейтинг'}
+                role="switch"
+                aria-checked={rating}
               >
                 <span
                   className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
@@ -367,6 +463,7 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
               onChange={(e) => setNewPlayersText(e.target.value)}
               placeholder={'Имена участников, каждое с новой строки:\nАня\nИван'}
               className="w-full min-h-[90px] rounded-xl border border-gray-600 bg-gray-700 p-3 text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y"
+              aria-label="Имена участников"
             />
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -389,6 +486,7 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
               accept=".txt,text/plain"
               className="hidden"
               onChange={handleImportPlayers}
+              aria-label="Импорт участников из файла"
             />
 
             {/* Список участников */}
@@ -402,8 +500,9 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
                     <span className="text-purple-300 text-sm font-bold">{p.score}</span>
                     <button
                       onClick={() => removePlayer(p.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-400"
-                      aria-label="Удалить участника"
+                      className="p-1.5 text-gray-400 hover:text-red-400 transition-colors"
+                      aria-label={`Удалить участника ${p.name}`}
+                      title={`Удалить ${p.name}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -427,8 +526,11 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
       {/* Результаты */}
       {showResults && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-30 bg-black/60 flex items-end sm:items-center justify-center animate-fadeIn"
           onClick={() => setShowResults(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Результаты"
         >
           <div
             className="bg-gray-800 w-full max-w-md max-h-[85dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl p-5 space-y-4"
@@ -438,7 +540,12 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
               <h3 className="text-white font-bold text-lg flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-yellow-400" /> Результаты
               </h3>
-              <button onClick={() => setShowResults(false)} className="p-2 text-gray-300 hover:text-white" aria-label="Закрыть">
+              <button 
+                onClick={() => setShowResults(false)} 
+                className="p-2 text-gray-300 hover:text-white transition-colors" 
+                aria-label="Закрыть"
+                title="Закрыть"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -478,7 +585,7 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
                 onClick={resetAll}
                 className="bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-1.5 text-sm active:scale-95 transition-transform"
               >
-                <Trash2 className="w-4 h-4" /> Новая игра
+                <RotateCcw className="w-4 h-4" /> Новая игра
               </button>
             </div>
           </div>
