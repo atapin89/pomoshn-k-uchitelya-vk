@@ -184,21 +184,22 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
 
   const resetAll = () => {
     const proceed = window.confirm(
-      'Начать новую игру? Все результаты и использованные вопросы будут сброшены.'
+      'Начать новую игру? Все результаты, использованные вопросы и участники будут сброшены.'
     );
     if (!proceed) return;
+    
+    clearSession(game.id); // Очищаем localStorage
     setUsed([]);
-    setPlayers((ps) => ps.map((p) => ({ ...p, score: 0 })));
+    setPlayers([]); // Полностью очищаем список участников
     setShowResults(false);
     setActive(null);
   };
 
   const handleBack = () => {
-    // Проверяем, есть ли активный прогресс
     const hasProgress = used.length > 0 || players.some((p) => p.score !== 0);
     if (hasProgress) {
       const proceed = window.confirm(
-        'Выйти из проектора? Прогресс будет сохранён, но игра не будет сброшена.'
+        'Выйти из проектора? Прогресс будет сохранён — при следующем входе игра продолжится с того же места.'
       );
       if (!proceed) return;
     }
@@ -437,7 +438,6 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
               </button>
             </div>
 
-            {/* Переключатель рейтинга */}
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-gray-200">Индивидуальный рейтинг</span>
               <button
@@ -457,7 +457,6 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
               </button>
             </div>
 
-            {/* Добавление участников */}
             <textarea
               value={newPlayersText}
               onChange={(e) => setNewPlayersText(e.target.value)}
@@ -489,7 +488,6 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
               aria-label="Импорт участников из файла"
             />
 
-            {/* Список участников */}
             {players.length === 0 ? (
               <p className="text-gray-500 text-sm text-center py-2">Пока нет участников</p>
             ) : (
