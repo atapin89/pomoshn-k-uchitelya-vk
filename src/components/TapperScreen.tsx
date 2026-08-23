@@ -99,7 +99,7 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
 
   const handleExportList = (list: TapperList) => {
     downloadTextFile(
-      sanitizeFileName(`таппер_${list.name}.json`),
+      sanitizeFileName(`активность_${list.name}.json`),
       serializeTapperList(list),
       'application/json;charset=utf-8',
     );
@@ -239,7 +239,7 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
     if (!activeList || !stats) return '';
     
     const lines: string[] = [];
-    lines.push(`📊 Таппер: ${activeList.name}`);
+    lines.push(`📊 Счётчик активности: ${activeList.name}`);
     lines.push(`Дата: ${new Date().toLocaleDateString('ru-RU')}`);
     lines.push('');
     lines.push(`Всего учеников: ${stats.total}`);
@@ -362,7 +362,7 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
           <div className="flex gap-2">
             <button
               onClick={() => downloadTextFile(
-                sanitizeFileName(`результаты_таппер_${activeList.name}.txt`),
+                sanitizeFileName(`результаты_активность_${activeList.name}.txt`),
                 getResultsText(),
               )}
               className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
@@ -391,7 +391,7 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
           <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={onBack} variant="light" />
             <div className="flex-1">
-              <h1 className="text-lg font-bold text-white">Таппер</h1>
+              <h1 className="text-lg font-bold text-white">Счётчик активности</h1>
               <p className="text-xs text-purple-200">Отслеживание опросов</p>
             </div>
             <Users className="w-6 h-6 text-white/70" />
@@ -488,7 +488,7 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
     );
   }
 
-  // ===== ОСНОВНОЙ ЭКРАН ТАППЕРА =====
+  // ===== ОСНОВНОЙ ЭКРАН =====
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
@@ -514,7 +514,6 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-4 py-4 pb-8">
-        {/* Добавление учеников */}
         <div className="bg-white rounded-2xl p-3 shadow-sm mb-4">
           <textarea
             placeholder={'Добавьте учеников (по одному на строку):\nИван\nАня\nПетр'}
@@ -535,7 +534,6 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
           </button>
         </div>
 
-        {/* Сетка учеников */}
         <div className="grid grid-cols-3 gap-2">
           {activeList.students.map((student) => {
             const count = results[student.id] || 0;
@@ -583,12 +581,10 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
           </p>
         )}
 
-        {/* Подсказка */}
         <p className="text-xs text-gray-400 text-center mt-4">
           Нажмите на ученика — добавить ответ. ПКМ (долгое нажатие) — сбросить.
         </p>
 
-        {/* Кнопки управления */}
         <div className="flex gap-2 mt-4">
           <button
             onClick={() => setShowResults(true)}
