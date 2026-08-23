@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, RotateCw, Check, RotateCcw } from 'lucide-react';
-import type { Deck } from '@/types';
+import type { Deck, Card } from '@/types';
 import { loadDecks, saveDecks } from '@/lib/storage';
 import { triggerHaptic } from '@/lib/haptic';
 import BackButton from './BackButton';
@@ -15,7 +15,7 @@ export default function StudyScreen({ deckId, onBack }: StudyScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isReverse, setIsReverse] = useState(false);
-  const [sessionCards, setSessionCards] = useState<any[]>([]);
+  const [sessionCards, setSessionCards] = useState<Card[]>([]);
   const [sessionComplete, setSessionComplete] = useState(false);
   const [stats, setStats] = useState({ learned: 0, mistakes: 0 });
 
@@ -24,7 +24,14 @@ export default function StudyScreen({ deckId, onBack }: StudyScreenProps) {
     
     if (deckId === 'mistakes-temp') {
       const tempData = localStorage.getItem('temp_study_deck');
-      if (tempData) deckToStudy = JSON.parse(tempData);
+      if (tempData) {
+        try {
+          deckToStudy = JSON.parse(tempData);
+        } catch {
+          console.error('Повреждённые данные временной колоды');
+          deckToStudy = null;
+        }
+      }
     } else {
       const allDecks = loadDecks();
       deckToStudy = allDecks.find((d) => d.id === deckId) || null;
@@ -32,7 +39,7 @@ export default function StudyScreen({ deckId, onBack }: StudyScreenProps) {
 
     if (deckToStudy) {
       setDeck(deckToStudy);
-      let cards = deckToStudy.cards;
+      let cards = deckToStudy.cards || [];
       if (deckId !== 'mistakes-temp') {
         cards = cards.filter((c) => c.status !== 'learned');
       }
@@ -44,6 +51,7 @@ export default function StudyScreen({ deckId, onBack }: StudyScreenProps) {
   const handleEvaluate = (knows: boolean) => {
     if (!deck || sessionCards.length === 0) return;
     const currentCard = sessionCards[currentIndex];
+    if (!currentCard) return;
     
     const updatedDecks = loadDecks().map((d) => {
       if (d.id !== deck.id) return d;
@@ -125,7 +133,9 @@ export default function StudyScreen({ deckId, onBack }: StudyScreenProps) {
   }
 
   const currentCard = sessionCards[currentIndex];
-  const progress = ((currentIndex) / sessionCards.length) * 100;
+  if (!currentCard) return null;
+
+  const progress = ((currentIndex + 1) / sessionCards.length) * 100;
   const questionSide = isReverse ? currentCard.sides[currentCard.sides.length - 1] : currentCard.sides[0];
   const answerSide = isReverse ? currentCard.sides[0] : currentCard.sides[1];
   const extraSides = currentCard.sides.slice(2);
