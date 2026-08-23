@@ -17,6 +17,7 @@ import ManualScreen from '@/components/ManualScreen';
 import CalculatorsScreen from '@/components/CalculatorsScreen';
 import BingoGeneratorScreen from '@/components/BingoGeneratorScreen';
 import EduGameScreen from '@/components/EduGameScreen';
+import TapperScreen from '@/components/TapperScreen';
 
 type Route = 
   | 'home' 
@@ -30,7 +31,8 @@ type Route =
   | 'manual' 
   | 'calculators' 
   | 'bingo' 
-  | 'edugame';
+  | 'edugame'
+  | 'tapper';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -140,6 +142,7 @@ export default function App() {
     calculators: <CalculatorsScreen onBack={navigateHome} />,
     bingo: <BingoGeneratorScreen onBack={navigateHome} />,
     edugame: <EduGameScreen onBack={navigateHome} />,
+    tapper: <TapperScreen onBack={navigateHome} />,
     timer: null, // Обрабатывается отдельно
   };
 
