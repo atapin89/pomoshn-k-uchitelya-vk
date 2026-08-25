@@ -61,6 +61,30 @@ export interface SavedTarsia {
   updatedAt: number;
 }
 
+// ===== ТИПЫ РЕДАКТОРА ТАРСИИ =====
+
+export type TarsiaShape = 'triangle' | 'hexagon' | 'domino';
+export type TarsiaCardSize = 'small' | 'medium' | 'large';
+
+export interface TarsiaPair {
+  id: string;
+  left: string;
+  right: string;
+}
+
+export interface TarsiaPuzzle {
+  id: string;
+  title: string;
+  shape: TarsiaShape;
+  pairs: TarsiaPair[];
+  puzzleTitle: string;
+  solutionTitle: string;
+  showSolution: boolean;
+  cardSize: TarsiaCardSize;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export const TARSIA_CONFIG: TarsiaConfig = {
   triangle: {
     side: 250,
@@ -97,8 +121,21 @@ export const TARSIA_CONFIG: TarsiaConfig = {
 TARSIA_CONFIG.triangle.text.yHeightStep = 
   TARSIA_CONFIG.triangle.text.style.fontSize * (1 + TARSIA_CONFIG.triangle.text.style.lineSpace);
 
-export function generateTarsiaId(): string {
-  return `tarsia-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+// ===== ГЕНЕРАЦИЯ ID И ВАЛИДАЦИЯ =====
+
+export function generateTarsiaId(prefix: string = 'tarsia'): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+export function validateTarsiaPairs(pairs: TarsiaPair[]): TarsiaPair[] {
+  return pairs.filter(
+    (p) =>
+      p &&
+      typeof p.left === 'string' &&
+      typeof p.right === 'string' &&
+      p.left.trim() !== '' &&
+      p.right.trim() !== '',
+  );
 }
 
 export function splitTextToLines(text: string, maxLineLengths: number[]): string[] {
