@@ -1,5 +1,8 @@
+// src/lib/eduGameStorage.ts
+
 import type { EduGame, EduPlayer } from '@/types/eduGame';
 import { generateEduId, isEduGame, isEduPlayer } from '@/types/eduGame';
+import { vkStorageSet } from '@/lib/vkStorage';
 
 const GAMES_KEY = 'edu-games';
 const MAX_STORAGE_SIZE = 4 * 1024 * 1024; // 4 МБ
@@ -66,6 +69,11 @@ export function saveEduGames(games: EduGame[]): void {
     }
     
     localStorage.setItem(GAMES_KEY, json);
+    
+    // Синхронизация с VK Storage (облачное хранилище)
+    void vkStorageSet(GAMES_KEY, json).catch(() => {
+      // Не критично — данные останутся в localStorage
+    });
   } catch (error) {
     console.error('Ошибка сохранения игр:', error);
     // Пытаемся сохранить хотя бы часть
