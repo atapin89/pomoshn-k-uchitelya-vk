@@ -200,18 +200,19 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="max-w-md mx-auto w-full px-5 pt-12 sm:pt-10 pb-6">
+      <header className="max-w-md mx-auto w-full px-5 pt-12 sm:pt-10 pb-4">
+        {/* Верхняя строка: настройки слева, проект справа */}
         <div className="flex items-center justify-between mb-2">
           <button
-            onClick={() => onNavigate('manual')}
+            onClick={() => setShowSettings(true)}
             className="text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-            aria-label="Руководство по использованию"
-            title="Руководство"
+            aria-label="Настроить отображение разделов"
+            title="Настроить разделы"
           >
-            <BookOpen className="w-5 h-5" />
+            <Settings className="w-5 h-5" />
           </button>
 
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 text-right">
             Проект{' '}
             <a
               href="https://vk.ru/aaatapin"
@@ -222,24 +223,27 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               Алексея Атапина
             </a>
           </p>
-
-          <button
-            onClick={() => setShowSettings(true)}
-            className="text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-            aria-label="Настроить отображение разделов"
-            title="Настроить разделы"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
         </div>
 
+        {/* Заголовок */}
         <h1 className="text-3xl sm:text-4xl font-extrabold text-purple-700 text-center whitespace-nowrap mt-6">
           Помощник учителя
         </h1>
 
-        <p className="text-sm sm:text-base text-gray-500 text-center whitespace-nowrap my-1">
-          Простые инструменты для сложных задач
-        </p>
+        {/* Подзаголовок с иконкой руководства */}
+        <div className="flex items-center justify-center gap-2 mt-1">
+          <p className="text-sm sm:text-base text-gray-500 text-center whitespace-nowrap">
+            Простые инструменты для сложных задач
+          </p>
+          <button
+            onClick={() => onNavigate('manual')}
+            className="text-gray-400 hover:text-purple-600 transition-colors p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+            aria-label="Руководство по использованию"
+            title="Руководство"
+          >
+            <BookOpen className="w-4 h-4" />
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 pb-5">
