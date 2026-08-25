@@ -229,7 +229,7 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
   };
 
   const handleRenamePuzzle = (id: string, newName: string) => {
-    renameTorsiaPuzzle(id, newName);
+    renameTarsiaPuzzle(id, newName);
     refresh();
     if (activePuzzle?.id === id) {
       setActivePuzzle({ ...activePuzzle, title: newName });
