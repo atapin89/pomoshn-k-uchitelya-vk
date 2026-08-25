@@ -1,103 +1,44 @@
-import type { SavedTarsia } from '@/types/tarsia';
+import type { TapperList } from '@/types/tapper';
 
-const SAVED_TARSIAS_KEY = 'tarsia-saved-puzzles';
+const TAPPER_LISTS_KEY = 'tapper-lists';
 
-export function loadSavedTarsias(): SavedTarsia[] {
+export function loadTapperLists(): TapperList[] {
   try {
-    const raw = localStorage.getItem(SAVED_TARSIAS_KEY);
+    const raw = localStorage.getItem(TAPPER_LISTS_KEY);
     if (!raw) return [];
-    
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    
-    return parsed.filter((t) => {
-      return (
-        t &&
-        typeof t.id === 'string' &&
-        typeof t.title === 'string' &&
-        typeof t.questions === 'object' &&
-        typeof t.answers === 'object' &&
-        typeof t.gridId === 'string' &&
-        typeof t.createdAt === 'number'
-      );
-    });
+    return parsed.filter(
+      (l) =>
+        l &&
+        typeof l.id === 'string' &&
+        typeof l.title === 'string' &&
+        Array.isArray(l.items ?? l.entries ?? l.cards ?? []),
+    );
   } catch {
     return [];
   }
 }
 
-export function saveTarsia(tarsia: SavedTarsia): void {
+export function saveTapperLists(lists: TapperList[]): void {
   try {
-    const tarsias = loadSavedTarsias();
-    tarsias.push(tarsia);
-    localStorage.setItem(SAVED_TARSIAS_KEY, JSON.stringify(tarsias));
+    localStorage.setItem(TAPPER_LISTS_KEY, JSON.stringify(lists));
   } catch {
     // ignore quota errors
   }
 }
 
-export function updateTarsia(updated: SavedTarsia): void {
-  try {
-    const tarsias = loadSavedTarsias();
-    const index = tarsias.findIndex((t) => t.id === updated.id);
-    if (index !== -1) {
-      tarsias[index] = updated;
-      localStorage.setItem(SAVED_TARSIAS_KEY, JSON.stringify(tarsias));
-    }
-  } catch {
-    // ignore
+export function upsertTapperList(list: TapperList): void {
+  const lists = loadTapperLists();
+  const idx = lists.findIndex((l) => l.id === list.id);
+  if (idx >= 0) {
+    lists[idx] = list;
+  } else {
+    lists.push(list);
   }
+  saveTapperLists(lists);
 }
 
-export function deleteTarsia(id: string): void {
-  try {
-    const tarsias = loadSavedTarsias();
-    const filtered = tarsias.filter((t) => t.id !== id);
-    localStorage.setItem(SAVED_TARSIAS_KEY, JSON.stringify(filtered));
-  } catch {
-    // ignore
-  }
-}
-
-export function generateSaveCode(
-  questions: Record<number, string[]>,
-  answers: Record<number, string[]>,
-  gridId: string,
-): string {
-  const data = {
-    version: 2,
-    questions,
-    answers,
-    gridId,
-  };
-  const jsonStr = JSON.stringify(data);
-  return btoa(encodeURIComponent(jsonStr));
-}
-
-export function parseSaveCode(code: string): {
-  questions: Record<number, string[]>;
-  answers: Record<number, string[]>;
-  gridId: string;
-} | null {
-  try {
-    const cleanCode = code.replace(/\s+/g, '');
-    const jsonStr = decodeURIComponent(atob(cleanCode));
-    const data = JSON.parse(jsonStr);
-    
-    if (
-      data &&
-      typeof data.questions === 'object' &&
-      typeof data.answers === 'object' &&
-      typeof data.gridId === 'string'
-    ) {
-      return {
-        questions: data.questions,
-        answers: data.answers,
-        gridId: data.gridId,
-      };
-    }
-    return null;
-  } catch {
-    return null;
-  }
+export function deleteTapperList(id: string): void {
+  saveTapperLists(loadTapperLists().filter((l) => l.id !== id));
 }
