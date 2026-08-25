@@ -5,79 +5,7 @@ import type { TarsiaPuzzle, TarsiaPair, TarsiaShape } from '@/types/tarsia';
 import { CARD_SIZES } from '@/types/tarsia';
 import { sanitizeFileName } from '@/lib/eduGameStorage';
 
-// ===== ТИПЫ РАСКЛАДКИ =====
-
-interface GridCell {
-  row: number;
-  col: number;
-  // Три грани: [нижняя, левая, правая]
-  // Каждая грань содержит ТЕКСТ, который будет напечатан
-  values: [string | null, string | null, string | null];
-}
-
-// ===== КОНСТАНТЫ РАСКЛАДКИ =====
-
-// Для треугольной Тарсии с 12 парами (как в демо)
-const TRIANGLE_LAYOUT_12: { row: number; col: number }[] = [
-  { row: 1, col: 4 },
-  { row: 2, col: 3 }, { row: 2, col: 4 }, { row: 2, col: 5 },
-  { row: 3, col: 2 }, { row: 3, col: 3 }, { row: 3, col: 4 }, { row: 3, col: 5 }, { row: 3, col: 6 },
-  { row: 4, col: 1 }, { row: 4, col: 2 }, { row: 4, col: 3 }, { row: 4, col: 4 }, { row: 4, col: 5 }, { row: 4, col: 6 }, { row: 4, col: 7 },
-];
-
-// ===== ПОСТРОЕНИЕ ГРАНЕЙ =====
-
-/**
- * Создаёт раскладку, где вопросы и ответы сопоставлены по граням.
- * 
- * Логика:
- * - Каждая пара "вопрос-ответ" создаёт ДВА текста: вопрос (Q) и ответ (A)
- * - Вопрос размещается на грани одной карточки
- * - Ответ размещается на грани СОСЕДНЕЙ карточки
- * - При сборке: грань с вопросом соприкасается с гранью с ответом
- */
-function buildTriangleGrid(pairs: TarsiaPair[]): GridCell[] {
-  const n = pairs.length;
-  const cells: GridCell[] = [];
-  
-  // Для простоты используем паттерн:
-  // Карточка i: [вопрос_i, ответ_{i-1}, ответ_{i-2}]
-  // Или [ответ_i, вопрос_{i+1}, вопрос_{i+2}]
-  
-  // Создаём массив всех текстов
-  const allTexts: string[] = [];
-  pairs.forEach((pair, i) => {
-    allTexts.push(pair.left);  // вопрос
-    allTexts.push(pair.right); // ответ
-  });
-  
-  // Перемешиваем для создания "задания"
-  const shuffledPairs = [...pairs];
-  
-  // Для решения: каждая карточка имеет 3 грани
-  // Грань 0 (низ): вопрос_i
-  // Грань 1 (лево): ответ_{i-1} (ответ на вопрос предыдущей карточки)
-  // Грань 2 (право): ответ_{i+1} (ответ на вопрос следующей карточки)
-  
-  shuffledPairs.forEach((pair, i) => {
-    const prevPair = shuffledPairs[(i - 1 + n) % n];
-    const nextPair = shuffledPairs[(i + 1) % n];
-    
-    cells.push({
-      row: Math.floor(i / 4) + 1,
-      col: (i % 4) * 2 + 1,
-      values: [
-        pair.left,       // Вопрос текущей пары (нижняя грань)
-        prevPair.right,  // Ответ предыдущей пары (левая грань)
-        nextPair.right,  // Ответ следующей пары (правая грань)
-      ],
-    });
-  });
-  
-  return cells;
-}
-
-// ===== ЭКСПОРТ В PDF (правильная Тарсия) =====
+// ===== ЭКСПОРТ В PDF =====
 
 export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
   const validPairs = puzzle.pairs.filter((p) => p.left.trim() && p.right.trim());
@@ -97,20 +25,19 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
     const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
     
-    // ===== СТРАНИЦА 1: РЕШЕНИЕ (правильная раскладка) =====
+    // ===== СТРАНИЦА 1: РЕШЕНИЕ =====
     if (puzzle.showSolution) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
       doc.setTextColor(107, 33, 168);
       doc.text(puzzle.solutionTitle, W / 2, 12, { align: 'center' });
       
-      // Рисуем все карточки в правильном порядке
       drawAllCards(doc, puzzle.shape, validPairs, false);
       
       doc.addPage();
     }
     
-    // ===== СТРАНИЦА 2: ЗАДАНИЕ (перемешанные) =====
+    // ===== СТРАНИЦА 2: ЗАДАНИЕ =====
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
     doc.setTextColor(107, 33, 168);
@@ -126,7 +53,7 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
   }
 }
 
-// ===== ОТРИСОВКА ВСЕХ КАРТОЧЕК НА ОДНОЙ СТРАНИЦЕ =====
+// ===== ОТРИСОВКА ВСЕХ КАРТОЧЕК =====
 
 function drawAllCards(
   doc: jsPDF,
@@ -134,102 +61,41 @@ function drawAllCards(
   pairs: TarsiaPair[],
   isShuffled: boolean,
 ): void {
-  const n = pairs.length;
-  
   if (shape === 'triangle') {
-    // Треугольная раскладка
-    const cardSize = 40; // размер стороны треугольника в mm
-    const rowHeight = cardSize * Math.sqrt(3) / 2;
-    const colWidth = cardSize;
-    
-    // Раскладка по рядам
-    const layout = getTriangleLayout(n);
-    
-    layout.forEach((cell, index) => {
-      if (index >= pairs.length) return;
-      
-      const pair = pairs[index];
-      const x = 20 + cell.col * colWidth / 2;
-      const y = 25 + cell.row * rowHeight;
-      
-      drawTriangleCard(doc, x, y, cardSize, pair, index, isShuffled);
-    });
+    drawTriangleLayout(doc, pairs, isShuffled);
   } else if (shape === 'hexagon') {
-    // Шестиугольная раскладка
-    const cardSize = 30;
-    const layout = getHexagonLayout(n);
-    
-    layout.forEach((cell, index) => {
-      if (index >= pairs.length) return;
-      
-      const pair = pairs[index];
-      const x = 30 + cell.col * cardSize * 1.5;
-      const y = 30 + cell.row * cardSize * 1.7;
-      
-      drawHexagonCard(doc, x, y, cardSize, pair, index, isShuffled);
-    });
+    drawHexagonLayout(doc, pairs, isShuffled);
   } else {
-    // Домино
-    const cardW = 70;
-    const cardH = 25;
-    const perRow = 3;
-    
-    pairs.forEach((pair, index) => {
-      const row = Math.floor(index / perRow);
-      const col = index % perRow;
-      const x = 25 + col * (cardW + 10);
-      const y = 30 + row * (cardH + 15);
-      
-      drawDominoCard(doc, x, y, cardW, cardH, pair, index);
-    });
+    drawDominoLayout(doc, pairs, isShuffled);
   }
 }
 
-// ===== РАСКЛАДКИ =====
+// ===== ТРЕУГОЛЬНАЯ РАСКЛАДКА =====
 
-function getTriangleLayout(n: number): { row: number; col: number }[] {
-  // Строим треугольную сетку
-  const layout: { row: number; col: number }[] = [];
+function drawTriangleLayout(doc: jsPDF, pairs: TarsiaPair[], isShuffled: boolean): void {
+  const cardSize = 45; // размер стороны
+  const rowHeight = cardSize * Math.sqrt(3) / 2;
+  const colWidth = cardSize;
+  
   let index = 0;
   let row = 1;
   
-  while (index < n) {
-    const rowCount = row; // в каждом ряду row карточек
-    for (let col = 1; col <= rowCount && index < n; col++) {
-      layout.push({ row, col });
+  while (index < pairs.length) {
+    const rowCount = row;
+    const rowTotalWidth = rowCount * colWidth;
+    const startX = 297 / 2 - rowTotalWidth / 2; // центр страницы
+    
+    for (let col = 0; col < rowCount && index < pairs.length; col++) {
+      const pair = pairs[index];
+      const cx = startX + col * colWidth + colWidth / 2;
+      const cy = 20 + row * rowHeight;
+      
+      drawTriangleCard(doc, cx, cy, cardSize, pair, index, isShuffled);
       index++;
     }
     row++;
   }
-  
-  return layout;
 }
-
-function getHexagonLayout(n: number): { row: number; col: number }[] {
-  const layout: { row: number; col: number }[] = [];
-  const perRing = [1, 6, 12, 18, 24];
-  
-  let index = 0;
-  let ring = 0;
-  
-  while (index < n && ring < perRing.length) {
-    const count = Math.min(perRing[ring], n - index);
-    const rows = Math.max(3, Math.ceil(count / 4));
-    const cols = Math.ceil(count / rows);
-    
-    for (let i = 0; i < count; i++) {
-      const row = Math.floor(i / cols) + 1 + ring * 3;
-      const col = (i % cols) + 1 + ring * 2;
-      layout.push({ row, col });
-      index++;
-    }
-    ring++;
-  }
-  
-  return layout;
-}
-
-// ===== ОТРИСОВКА КАРТОЧЕК =====
 
 function drawTriangleCard(
   doc: jsPDF,
@@ -257,43 +123,72 @@ function drawTriangleCard(
   
   // Контур
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.4);
   doc.triangle(leftX, leftY, rightX, rightY, topX, topY, 'S');
   
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(6);
   doc.setTextColor(31, 41, 55);
   
-  // Нижняя грань — ВОПРОС
-  const questionLines = doc.splitTextToSize(pair.left, size - 8);
-  doc.text(questionLines, cx, cy + h - 6, { align: 'center' });
+  // === НИЖНЯЯ ГРАНЬ (вопрос) ===
+  const questionLines = doc.splitTextToSize(pair.left, size - 6);
+  const questionY = cy + h - 4 - (questionLines.length - 1) * 3;
+  doc.text(questionLines, cx, questionY, { align: 'center' });
   
-  // Левая грань — ОТВЕТ (повёрнут на 60°)
+  // === ЛЕВАЯ ГРАНЬ (ответ) — рисуем текст наклонно ===
   doc.setTextColor(76, 29, 149);
-  const leftAnswerLines = doc.splitTextToSize(pair.right, size - 8);
+  const leftAnswerLines = doc.splitTextToSize(pair.right, size - 6);
   
-  // Поворачиваем текст для левой грани
-  doc.saveGraphicsState();
-  doc.translate(leftX + 4, cy + h / 2);
-  doc.rotate(60);
-  doc.text(leftAnswerLines, 0, 0, { align: 'center' });
-  doc.restoreGraphicsState();
+  // Текст вдоль левой грани: от leftX,leftY к topX,topY
+  // Рисуем каждую строку с ручным смещением
+  leftAnswerLines.forEach((line, i) => {
+    const t = 0.15 + i * 0.15; // позиция вдоль грани
+    const textX = leftX + (topX - leftX) * t + 3;
+    const textY = leftY + (topY - leftY) * t + 3;
+    
+    // Поворачиваем текст вручную (приблизительно 60°)
+    doc.saveGraphicsState();
+    // Не используем translate/rotate — просто рисуем текст горизонтально
+    // с небольшим смещением
+    doc.text(line, textX, textY, { align: 'left' });
+    doc.restoreGraphicsState();
+  });
   
-  // Правая грань — ОТВЕТ (повёрнут на -60°)
-  const rightAnswerLines = doc.splitTextToSize(pair.right, size - 8);
+  // === ПРАВАЯ ГРАНЬ (ответ) ===
+  const rightAnswerLines = doc.splitTextToSize(pair.right, size - 6);
   
-  doc.saveGraphicsState();
-  doc.translate(rightX - 4, cy + h / 2);
-  doc.rotate(-60);
-  doc.text(rightAnswerLines, 0, 0, { align: 'center' });
-  doc.restoreGraphicsState();
+  rightAnswerLines.forEach((line, i) => {
+    const t = 0.15 + i * 0.15;
+    const textX = rightX + (topX - rightX) * t - 3;
+    const textY = rightY + (topY - rightY) * t + 3;
+    
+    doc.text(line, textX, textY, { align: 'right' });
+  });
   
-  // Номер карточки (только для задания — чтобы легче проверять)
+  // Номер (для задания)
   if (isShuffled) {
-    doc.setFontSize(5);
-    doc.setTextColor(200, 200, 200);
+    doc.setFontSize(4);
+    doc.setTextColor(180, 180, 180);
     doc.text(String(index + 1), cx, cy + h / 2, { align: 'center' });
   }
+  
+  // Сброс цвета
+  doc.setTextColor(31, 41, 55);
+}
+
+// ===== ШЕСТИУГОЛЬНАЯ РАСКЛАДКА =====
+
+function drawHexagonLayout(doc: jsPDF, pairs: TarsiaPair[], isShuffled: boolean): void {
+  const cardSize = 28;
+  
+  pairs.forEach((pair, index) => {
+    const col = index % 4;
+    const row = Math.floor(index / 4);
+    const cx = 30 + col * cardSize * 1.8;
+    const cy = 25 + row * cardSize * 2.2;
+    
+    drawHexagonCard(doc, cx, cy, cardSize, pair, index, isShuffled);
+  });
 }
 
 function drawHexagonCard(
@@ -317,7 +212,7 @@ function drawHexagonCard(
   }
   
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.4);
   
   for (let i = 0; i < sides; i++) {
     const next = (i + 1) % sides;
@@ -325,17 +220,44 @@ function drawHexagonCard(
   }
   
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(6);
   doc.setTextColor(31, 41, 55);
   
-  // Верхняя грань — вопрос
-  const questionLines = doc.splitTextToSize(pair.left, size * 1.5);
-  doc.text(questionLines, cx, cy - size + 5, { align: 'center' });
+  // Верх — вопрос
+  const qLines = doc.splitTextToSize(pair.left, size * 1.4);
+  const qY = cy - size + 4 - (qLines.length - 1) * 3;
+  doc.text(qLines, cx, qY, { align: 'center' });
   
-  // Нижняя грань — ответ
+  // Низ — ответ
   doc.setTextColor(76, 29, 149);
-  const answerLines = doc.splitTextToSize(pair.right, size * 1.5);
-  doc.text(answerLines, cx, cy + size - 5, { align: 'center' });
+  const aLines = doc.splitTextToSize(pair.right, size * 1.4);
+  const aY = cy + size - 4 - (aLines.length - 1) * 3;
+  doc.text(aLines, cx, aY, { align: 'center' });
+  
+  if (isShuffled) {
+    doc.setFontSize(4);
+    doc.setTextColor(180, 180, 180);
+    doc.text(String(index + 1), cx, cy, { align: 'center' });
+  }
+  
+  doc.setTextColor(31, 41, 55);
+}
+
+// ===== ДОМИНО =====
+
+function drawDominoLayout(doc: jsPDF, pairs: TarsiaPair[], isShuffled: boolean): void {
+  const cardW = 70;
+  const cardH = 22;
+  const perRow = 3;
+  
+  pairs.forEach((pair, index) => {
+    const row = Math.floor(index / perRow);
+    const col = index % perRow;
+    const x = 25 + col * (cardW + 10);
+    const y = 25 + row * (cardH + 10);
+    
+    drawDominoCard(doc, x, y, cardW, cardH, pair, index);
+  });
 }
 
 function drawDominoCard(
@@ -354,54 +276,25 @@ function drawDominoCard(
   doc.rect(left, top, w, h, 'F');
   
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.4);
   doc.rect(left, top, w, h, 'S');
   
-  // Разделитель
   doc.line(cx, top, cx, top + h);
   
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.setTextColor(31, 41, 55);
   
   // Вопрос слева
-  const questionLines = doc.splitTextToSize(pair.left, w / 2 - 6);
-  doc.text(questionLines, cx - w / 4, cy, { align: 'center' });
+  const qLines = doc.splitTextToSize(pair.left, w / 2 - 4);
+  const qY = cy - ((qLines.length - 1) * 3) / 2;
+  doc.text(qLines, cx - w / 4, qY, { align: 'center' });
   
   // Ответ справа
   doc.setTextColor(76, 29, 149);
-  const answerLines = doc.splitTextToSize(pair.right, w / 2 - 6);
-  doc.text(answerLines, cx + w / 4, cy, { align: 'center' });
-}
-
-// ===== ЗАГРУЗКА ШРИФТА =====
-
-let fontLoaded = false;
-const FONT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf';
-
-async function loadRobotoFont(doc: jsPDF): Promise<void> {
-  if (fontLoaded) return;
+  const aLines = doc.splitTextToSize(pair.right, w / 2 - 4);
+  const aY = cy - ((aLines.length - 1) * 3) / 2;
+  doc.text(aLines, cx + w / 4, aY, { align: 'center' });
   
-  try {
-    const response = await fetch(FONT_URL);
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = arrayBufferToBase64(arrayBuffer);
-    doc.addFileToVFS('Roboto-Regular.ttf', base64);
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-    fontLoaded = true;
-  } catch {
-    console.warn('Шрифт Roboto не загрузился');
-    fontLoaded = true;
-  }
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  return btoa(binary);
+  doc.setTextColor(31, 41, 55);
 }
