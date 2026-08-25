@@ -1,4 +1,5 @@
 import type { SavedBingoSet, BingoGame } from '@/types/bingo';
+import { vkStorageSet } from '@/lib/vkStorage';
 
 const SAVED_SETS_KEY = 'bingo-saved-sets';
 const CURRENT_GAME_KEY = 'bingo-current-game';
@@ -36,7 +37,13 @@ export function saveBingoSet(set: SavedBingoSet): void {
   try {
     const sets = loadSavedBingoSets();
     sets.push(set);
-    localStorage.setItem(SAVED_SETS_KEY, JSON.stringify(sets));
+    const json = JSON.stringify(sets);
+    localStorage.setItem(SAVED_SETS_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(SAVED_SETS_KEY, json).catch(() => {
+      // ignore
+    });
   } catch {
     // ignore quota errors
   }
@@ -51,7 +58,13 @@ export function updateBingoSet(updatedSet: SavedBingoSet): void {
     const index = sets.findIndex((s) => s.id === updatedSet.id);
     if (index !== -1) {
       sets[index] = updatedSet;
-      localStorage.setItem(SAVED_SETS_KEY, JSON.stringify(sets));
+      const json = JSON.stringify(sets);
+      localStorage.setItem(SAVED_SETS_KEY, json);
+      
+      // Синхронизация с VK Storage
+      void vkStorageSet(SAVED_SETS_KEY, json).catch(() => {
+        // ignore
+      });
     }
   } catch {
     // ignore
@@ -65,7 +78,13 @@ export function deleteBingoSet(id: string): void {
   try {
     const sets = loadSavedBingoSets();
     const filtered = sets.filter((s) => s.id !== id);
-    localStorage.setItem(SAVED_SETS_KEY, JSON.stringify(filtered));
+    const json = JSON.stringify(filtered);
+    localStorage.setItem(SAVED_SETS_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(SAVED_SETS_KEY, json).catch(() => {
+      // ignore
+    });
   } catch {
     // ignore
   }
@@ -76,7 +95,13 @@ export function deleteBingoSet(id: string): void {
  */
 export function saveCurrentBingoGame(game: BingoGame): void {
   try {
-    localStorage.setItem(CURRENT_GAME_KEY, JSON.stringify(game));
+    const json = JSON.stringify(game);
+    localStorage.setItem(CURRENT_GAME_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(CURRENT_GAME_KEY, json).catch(() => {
+      // ignore
+    });
   } catch {
     // ignore quota errors
   }
@@ -118,6 +143,11 @@ export function loadCurrentBingoGame(): BingoGame | null {
 export function clearCurrentBingoGame(): void {
   try {
     localStorage.removeItem(CURRENT_GAME_KEY);
+    
+    // Очищаем в VK Storage
+    void vkStorageSet(CURRENT_GAME_KEY, '').catch(() => {
+      // ignore
+    });
   } catch {
     // ignore
   }
