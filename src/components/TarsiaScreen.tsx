@@ -23,7 +23,7 @@ import {
   loadTarsiaPuzzles,
   upsertTarsiaPuzzle,
   deleteTarsiaPuzzle,
-  renameTorsiaPuzzle,
+  renameTarsiaPuzzle,
   serializeTarsiaPuzzle,
   parseTarsiaPuzzleFile,
   parseTarsiaTxtFile,
