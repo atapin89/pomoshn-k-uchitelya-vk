@@ -1,4 +1,5 @@
 import type { LessonTemplate, Deck } from '@/types';
+import { vkStorageSet } from '@/lib/vkStorage';
 
 const CUSTOM_KEY = 'lesson-timer-custom-templates';
 const DECKS_KEY = 'flashcards-decks';
@@ -23,7 +24,13 @@ export function loadCustomTemplates(): LessonTemplate[] {
 
 export function saveCustomTemplates(templates: LessonTemplate[]): void {
   try {
-    localStorage.setItem(CUSTOM_KEY, JSON.stringify(templates));
+    const json = JSON.stringify(templates);
+    localStorage.setItem(CUSTOM_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(CUSTOM_KEY, json).catch(() => {
+      // ignore
+    });
   } catch {
     // ignore quota errors
   }
@@ -49,7 +56,13 @@ export function loadDecks(): Deck[] {
 
 export function saveDecks(decks: Deck[]): void {
   try {
-    localStorage.setItem(DECKS_KEY, JSON.stringify(decks));
+    const json = JSON.stringify(decks);
+    localStorage.setItem(DECKS_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(DECKS_KEY, json).catch(() => {
+      // ignore
+    });
   } catch {
     // ignore quota errors
   }
