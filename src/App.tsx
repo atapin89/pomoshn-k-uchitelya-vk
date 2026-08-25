@@ -20,6 +20,7 @@ import BingoGeneratorScreen from '@/components/BingoGeneratorScreen';
 import EduGameScreen from '@/components/EduGameScreen';
 import TapperScreen from '@/components/TapperScreen';
 import PomodoroScreen from '@/components/PomodoroScreen';
+import TarsiaScreen from '@/components/TarsiaScreen';
 
 type Route = 
   | 'home' 
@@ -54,16 +55,11 @@ export default function App() {
     searchQuery: string;
   } | null>(null);
 
-  // Синхронизация при запуске + загрузка шаблонов
   useEffect(() => {
     const init = async () => {
-      // Синхронизируем данные между платформами
       await fullSync();
-      
-      // Загружаем пользовательские шаблоны (после синхронизации)
       setCustomTemplates(loadCustomTemplates());
     };
-    
     void init();
   }, []);
 
@@ -123,30 +119,14 @@ export default function App() {
     flashcards: (
       <FlashcardsScreen
         onBack={navigateHome}
-        onStudy={(deckId: string) => { 
-          setStudyDeckId(deckId); 
-          setRoute('study'); 
-        }}
-        onQuiz={(deckId: string) => { 
-          setQuizDeckId(deckId); 
-          setRoute('quiz'); 
-        }}
+        onStudy={(deckId: string) => { setStudyDeckId(deckId); setRoute('study'); }}
+        onQuiz={(deckId: string) => { setQuizDeckId(deckId); setRoute('quiz'); }}
         initialState={flashcardsState}
         onStateChange={setFlashcardsState}
       />
     ),
-    study: studyDeckId ? (
-      <StudyScreen 
-        deckId={studyDeckId} 
-        onBack={() => setRoute('flashcards')} 
-      />
-    ) : null,
-    quiz: quizDeckId ? (
-      <QuizScreen 
-        deckId={quizDeckId} 
-        onBack={() => setRoute('flashcards')} 
-      />
-    ) : null,
+    study: studyDeckId ? <StudyScreen deckId={studyDeckId} onBack={() => setRoute('flashcards')} /> : null,
+    quiz: quizDeckId ? <QuizScreen deckId={quizDeckId} onBack={() => setRoute('flashcards')} /> : null,
     wordsearch: <WordSearchScreen onBack={navigateHome} />,
     manual: <ManualScreen onBack={navigateHome} />,
     calculators: <CalculatorsScreen onBack={navigateHome} />,
@@ -154,18 +134,7 @@ export default function App() {
     edugame: <EduGameScreen onBack={navigateHome} />,
     activity: <TapperScreen onBack={navigateHome} />,
     pomodoro: <PomodoroScreen onBack={navigateHome} />,
-    tarsia: (
-      <div className="min-h-[100dvh] notebook-bg flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-xl font-bold text-purple-700 mb-2">Тарсия пазлы</p>
-        <p className="text-sm text-gray-500">Раздел в разработке — скоро откроется!</p>
-        <button
-          onClick={navigateHome}
-          className="mt-5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-6 py-3 font-semibold active:scale-95 transition-transform"
-        >
-          На главную
-        </button>
-      </div>
-    ),
+    tarsia: <TarsiaScreen onBack={navigateHome} />,
     timer: null,
   };
 
