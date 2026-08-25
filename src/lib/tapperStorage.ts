@@ -2,6 +2,7 @@
 
 import type { TapperList, TapperStudent } from '@/types/tapper';
 import { generateTapperId } from '@/types/tapper';
+import { vkStorageSet } from '@/lib/vkStorage';
 
 const LISTS_KEY = 'tapper-lists';
 const SESSION_KEY = 'tapper-current-session';
@@ -24,7 +25,13 @@ export function loadTapperLists(): TapperList[] {
 
 export function saveTapperLists(lists: TapperList[]): void {
   try {
-    localStorage.setItem(LISTS_KEY, JSON.stringify(lists));
+    const json = JSON.stringify(lists);
+    localStorage.setItem(LISTS_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(LISTS_KEY, json).catch(() => {
+      // Не критично — данные останутся в localStorage
+    });
   } catch {
     console.error('Ошибка сохранения списков таппера');
   }
@@ -104,7 +111,13 @@ export function loadTapperSession(): Record<string, number> {
 
 export function saveTapperSession(results: Record<string, number>): void {
   try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(results));
+    const json = JSON.stringify(results);
+    localStorage.setItem(SESSION_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(SESSION_KEY, json).catch(() => {
+      // ignore
+    });
   } catch {
     // ignore
   }
@@ -113,6 +126,11 @@ export function saveTapperSession(results: Record<string, number>): void {
 export function clearTapperSession(): void {
   try {
     localStorage.removeItem(SESSION_KEY);
+    
+    // Очищаем в VK Storage
+    void vkStorageSet(SESSION_KEY, '').catch(() => {
+      // ignore
+    });
   } catch {
     // ignore
   }
