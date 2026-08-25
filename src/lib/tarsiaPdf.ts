@@ -37,60 +37,91 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// ===== ГЕНЕРАЦИЯ SVG ДЛЯ ТРЕУГОЛЬНИКА =====
+// ===== СОЗДАНИЕ SVG-ЭЛЕМЕНТОВ =====
 
-function generateTriangleSVG(
+function createTriangleSVGElement(
   pair: TarsiaPair,
   index: number,
   side: number,
   isShuffled: boolean,
-): string {
+): SVGSVGElement {
   const height = side * Math.sqrt(3) / 2;
-  const cx = side / 2;
-  const cy = height / 2;
   
-  // Тексты для трёх граней
-  const bottomText = escapeXml(pair.left || '');
-  const leftText = escapeXml(pair.right || '');
-  const rightText = escapeXml(pair.right || '');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', String(side));
+  svg.setAttribute('height', String(height));
+  svg.setAttribute('viewBox', `0 0 ${side} ${height}`);
   
-  return `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${side}" height="${height}" viewBox="0 0 ${side} ${height}">
-      <polygon points="0,${height} ${side},${height} ${side / 2},0" 
-               fill="#F5F3FF" stroke="#7C3AED" stroke-width="1"/>
-      
-      <!-- Нижняя грань: ВОПРОС -->
-      <text x="${side / 2}" y="${height - 6}" 
-            text-anchor="middle" font-size="6" fill="#1F2937"
-            font-family="Roboto, Arial, sans-serif">${bottomText}</text>
-      
-      <!-- Левая грань: ОТВЕТ (повёрнут на 60°) -->
-      <text x="4" y="${height / 2}" 
-            text-anchor="middle" font-size="6" fill="#4C1D95"
-            font-family="Roboto, Arial, sans-serif"
-            transform="rotate(60 4,${height / 2})">${leftText}</text>
-      
-      <!-- Правая грань: ОТВЕТ (повёрнут на -60°) -->
-      <text x="${side - 4}" y="${height / 2}" 
-            text-anchor="middle" font-size="6" fill="#4C1D95"
-            font-family="Roboto, Arial, sans-serif"
-            transform="rotate(-60 ${side - 4},${height / 2})">${rightText}</text>
-      
-      <!-- Номер карточки (для задания) -->
-      ${isShuffled ? `
-      <text x="${side / 2}" y="${height / 2}" 
-            text-anchor="middle" font-size="4" fill="#D1D5DB">${index + 1}</text>
-      ` : ''}
-    </svg>
-  `;
+  // Полигон
+  const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  polygon.setAttribute('points', `0,${height} ${side},${height} ${side / 2},0`);
+  polygon.setAttribute('fill', '#F5F3FF');
+  polygon.setAttribute('stroke', '#7C3AED');
+  polygon.setAttribute('stroke-width', '1');
+  svg.appendChild(polygon);
+  
+  // Нижняя грань — вопрос
+  const bottomText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  bottomText.setAttribute('x', String(side / 2));
+  bottomText.setAttribute('y', String(height - 6));
+  bottomText.setAttribute('text-anchor', 'middle');
+  bottomText.setAttribute('font-size', '6');
+  bottomText.setAttribute('fill', '#1F2937');
+  bottomText.setAttribute('font-family', 'Roboto, Arial, sans-serif');
+  bottomText.textContent = pair.left || '';
+  svg.appendChild(bottomText);
+  
+  // Левая грань — ответ (повёрнут)
+  const leftText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  leftText.setAttribute('x', '4');
+  leftText.setAttribute('y', String(height / 2));
+  leftText.setAttribute('text-anchor', 'middle');
+  leftText.setAttribute('font-size', '6');
+  leftText.setAttribute('fill', '#4C1D95');
+  leftText.setAttribute('font-family', 'Roboto, Arial, sans-serif');
+  leftText.setAttribute('transform', `rotate(60 4,${height / 2})`);
+  leftText.textContent = pair.right || '';
+  svg.appendChild(leftText);
+  
+  // Правая грань — ответ (повёрнут)
+  const rightText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  rightText.setAttribute('x', String(side - 4));
+  rightText.setAttribute('y', String(height / 2));
+  rightText.setAttribute('text-anchor', 'middle');
+  rightText.setAttribute('font-size', '6');
+  rightText.setAttribute('fill', '#4C1D95');
+  rightText.setAttribute('font-family', 'Roboto, Arial, sans-serif');
+  rightText.setAttribute('transform', `rotate(-60 ${side - 4},${height / 2})`);
+  rightText.textContent = pair.right || '';
+  svg.appendChild(rightText);
+  
+  // Номер карточки
+  if (isShuffled) {
+    const numText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    numText.setAttribute('x', String(side / 2));
+    numText.setAttribute('y', String(height / 2));
+    numText.setAttribute('text-anchor', 'middle');
+    numText.setAttribute('font-size', '4');
+    numText.setAttribute('fill', '#D1D5DB');
+    numText.textContent = String(index + 1);
+    svg.appendChild(numText);
+  }
+  
+  return svg;
 }
 
-function generateHexagonSVG(
+function createHexagonSVGElement(
   pair: TarsiaPair,
   index: number,
   side: number,
   isShuffled: boolean,
-): string {
+): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', String(side));
+  svg.setAttribute('height', String(side));
+  svg.setAttribute('viewBox', `0 0 ${side} ${side}`);
+  
+  // Полигон
   const points: string[] = [];
   for (let i = 0; i < 6; i++) {
     const angle = (i * Math.PI) / 3;
@@ -99,29 +130,91 @@ function generateHexagonSVG(
     points.push(`${x},${y}`);
   }
   
-  return `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${side}" height="${side}" viewBox="0 0 ${side} ${side}">
-      <polygon points="${points.join(' ')}" 
-               fill="#F5F3FF" stroke="#7C3AED" stroke-width="1"/>
-      <text x="${side / 2}" y="${side / 2 - 4}" 
-            text-anchor="middle" font-size="5" fill="#1F2937"
-            font-family="Roboto, Arial, sans-serif">${escapeXml(pair.left || '')}</text>
-      <text x="${side / 2}" y="${side / 2 + 8}" 
-            text-anchor="middle" font-size="5" fill="#4C1D95"
-            font-family="Roboto, Arial, sans-serif">${escapeXml(pair.right || '')}</text>
-    </svg>
-  `;
+  const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+  polygon.setAttribute('points', points.join(' '));
+  polygon.setAttribute('fill', '#F5F3FF');
+  polygon.setAttribute('stroke', '#7C3AED');
+  polygon.setAttribute('stroke-width', '1');
+  svg.appendChild(polygon);
+  
+  // Верх — вопрос
+  const topText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  topText.setAttribute('x', String(side / 2));
+  topText.setAttribute('y', String(side / 2 - 4));
+  topText.setAttribute('text-anchor', 'middle');
+  topText.setAttribute('font-size', '5');
+  topText.setAttribute('fill', '#1F2937');
+  topText.textContent = pair.left || '';
+  svg.appendChild(topText);
+  
+  // Низ — ответ
+  const bottomText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  bottomText.setAttribute('x', String(side / 2));
+  bottomText.setAttribute('y', String(side / 2 + 8));
+  bottomText.setAttribute('text-anchor', 'middle');
+  bottomText.setAttribute('font-size', '5');
+  bottomText.setAttribute('fill', '#4C1D95');
+  bottomText.textContent = pair.right || '';
+  svg.appendChild(bottomText);
+  
+  return svg;
 }
 
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+function createDominoSVGElement(
+  pair: TarsiaPair,
+  index: number,
+  w: number,
+  h: number,
+): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', String(w));
+  svg.setAttribute('height', String(h));
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  
+  // Прямоугольник
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', '0');
+  rect.setAttribute('y', '0');
+  rect.setAttribute('width', String(w));
+  rect.setAttribute('height', String(h));
+  rect.setAttribute('fill', '#F5F3FF');
+  rect.setAttribute('stroke', '#7C3AED');
+  rect.setAttribute('stroke-width', '1');
+  svg.appendChild(rect);
+  
+  // Разделитель
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', String(w / 2));
+  line.setAttribute('y1', '0');
+  line.setAttribute('x2', String(w / 2));
+  line.setAttribute('y2', String(h));
+  line.setAttribute('stroke', '#7C3AED');
+  svg.appendChild(line);
+  
+  // Вопрос слева
+  const leftText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  leftText.setAttribute('x', String(w / 4));
+  leftText.setAttribute('y', String(h / 2));
+  leftText.setAttribute('text-anchor', 'middle');
+  leftText.setAttribute('font-size', '7');
+  leftText.setAttribute('fill', '#1F2937');
+  leftText.textContent = pair.left || '';
+  svg.appendChild(leftText);
+  
+  // Ответ справа
+  const rightText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  rightText.setAttribute('x', String(w * 3 / 4));
+  rightText.setAttribute('y', String(h / 2));
+  rightText.setAttribute('text-anchor', 'middle');
+  rightText.setAttribute('font-size', '7');
+  rightText.setAttribute('fill', '#4C1D95');
+  rightText.textContent = pair.right || '';
+  svg.appendChild(rightText);
+  
+  return svg;
 }
 
-// ===== ЭКСПОРТ В PDF ЧЕРЕЗ SVG =====
+// ===== ЭКСПОРТ В PDF =====
 
 export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
   const validPairs = puzzle.pairs.filter((p) => p.left.trim() && p.right.trim());
@@ -150,8 +243,7 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
       doc.setTextColor(107, 33, 168);
       doc.text(puzzle.solutionTitle, W / 2, 10, { align: 'center' });
       
-      // Рисуем все SVG-треугольники
-      await drawSVGCards(doc, puzzle.shape, validPairs, false, 10, 20);
+      await drawSVGCards(doc, puzzle.shape, validPairs, false);
       
       doc.addPage();
     }
@@ -163,7 +255,7 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
     doc.text(puzzle.puzzleTitle || puzzle.title, W / 2, 10, { align: 'center' });
     
     const shuffledPairs = [...validPairs].sort(() => Math.random() - 0.5);
-    await drawSVGCards(doc, puzzle.shape, shuffledPairs, true, 10, 20);
+    await drawSVGCards(doc, puzzle.shape, shuffledPairs, true);
     
     doc.save(sanitizeFileName(`тарсия_${puzzle.title}.pdf`));
   } catch (error) {
@@ -172,49 +264,37 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
   }
 }
 
-// ===== ОТРИСОВКА SVG-КАРТОЧЕК =====
+// ===== ОТРИСОВКА SVG-КАРТОЧЕК (по 2 в ряду) =====
 
 async function drawSVGCards(
   doc: jsPDF,
   shape: TarsiaShape,
   pairs: TarsiaPair[],
   isShuffled: boolean,
-  startX: number,
-  startY: number,
 ): Promise<void> {
-  const perRow = 3;
-  const cardSize = shape === 'hexagon' ? 35 : 45;
-  const gapX = 8;
-  const gapY = 8;
+  const perRow = 2;
+  const cardSize = shape === 'hexagon' ? 50 : 60;
+  const gapX = 15;
+  const gapY = 15;
   
   for (let i = 0; i < pairs.length; i++) {
     const pair = pairs[i];
     const row = Math.floor(i / perRow);
     const col = i % perRow;
-    const x = startX + col * (cardSize + gapX);
-    const y = startY + row * (cardSize * 1.2 + gapY);
+    const x = 20 + col * (cardSize + gapX);
+    const y = 20 + row * (cardSize + gapY);
     
-    let svg: string;
+    let svgElement: SVGSVGElement;
+    
     if (shape === 'triangle') {
-      svg = generateTriangleSVG(pair, i, cardSize, isShuffled);
+      svgElement = createTriangleSVGElement(pair, i, cardSize, isShuffled);
     } else if (shape === 'hexagon') {
-      svg = generateHexagonSVG(pair, i, cardSize, isShuffled);
+      svgElement = createHexagonSVGElement(pair, i, cardSize, isShuffled);
     } else {
-      // Для домино — рисуем прямоугольник
-      svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${cardSize * 1.5}" height="${cardSize * 0.8}">
-          <rect x="0" y="0" width="${cardSize * 1.5}" height="${cardSize * 0.8}" 
-                fill="#F5F3FF" stroke="#7C3AED" stroke-width="1"/>
-          <line x1="${cardSize * 0.75}" y1="0" x2="${cardSize * 0.75}" y2="${cardSize * 0.8}" stroke="#7C3AED"/>
-          <text x="${cardSize * 0.375}" y="${cardSize * 0.4}" 
-                text-anchor="middle" font-size="7" fill="#1F2937">${escapeXml(pair.left || '')}</text>
-          <text x="${cardSize * 1.125}" y="${cardSize * 0.4}" 
-                text-anchor="middle" font-size="7" fill="#4C1D95">${escapeXml(pair.right || '')}</text>
-        </svg>
-      `;
+      svgElement = createDominoSVGElement(pair, i, cardSize * 1.5, cardSize * 0.8);
     }
     
-    await svg2pdf(svg, doc, {
+    await svg2pdf(svgElement, doc, {
       x,
       y,
       width: cardSize,
