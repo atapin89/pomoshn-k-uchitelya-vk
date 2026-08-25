@@ -144,7 +144,6 @@ const FAQ_ITEMS = [
 export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
   const [puzzles, setPuzzles] = useState<TarsiaPuzzle[]>([]);
   const [activePuzzle, setActivePuzzle] = useState<TarsiaPuzzle | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
   const [importMsg, setImportMsg] = useState<'ok' | 'error' | null>(null);
   const [showHow, setShowHow] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
@@ -210,15 +209,6 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
       sanitizeFileName(`тарсия_${puzzle.title}.json`),
       serializeTarsiaPuzzle(puzzle),
       'application/json;charset=utf-8',
-    );
-    triggerHaptic('light');
-  };
-
-  const handleExportTXT = (puzzle: TarsiaPuzzle) => {
-    downloadTextFile(
-      sanitizeFileName(`тарсия_${puzzle.title}.txt`),
-      exportTarsiaTxt(puzzle.pairs),
-      'text/plain;charset=utf-8',
     );
     triggerHaptic('light');
   };
