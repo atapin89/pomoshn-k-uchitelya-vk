@@ -2,6 +2,7 @@
 
 import type { TarsiaPuzzle, TarsiaPair } from '@/types/tarsia';
 import { generateTarsiaId, validateTarsiaPairs } from '@/types/tarsia';
+import { vkStorageSet } from '@/lib/vkStorage';
 
 const PUZZLES_KEY = 'tarsia-puzzles';
 
@@ -23,7 +24,13 @@ export function loadTarsiaPuzzles(): TarsiaPuzzle[] {
 
 export function saveTarsiaPuzzles(puzzles: TarsiaPuzzle[]): void {
   try {
-    localStorage.setItem(PUZZLES_KEY, JSON.stringify(puzzles));
+    const json = JSON.stringify(puzzles);
+    localStorage.setItem(PUZZLES_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(PUZZLES_KEY, json).catch(() => {
+      // Не критично — данные останутся в localStorage
+    });
   } catch {
     console.error('Ошибка сохранения головоломок Тарсия');
   }
