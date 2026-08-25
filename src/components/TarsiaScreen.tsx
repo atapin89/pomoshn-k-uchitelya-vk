@@ -15,12 +15,10 @@ import {
   ChevronDown,
   ChevronUp,
   Shuffle,
-  FileImage,
   FileText,
   Triangle,
   Hexagon,
   LayoutGrid,
-  List,
   Sparkles,
 } from 'lucide-react';
 import type { TarsiaPuzzle, TarsiaPair, TarsiaShape } from '@/types/tarsia';
@@ -42,7 +40,7 @@ import {
   parseTarsiaTxtFile,
   exportTarsiaTxt,
 } from '@/lib/tarsiaStorage';
-import { exportTarsiaToPDF, exportTarsiaToPNG } from '@/lib/tarsiaPdf';
+import { exportTarsiaToPDF } from '@/lib/tarsiaPdf';
 import { downloadTextFile, sanitizeFileName } from '@/lib/eduGameStorage';
 import { triggerHaptic } from '@/lib/haptic';
 import BackButton from './BackButton';
@@ -100,7 +98,7 @@ const HOW_ITEMS = [
   },
   {
     q: 'Как создать головоломку',
-    a: '1) Выберите форму (треугольник, шестиугольник, домино).\n2) Введите пары «Вопрос — Ответ» в таблицу.\n3) Настройте заголовки и размер карточек.\n4) Нажмите «Скачать PDF» или «Скачать PNG».\n\nВ PDF будет две страницы: перемешанное задание и решение.',
+    a: '1) Выберите форму (треугольник, шестиугольник, домино).\n2) Введите пары «Вопрос — Ответ» в таблицу.\n3) Настройте заголовки и размер карточек.\n4) Нажмите «Скачать PDF».\n\nВ PDF: каждая карточка на отдельной странице — сначала решение (если включено), затем перемешанное задание.',
   },
   {
     q: 'Формат ввода пар',
@@ -467,23 +465,14 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
             </button>
           </div>
 
-          {/* Кнопки экспорта */}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => exportTarsiaToPDF(activePuzzle)}
-              disabled={validPairsCount === 0}
-              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-            >
-              <FileText className="w-5 h-5" /> Скачать PDF
-            </button>
-            <button
-              onClick={() => exportTarsiaToPNG(activePuzzle)}
-              disabled={validPairsCount === 0}
-              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-            >
-              <FileImage className="w-5 h-5" /> Скачать PNG
-            </button>
-          </div>
+          {/* Кнопка экспорта PDF */}
+          <button
+            onClick={() => exportTarsiaToPDF(activePuzzle)}
+            disabled={validPairsCount === 0}
+            className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <FileText className="w-5 h-5" /> Скачать PDF
+          </button>
         </main>
       </div>
     );
@@ -576,14 +565,6 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
                   title="Скачать PDF"
                 >
                   <FileText className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => exportTarsiaToPNG(puzzle)}
-                  className="p-2 text-gray-300 hover:text-purple-600 transition-colors"
-                  aria-label="Скачать PNG"
-                  title="Скачать PNG"
-                >
-                  <FileImage className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleExportJSON(puzzle)}
