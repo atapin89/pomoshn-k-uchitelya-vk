@@ -20,7 +20,6 @@ import BingoGeneratorScreen from '@/components/BingoGeneratorScreen';
 import EduGameScreen from '@/components/EduGameScreen';
 import TapperScreen from '@/components/TapperScreen';
 import PomodoroScreen from '@/components/PomodoroScreen';
-import TarsiaScreen from '@/components/TarsiaScreen';
 
 type Route = 
   | 'home' 
@@ -155,7 +154,18 @@ export default function App() {
     edugame: <EduGameScreen onBack={navigateHome} />,
     activity: <TapperScreen onBack={navigateHome} />,
     pomodoro: <PomodoroScreen onBack={navigateHome} />,
-    tarsia: <TarsiaScreen onBack={navigateHome} />,
+    tarsia: (
+      <div className="min-h-[100dvh] notebook-bg flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-xl font-bold text-purple-700 mb-2">Тарсия пазлы</p>
+        <p className="text-sm text-gray-500">Раздел в разработке — скоро откроется!</p>
+        <button
+          onClick={navigateHome}
+          className="mt-5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-6 py-3 font-semibold active:scale-95 transition-transform"
+        >
+          На главную
+        </button>
+      </div>
+    ),
     timer: null,
   };
 
