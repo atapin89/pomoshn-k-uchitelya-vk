@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { LessonTemplate } from '@/types';
 import { presetTemplates } from '@/data/templates';
 import { loadCustomTemplates, saveCustomTemplates } from '@/lib/storage';
+import { fullSync } from '@/lib/sync';
 import TemplateList from '@/components/TemplateList';
 import ActiveTimer from '@/components/ActiveTimer';
 import CreateTemplateModal from '@/components/CreateTemplateModal';
@@ -54,8 +55,17 @@ export default function App() {
     searchQuery: string;
   } | null>(null);
 
+  // Синхронизация при запуске + загрузка шаблонов
   useEffect(() => {
-    setCustomTemplates(loadCustomTemplates());
+    const init = async () => {
+      // Синхронизируем данные между платформами
+      await fullSync();
+      
+      // Загружаем пользовательские шаблоны (после синхронизации)
+      setCustomTemplates(loadCustomTemplates());
+    };
+    
+    void init();
   }, []);
 
   const navigateHome = useCallback(() => {
