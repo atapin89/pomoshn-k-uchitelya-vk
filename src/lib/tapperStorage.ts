@@ -1,137 +1,103 @@
-// src/lib/tapperStorage.ts
+import type { SavedTarsia } from '@/types/tarsia';
 
-import type { TapperList, TapperStudent } from '@/types/tapper';
-import { generateTapperId } from '@/types/tapper';
-import { vkStorageSet } from '@/lib/vkStorage';
+const SAVED_TARSIAS_KEY = 'tarsia-saved-puzzles';
 
-const LISTS_KEY = 'tapper-lists';
-const SESSION_KEY = 'tapper-current-session';
-
-// ===== СПИСКИ =====
-
-export function loadTapperLists(): TapperList[] {
+export function loadSavedTarsias(): SavedTarsia[] {
   try {
-    const raw = localStorage.getItem(LISTS_KEY);
+    const raw = localStorage.getItem(SAVED_TARSIAS_KEY);
     if (!raw) return [];
+    
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (l) => l && typeof l.id === 'string' && Array.isArray(l.students),
-    );
+    
+    return parsed.filter((t) => {
+      return (
+        t &&
+        typeof t.id === 'string' &&
+        typeof t.title === 'string' &&
+        typeof t.questions === 'object' &&
+        typeof t.answers === 'object' &&
+        typeof t.gridId === 'string' &&
+        typeof t.createdAt === 'number'
+      );
+    });
   } catch {
     return [];
   }
 }
 
-export function saveTapperLists(lists: TapperList[]): void {
+export function saveTarsia(tarsia: SavedTarsia): void {
   try {
-    const json = JSON.stringify(lists);
-    localStorage.setItem(LISTS_KEY, json);
-    
-    // Синхронизация с VK Storage
-    void vkStorageSet(LISTS_KEY, json).catch(() => {
-      // Не критично — данные останутся в localStorage
-    });
+    const tarsias = loadSavedTarsias();
+    tarsias.push(tarsia);
+    localStorage.setItem(SAVED_TARSIAS_KEY, JSON.stringify(tarsias));
   } catch {
-    console.error('Ошибка сохранения списков таппера');
+    // ignore quota errors
   }
 }
 
-export function upsertTapperList(list: TapperList): void {
-  const lists = loadTapperLists();
-  const idx = lists.findIndex((l) => l.id === list.id);
-  const next = { ...list, updatedAt: Date.now() };
-  if (idx >= 0) lists[idx] = next;
-  else lists.push(next);
-  saveTapperLists(lists);
-}
-
-export function deleteTapperList(id: string): void {
-  saveTapperLists(loadTapperLists().filter((l) => l.id !== id));
-}
-
-export function renameTapperList(id: string, newName: string): void {
-  const lists = loadTapperLists();
-  const idx = lists.findIndex((l) => l.id === id);
-  if (idx >= 0) {
-    lists[idx] = { ...lists[idx], name: newName, updatedAt: Date.now() };
-    saveTapperLists(lists);
-  }
-}
-
-// ===== ИМПОРТ / ЭКСПОРТ =====
-
-export function serializeTapperList(list: TapperList): string {
-  return JSON.stringify({ format: 'pomoshnik-uchitelya-tapper', version: 1, list }, null, 2);
-}
-
-export function parseTapperListFile(text: string): TapperList | null {
+export function updateTarsia(updated: SavedTarsia): void {
   try {
-    const data = JSON.parse(text);
-    const listData = data.format === 'pomoshnik-uchitelya-tapper' ? data.list : data;
-    
-    if (!listData || typeof listData.name !== 'string' || !Array.isArray(listData.students)) {
-      return null;
+    const tarsias = loadSavedTarsias();
+    const index = tarsias.findIndex((t) => t.id === updated.id);
+    if (index !== -1) {
+      tarsias[index] = updated;
+      localStorage.setItem(SAVED_TARSIAS_KEY, JSON.stringify(tarsias));
     }
+  } catch {
+    // ignore
+  }
+}
+
+export function deleteTarsia(id: string): void {
+  try {
+    const tarsias = loadSavedTarsias();
+    const filtered = tarsias.filter((t) => t.id !== id);
+    localStorage.setItem(SAVED_TARSIAS_KEY, JSON.stringify(filtered));
+  } catch {
+    // ignore
+  }
+}
+
+export function generateSaveCode(
+  questions: Record<number, string[]>,
+  answers: Record<number, string[]>,
+  gridId: string,
+): string {
+  const data = {
+    version: 2,
+    questions,
+    answers,
+    gridId,
+  };
+  const jsonStr = JSON.stringify(data);
+  return btoa(encodeURIComponent(jsonStr));
+}
+
+export function parseSaveCode(code: string): {
+  questions: Record<number, string[]>;
+  answers: Record<number, string[]>;
+  gridId: string;
+} | null {
+  try {
+    const cleanCode = code.replace(/\s+/g, '');
+    const jsonStr = decodeURIComponent(atob(cleanCode));
+    const data = JSON.parse(jsonStr);
     
-    const students: TapperStudent[] = listData.students
-      .filter((s: any) => s && typeof s.name === 'string' && s.name.trim())
-      .map((s: any) => ({
-        id: typeof s.id === 'string' ? s.id : generateTapperId('student'),
-        name: s.name.trim(),
-        answerCount: typeof s.answerCount === 'number' ? s.answerCount : 0,
-        isPresent: typeof s.isPresent === 'boolean' ? s.isPresent : true,
-      }));
-    
-    if (students.length === 0) return null;
-    
-    return {
-      id: generateTapperId('tapper-list'),
-      name: listData.name,
-      students,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
+    if (
+      data &&
+      typeof data.questions === 'object' &&
+      typeof data.answers === 'object' &&
+      typeof data.gridId === 'string'
+    ) {
+      return {
+        questions: data.questions,
+        answers: data.answers,
+        gridId: data.gridId,
+      };
+    }
+    return null;
   } catch {
     return null;
-  }
-}
-
-// ===== СЕССИЯ =====
-
-export function loadTapperSession(): Record<string, number> {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // ignore
-  }
-  return {};
-}
-
-export function saveTapperSession(results: Record<string, number>): void {
-  try {
-    const json = JSON.stringify(results);
-    localStorage.setItem(SESSION_KEY, json);
-    
-    // Синхронизация с VK Storage
-    void vkStorageSet(SESSION_KEY, json).catch(() => {
-      // ignore
-    });
-  } catch {
-    // ignore
-  }
-}
-
-export function clearTapperSession(): void {
-  try {
-    localStorage.removeItem(SESSION_KEY);
-    
-    // Очищаем в VK Storage
-    void vkStorageSet(SESSION_KEY, '').catch(() => {
-      // ignore
-    });
-  } catch {
-    // ignore
   }
 }
