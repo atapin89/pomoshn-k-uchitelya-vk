@@ -29,6 +29,7 @@ import {
   parseTarsiaTxtFile,
 } from '@/lib/tarsiaStorage';
 import { getTarsiaGridById } from '@/data/tarsiaGrids';
+import { exportTarsiaToPDF } from '@/lib/tarsiaPdf';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
 
@@ -471,10 +472,7 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
           {/* Экспорт */}
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => {
-                // TODO: подключение PDF-экспорта на следующем шаге
-                alert('PDF-экспорт будет добавлен на следующем шаге');
-              }}
+              onClick={() => exportTarsiaToPDF(activePuzzle)}
               disabled={validPairsCount === 0}
               className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
             >
