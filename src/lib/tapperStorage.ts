@@ -3,6 +3,7 @@ import type { TapperList } from '@/types/tapper';
 const TAPPER_LISTS_KEY = 'tapper-lists';
 const TAPPER_SESSION_KEY = 'tapper-session';
 
+// ===== СПИСКИ ТАПЕРА =====
 export function loadTapperLists(): TapperList[] {
   try {
     const raw = localStorage.getItem(TAPPER_LISTS_KEY);
@@ -42,6 +43,33 @@ export function upsertTapperList(list: TapperList): void {
 
 export function deleteTapperList(id: string): void {
   saveTapperLists(loadTapperLists().filter((l) => l.id !== id));
+}
+
+export function renameTapperList(id: string, newTitle: string): void {
+  saveTapperLists(
+    loadTapperLists().map((l) => (l.id === id ? { ...l, title: newTitle } : l)),
+  );
+}
+
+// ===== ОБМЕН СПИСКАМИ =====
+export function serializeTapperList(list: TapperList): string {
+  return JSON.stringify(
+    { format: 'pomoshnik-uchitelya-tapper-list', version: 1, list },
+    null,
+    2,
+  );
+}
+
+export function parseTapperListFile(text: string): TapperList | null {
+  try {
+    const data = JSON.parse(text);
+    const l =
+      data && data.format === 'pomoshnik-uchitelya-tapper-list' ? data.list : data;
+    if (!l || typeof l.id !== 'string' || typeof l.title !== 'string') return null;
+    return l as TapperList;
+  } catch {
+    return null;
+  }
 }
 
 // ===== СЕССИЯ ТАПЕРА =====
