@@ -2,6 +2,7 @@
 
 import type { PomodoroState, PomodoroTask, PomodoroSettings, PomodoroStats } from '@/types/pomodoro';
 import { DEFAULT_SETTINGS, getTodayKey } from '@/types/pomodoro';
+import { vkStorageSet } from '@/lib/vkStorage';
 
 const STATE_KEY = 'pomodoro-state';
 const SETTINGS_KEY = 'pomodoro-settings';
@@ -30,7 +31,13 @@ export function loadPomodoroState(): PomodoroState {
 
 export function savePomodoroState(state: PomodoroState): void {
   try {
-    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+    const json = JSON.stringify(state);
+    localStorage.setItem(STATE_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(STATE_KEY, json).catch(() => {
+      // Не критично — данные останутся в localStorage
+    });
   } catch {
     console.error('Ошибка сохранения состояния Помодоро');
   }
@@ -53,7 +60,13 @@ export function loadPomodoroSettings(): PomodoroSettings {
 
 export function savePomodoroSettings(settings: PomodoroSettings): void {
   try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    const json = JSON.stringify(settings);
+    localStorage.setItem(SETTINGS_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(SETTINGS_KEY, json).catch(() => {
+      // ignore
+    });
   } catch {
     console.error('Ошибка сохранения настроек Помодоро');
   }
@@ -76,7 +89,13 @@ export function loadPomodoroStats(): PomodoroStats[] {
 
 export function savePomodoroStats(stats: PomodoroStats[]): void {
   try {
-    localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    const json = JSON.stringify(stats);
+    localStorage.setItem(STATS_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(STATS_KEY, json).catch(() => {
+      // ignore
+    });
   } catch {
     console.error('Ошибка сохранения статистики');
   }
