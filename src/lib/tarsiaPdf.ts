@@ -93,7 +93,7 @@ function generateLayout(shape: TarsiaShape, pairs: TarsiaPair[]): TarsiaCell[] {
   }
 }
 
-// ===== ЭКСПОРТ В PDF =====
+// ===== ЭКСПОРТ В PDF (одна фигура на страницу) =====
 
 export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
   const validPairs = puzzle.pairs.filter((p) => p.left.trim() && p.right.trim());
@@ -114,40 +114,78 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
     
     const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
+    const centerX = W / 2;
+    const centerY = H / 2;
     
-    // ===== СТРАНИЦА 1: РЕШЕНИЕ =====
+    // ===== ПЕРЕМЕШИВАЕМ ПАРЫ ДЛЯ ЗАДАНИЯ =====
+    const shuffledPairs = [...validPairs].sort(() => Math.random() - 0.5);
+    
+    let firstPage = true;
+    
+    // ===== СТРАНИЦЫ С РЕШЕНИЕМ (если включено) =====
     if (puzzle.showSolution) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.setTextColor(107, 33, 168);
-      doc.text(puzzle.solutionTitle, W / 2, 20, { align: 'center' });
-      
-      const solutionCells = generateLayout(puzzle.shape, validPairs);
-      
-      solutionCells.forEach((cell) => {
-        const cx = W / 2 + cell.x * scale * 0.3;
-        const cy = H / 2 - 15 + cell.y * scale * 0.3;
+      validPairs.forEach((pair, index) => {
+        if (!firstPage) doc.addPage();
+        firstPage = false;
         
-        drawShapeOnPdf(doc, puzzle.shape, cx, cy, scale, cell.pair);
+        // Заголовок
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(107, 33, 168);
+        doc.text(
+          `${puzzle.solutionTitle} — карточка ${index + 1} из ${validPairs.length}`,
+          centerX,
+          20,
+          { align: 'center' },
+        );
+        
+        // Одна фигура по центру
+        const shapeSize = 55 * scale;
+        drawShapeOnPdf(doc, puzzle.shape, centerX, centerY, shapeSize, pair);
+        
+        // Подпись
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(156, 163, 175);
+        doc.text(
+          'Вырежьте по контуру',
+          centerX,
+          H - 15,
+          { align: 'center' },
+        );
       });
-      
-      doc.addPage();
     }
     
-    // ===== СТРАНИЦА 2: ЗАДАНИЕ =====
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.setTextColor(107, 33, 168);
-    doc.text(puzzle.puzzleTitle || puzzle.title, W / 2, 20, { align: 'center' });
-    
-    const shuffledPairs = [...validPairs].sort(() => Math.random() - 0.5);
-    const puzzleCells = generateLayout(puzzle.shape, shuffledPairs);
-    
-    puzzleCells.forEach((cell) => {
-      const cx = W / 2 + cell.x * scale * 0.3;
-      const cy = H / 2 - 15 + cell.y * scale * 0.3;
+    // ===== СТРАНИЦЫ С ЗАДАНИЕМ =====
+    shuffledPairs.forEach((pair, index) => {
+      if (!firstPage) doc.addPage();
+      firstPage = false;
       
-      drawShapeOnPdf(doc, puzzle.shape, cx, cy, scale, cell.pair);
+      // Заголовок
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(107, 33, 168);
+      doc.text(
+        `${puzzle.puzzleTitle || puzzle.title} — карточка ${index + 1} из ${shuffledPairs.length}`,
+        centerX,
+        20,
+        { align: 'center' },
+      );
+      
+      // Одна фигура по центру
+      const shapeSize = 55 * scale;
+      drawShapeOnPdf(doc, puzzle.shape, centerX, centerY, shapeSize, pair);
+      
+      // Подпись
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(156, 163, 175);
+      doc.text(
+        'Вырежьте по контуру',
+        centerX,
+        H - 15,
+        { align: 'center' },
+      );
     });
     
     doc.save(sanitizeFileName(`тарсия_${puzzle.title}.pdf`));
@@ -162,11 +200,9 @@ function drawShapeOnPdf(
   shape: TarsiaShape,
   cx: number,
   cy: number,
-  scale: number,
+  size: number,
   pair: TarsiaPair,
 ): void {
-  const size = 18 * scale;
-  
   if (shape === 'triangle') {
     drawTriangleOnPdf(doc, cx, cy, size, pair);
   } else if (shape === 'hexagon') {
@@ -180,34 +216,40 @@ function drawTriangleOnPdf(doc: jsPDF, cx: number, cy: number, size: number, pai
   const h = size * Math.sqrt(3) / 2;
   const halfW = size / 2;
   
+  // Вершины треугольника
+  const topX = cx;
+  const topY = cy - h / 2;
+  const leftX = cx - halfW;
+  const leftY = cy + h / 2;
+  const rightX = cx + halfW;
+  const rightY = cy + h / 2;
+  
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(0.4);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
+  doc.setLineWidth(0.8);
+  
+  // Стороны
+  doc.line(leftX, leftY, rightX, rightY);
+  doc.line(rightX, rightY, topX, topY);
+  doc.line(topX, topY, leftX, leftY);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
   doc.setTextColor(31, 41, 55);
   
-  // Рисуем треугольник (прямые координаты)
-  doc.line(cx - halfW, cy + h / 2, cx + halfW, cy + h / 2);
-  doc.line(cx + halfW, cy + h / 2, cx, cy - h / 2);
-  doc.line(cx, cy - h / 2, cx - halfW, cy + h / 2);
-  
   // Вопрос на нижней грани
-  const leftLines = doc.splitTextToSize(pair.left, size - 4);
-  doc.text(leftLines, cx, cy + h / 2 - 4, { align: 'center' });
+  const leftLines = doc.splitTextToSize(pair.left, size - 10);
+  doc.text(leftLines, cx, cy + h / 2 - 8, { align: 'center' });
   
-  // Ответ на левой грани (просто текст рядом)
-  const rightLines = doc.splitTextToSize(pair.right, size - 4);
-  doc.text(rightLines, cx, cy - h / 2 + 6, { align: 'center' });
+  // Ответ на верхней грани
+  doc.setTextColor(76, 29, 149);
+  const rightLines = doc.splitTextToSize(pair.right, size - 10);
+  doc.text(rightLines, cx, cy - h / 2 + 10, { align: 'center' });
 }
 
 function drawHexagonOnPdf(doc: jsPDF, cx: number, cy: number, size: number, pair: TarsiaPair): void {
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(0.4);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor(31, 41, 55);
+  doc.setLineWidth(0.8);
   
-  // Рисуем шестиугольник
   const sides = 6;
   const points: [number, number][] = [];
   
@@ -224,26 +266,28 @@ function drawHexagonOnPdf(doc: jsPDF, cx: number, cy: number, size: number, pair
     doc.line(points[i][0], points[i][1], points[next][0], points[next][1]);
   }
   
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(31, 41, 55);
+  
   // Вопрос сверху
-  const leftLines = doc.splitTextToSize(pair.left, size * 1.2);
-  doc.text(leftLines, cx, cy - size + 3, { align: 'center' });
+  const leftLines = doc.splitTextToSize(pair.left, size * 1.3);
+  doc.text(leftLines, cx, cy - size + 8, { align: 'center' });
   
   // Ответ снизу
-  const rightLines = doc.splitTextToSize(pair.right, size * 1.2);
-  doc.text(rightLines, cx, cy + size - 3, { align: 'center' });
+  doc.setTextColor(76, 29, 149);
+  const rightLines = doc.splitTextToSize(pair.right, size * 1.3);
+  doc.text(rightLines, cx, cy + size - 8, { align: 'center' });
 }
 
 function drawDominoOnPdf(doc: jsPDF, cx: number, cy: number, size: number, pair: TarsiaPair): void {
-  const w = size * 2;
+  const w = size * 1.8;
   const h = size;
   const left = cx - w / 2;
   const top = cy - h / 2;
   
   doc.setDrawColor(124, 58, 237);
-  doc.setLineWidth(0.4);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(31, 41, 55);
+  doc.setLineWidth(0.8);
   
   // Прямоугольник
   doc.rect(left, top, w, h);
@@ -251,16 +295,21 @@ function drawDominoOnPdf(doc: jsPDF, cx: number, cy: number, size: number, pair:
   // Разделитель
   doc.line(cx, top, cx, top + h);
   
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(31, 41, 55);
+  
   // Вопрос слева
-  const leftLines = doc.splitTextToSize(pair.left, w / 2 - 5);
+  const leftLines = doc.splitTextToSize(pair.left, w / 2 - 8);
   doc.text(leftLines, cx - w / 4, cy, { align: 'center' });
   
   // Ответ справа
-  const rightLines = doc.splitTextToSize(pair.right, w / 2 - 5);
+  doc.setTextColor(76, 29, 149);
+  const rightLines = doc.splitTextToSize(pair.right, w / 2 - 8);
   doc.text(rightLines, cx + w / 4, cy, { align: 'center' });
 }
 
-// ===== ЭКСПОРТ В PNG (высокое качество) =====
+// ===== ЭКСПОРТ В PNG (высокое качество, все фигуры на одном листе) =====
 
 export async function exportTarsiaToPNG(puzzle: TarsiaPuzzle): Promise<void> {
   const validPairs = puzzle.pairs.filter((p) => p.left.trim() && p.right.trim());
@@ -367,6 +416,8 @@ function drawTriangleOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair:
   ctx.textBaseline = 'middle';
   
   wrapText(ctx, pair.left, 0, h / 2 - size * 0.18, size - size * 0.25);
+  
+  ctx.fillStyle = '#4c1d95';
   wrapText(ctx, pair.right, 0, -h / 2 + size * 0.18, size - size * 0.25);
 }
 
@@ -388,11 +439,13 @@ function drawHexagonOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: 
   ctx.textBaseline = 'middle';
   
   wrapText(ctx, pair.left, 0, -size + size * 0.2, size * 1.2);
+  
+  ctx.fillStyle = '#4c1d95';
   wrapText(ctx, pair.right, 0, size - size * 0.2, size * 1.2);
 }
 
 function drawDominoOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: TarsiaPair): void {
-  const w = size * 2;
+  const w = size * 1.8;
   const h = size;
   
   ctx.strokeRect(-w / 2, -h / 2, w, h);
@@ -403,11 +456,13 @@ function drawDominoOnCanvas(ctx: CanvasRenderingContext2D, size: number, pair: T
   ctx.stroke();
   
   ctx.fillStyle = '#1f2937';
-  ctx.font = `bold ${Math.max(12, size * 0.25)}px Arial, sans-serif`;
+  ctx.font = `bold ${Math.max(12, size * 0.28)}px Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
   wrapText(ctx, pair.left, -w / 4, 0, w / 2 - size * 0.25);
+  
+  ctx.fillStyle = '#4c1d95';
   wrapText(ctx, pair.right, w / 4, 0, w / 2 - size * 0.25);
 }
 
