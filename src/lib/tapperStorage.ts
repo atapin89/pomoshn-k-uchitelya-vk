@@ -1,6 +1,7 @@
 import type { TapperList } from '@/types/tapper';
 
 const TAPPER_LISTS_KEY = 'tapper-lists';
+const TAPPER_SESSION_KEY = 'tapper-session';
 
 export function loadTapperLists(): TapperList[] {
   try {
@@ -41,4 +42,30 @@ export function upsertTapperList(list: TapperList): void {
 
 export function deleteTapperList(id: string): void {
   saveTapperLists(loadTapperLists().filter((l) => l.id !== id));
+}
+
+// ===== СЕССИЯ ТАПЕРА =====
+export function loadTapperSession(): any {
+  try {
+    const raw = localStorage.getItem(TAPPER_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveTapperSession(session: any): void {
+  try {
+    localStorage.setItem(TAPPER_SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+export function clearTapperSession(): void {
+  try {
+    localStorage.removeItem(TAPPER_SESSION_KEY);
+  } catch {
+    // ignore
+  }
 }
