@@ -1,3 +1,5 @@
+import { vkStorageSet } from '@/lib/vkStorage';
+
 export interface Student {
   name: string;
   gender: 'm' | 'f' | null;
@@ -112,7 +114,13 @@ export function loadSavedLists(): SavedList[] {
 
 export function saveSavedLists(lists: SavedList[]): void {
   try {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(lists));
+    const json = JSON.stringify(lists);
+    localStorage.setItem(SAVED_KEY, json);
+    
+    // Синхронизация с VK Storage
+    void vkStorageSet(SAVED_KEY, json).catch(() => {
+      // ignore
+    });
   } catch {
     // ignore quota errors
   }
