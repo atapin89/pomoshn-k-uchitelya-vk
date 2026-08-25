@@ -5,23 +5,23 @@ import { svg2pdf } from 'svg2pdf.js';
 import type { TarsiaPuzzle, TarsiaPair, TarsiaShape } from '@/types/tarsia';
 import { sanitizeFileName } from '@/lib/eduGameStorage';
 
-// ===== КОНСТАНТЫ (как в оригинальном проекте) =====
+// ===== КОНСТАНТЫ (из config.js оригинала) =====
 
-const TRIANGLE_SIDE = 50;
-const TRIANGLE_HEIGHT = TRIANGLE_SIDE * Math.sqrt(3) / 2;
-const PRINT_GRID = [
-  { row: 1, col: 2 }, { row: 1, col: 3 }, { row: 1, col: 4 }, { row: 1, col: 5 },
-  { row: 2, col: 2 }, { row: 2, col: 3 }, { row: 2, col: 4 }, { row: 2, col: 5 },
-];
+const TRIANGLE_SIDE = 250; // px (как в оригинале)
+const TRIANGLE_HEIGHT = Math.sqrt(3) / 2 * TRIANGLE_SIDE;
+const FONT_SIZE = 13;
+const LINE_LENGTHS = [25, 18, 10, 5];
+const MAX_LINES = 3;
+const PADDING_Y = 8;
+const Y_HEIGHT_STEP = FONT_SIZE * 1.1;
 
-// ===== ЗАГРУЗКА ШРИФТА =====
+// ===== ШРИФТ =====
 
 let fontLoaded = false;
 const FONT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf';
 
 async function loadRobotoFont(doc: jsPDF): Promise<void> {
   if (fontLoaded) return;
-  
   try {
     const response = await fetch(FONT_URL);
     const arrayBuffer = await response.arrayBuffer();
@@ -45,122 +45,153 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// ===== ГЕНЕРАЦИЯ SVG (по механике оригинала) =====
+// ===== РАЗБИЕНИЕ ТЕКСТА НА СТРОКИ (из grid.js оригинала) =====
 
-function createTriangleSVG(
-  row: number,
-  col: number,
-  values: [string | null, string | null, string | null],
+function smartSplitByNChars(text: string, n: number): [string, string] {
+  if (text.length > n) {
+    try {
+      const r = new RegExp('(^|\\s).{0,' + (n + 1) + '}$');
+      const matchedString = text.match(r)![0].trim();
+      const remainingString = text.replace(r, '');
+      return [remainingString, matchedString];
+    } catch {
+      const matchedString = text.substring(text.length - n);
+      const remainingString = text.substring(0, text.length - n) + '-';
+      return [remainingString, matchedString];
+    }
+  }
+  return ['', text];
+}
+
+function splitUpText(text: string): string[] {
+  if (!text) return [''];
+  let textArray: string[] = [text];
+  
+  if (text.length > LINE_LENGTHS[0]) {
+    for (let i = 0; i < MAX_LINES; i++) {
+      const lineLength = LINE_LENGTHS[Math.min(i, LINE_LENGTHS.length - 1)];
+      const textToSplit = textArray.shift()!;
+      
+      if (textToSplit.length <= lineLength) {
+        textArray = [textToSplit, ...textArray];
+        return textArray;
+      } else {
+        const [remaining, matched] = smartSplitByNChars(textToSplit, lineLength);
+        textArray = [matched, remaining, ...textArray];
+      }
+    }
+  }
+  
+  return textArray;
+}
+
+// ===== СОЗДАНИЕ ОДНОГО БОЛЬШОГО SVG (как TarsiaGrid) =====
+
+function createTarsiaSVG(
+  grid: { row: number; col: number; values: [string | null, string | null, string | null] }[],
 ): SVGSVGElement {
   const side = TRIANGLE_SIDE;
   const height = TRIANGLE_HEIGHT;
   
-  // Ориентация: чётная сумма = вершина вниз, нечётная = вершина вверх
+  // Вычисляем размеры всего SVG
+  const rows = grid.map(g => g.row);
+  const cols = grid.map(g => g.col);
+  const minRow = Math.min(...rows);
+  const minCol = Math.min(...cols);
+  const totalWidth = (Math.max(...cols) - minCol + 1) * side / 2 + side / 2;
+  const totalHeight = (Math.max(...rows) - minRow + 1) * height;
+  
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  svg.setAttribute('width', String(totalWidth));
+  svg.setAttribute('height', String(totalHeight));
+  svg.setAttribute('viewBox', `${(minCol - 1) * side / 2} 0 ${totalWidth} ${totalHeight}`);
+  
+  // Добавляем каждый треугольник в SVG
+  grid.forEach((cell) => {
+    const triangleGroup = createTriangleGroup(cell.row, cell.col, cell.values);
+    svg.appendChild(triangleGroup);
+  });
+  
+  return svg;
+}
+
+function createTriangleGroup(
+  row: number,
+  col: number,
+  values: [string | null, string | null, string | null],
+): SVGGElement {
+  const side = TRIANGLE_SIDE;
+  const height = TRIANGLE_HEIGHT;
+  
   const orientation = (col + row) % 2 === 0 ? 'down' : 'up';
   const rotate = orientation === 'up' ? 180 : 0;
   const translateX = (col - 1) * side / 2;
   const translateY = (row - 1) * height;
   
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  svg.setAttribute('width', String(side));
-  svg.setAttribute('height', String(height));
-  svg.setAttribute('viewBox', `0 0 ${side} ${height}`);
-  
-  // Группа с трансформацией
   const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   group.setAttribute('transform', `translate(${translateX},${translateY}) rotate(${rotate} ${side/2},${height/2})`);
-  svg.appendChild(group);
   
-  // Полигон (треугольник)
+  // Полигон
   const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
   polygon.setAttribute('points', `0,0 ${side},0 ${side/2},${height}`);
   polygon.setAttribute('fill', '#F5F3FF');
   polygon.setAttribute('stroke', '#7C3AED');
-  polygon.setAttribute('stroke-width', '1.5');
+  polygon.setAttribute('stroke-width', '2');
   group.appendChild(polygon);
   
-  // Три грани — три текста
-  const texts = [
-    { transform: `rotate(180 ${side/2},0)`, value: values[0] },  // нижняя грань
-    { transform: `rotate(60 0,0)`, value: values[1] },            // левая грань
-    { transform: `rotate(300 ${side},0)`, value: values[2] },     // правая грань
+  // Три грани — тексты с поворотом (как в Triangle/index.jsx)
+  const textConfigs = [
+    { transform: `rotate(180 ${side/2},0)`, value: values[0], fill: '#1F2937' },
+    { transform: `rotate(60 0,0)`, value: values[1], fill: '#4C1D95' },
+    { transform: `rotate(300 ${side},0)`, value: values[2], fill: '#4C1D95' },
   ];
   
-  texts.forEach((item, i) => {
-    if (!item.value) return;
+  textConfigs.forEach((config) => {
+    if (!config.value) return;
     
     const textGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    textGroup.setAttribute('transform', item.transform);
+    textGroup.setAttribute('transform', config.transform);
     group.appendChild(textGroup);
     
-    // Строки (если текст длинный — перенос)
-    const lines = splitTextIntoLines(item.value, 10);
+    // Разбиваем на строки
+    const lines = splitUpText(config.value).reverse();
     
-    lines.reverse().forEach((line, lineIndex) => {
+    lines.forEach((line, index) => {
       const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       textEl.setAttribute('x', String(side / 2));
-      textEl.setAttribute('y', String(-3 - lineIndex * 5));
+      textEl.setAttribute('y', String(-PADDING_Y - index * Y_HEIGHT_STEP));
       textEl.setAttribute('text-anchor', 'middle');
-      textEl.setAttribute('font-size', '7');
-      textEl.setAttribute('fill', i === 0 ? '#1F2937' : '#4C1D95');
+      textEl.setAttribute('font-size', String(FONT_SIZE));
+      textEl.setAttribute('fill', config.fill);
       textEl.setAttribute('font-family', 'Roboto, Arial, sans-serif');
       textEl.textContent = line;
       textGroup.appendChild(textEl);
     });
   });
   
-  return svg;
+  return group;
 }
 
-function splitTextIntoLines(text: string, maxChars: number): string[] {
-  if (text.length <= maxChars) return [text];
-  
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let currentLine = '';
-  
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    if (testLine.length <= maxChars) {
-      currentLine = testLine;
-    } else {
-      if (currentLine) lines.push(currentLine);
-      currentLine = word;
-    }
-  }
-  if (currentLine) lines.push(currentLine);
-  
-  return lines;
-}
+// ===== ПОСТРОЕНИЕ СЕТКИ =====
 
-// ===== ПОСТРОЕНИЕ РАСКЛАДКИ =====
-
-interface GridCell {
-  row: number;
-  col: number;
-  values: [string | null, string | null, string | null];
-}
-
-function buildTriangleGrid(pairs: TarsiaPair[]): GridCell[] {
-  const n = pairs.length;
-  const cells: GridCell[] = [];
+function buildGrid(pairs: TarsiaPair[]): { row: number; col: number; values: [string | null, string | null, string | null] }[] {
+  const grid: { row: number; col: number; values: [string | null, string | null, string | null] }[] = [];
   
-  // Каждая карточка: [вопрос, ответ_соседа_слева, ответ_соседа_справа]
   pairs.forEach((pair, i) => {
-    const prevPair = pairs[(i - 1 + n) % n];
-    cells.push({
+    const prevPair = pairs[(i - 1 + pairs.length) % pairs.length];
+    grid.push({
       row: Math.floor(i / 4) + 1,
       col: (i % 4) * 2 + 1,
       values: [
-        pair.left,        // нижняя грань — вопрос
-        prevPair.right,   // левая грань — ответ предыдущего
-        pair.right,       // правая грань — ответ текущего
+        pair.left || null,
+        prevPair.right || null,
+        pair.right || null,
       ],
     });
   });
   
-  return cells;
+  return grid;
 }
 
 // ===== ЭКСПОРТ В PDF =====
@@ -192,54 +223,41 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
       doc.setTextColor(107, 33, 168);
       doc.text(puzzle.solutionTitle, W / 2, 10, { align: 'center' });
       
-      const grid = buildTriangleGrid(validPairs);
-      await drawGridOnPdf(doc, grid, 15, 20);
+      // Создаём ОДИН большой SVG со всеми треугольниками
+      const grid = buildGrid(validPairs);
+      const svg = createTarsiaSVG(grid);
+      
+      // Рендерим весь SVG на страницу
+      await svg2pdf(svg, doc, {
+        x: 7,
+        y: 15,
+        width: W - 14,
+        height: H - 25,
+      });
       
       doc.addPage();
     }
     
-    // ===== СТРАНИЦА 2: ЗАДАНИЕ (перемешанные) =====
+    // ===== СТРАНИЦА 2: ЗАДАНИЕ =====
     doc.setFont('Roboto', 'normal');
     doc.setFontSize(14);
     doc.setTextColor(107, 33, 168);
     doc.text(puzzle.puzzleTitle || puzzle.title, W / 2, 10, { align: 'center' });
     
     const shuffledPairs = [...validPairs].sort(() => Math.random() - 0.5);
-    const shuffledGrid = buildTriangleGrid(shuffledPairs);
-    await drawGridOnPdf(doc, shuffledGrid, 15, 20);
+    const shuffledGrid = buildGrid(shuffledPairs);
+    const shuffledSvg = createTarsiaSVG(shuffledGrid);
+    
+    await svg2pdf(shuffledSvg, doc, {
+      x: 7,
+      y: 15,
+      width: W - 14,
+      height: H - 25,
+    });
     
     doc.save(sanitizeFileName(`тарсия_${puzzle.title}.pdf`));
   } catch (error) {
     console.error('Ошибка генерации PDF:', error);
     alert('Не удалось создать PDF: ' + (error instanceof Error ? error.message : 'неизвестная ошибка'));
-  }
-}
-
-// ===== ОТРИСОВКА СЕТКИ НА PDF =====
-
-async function drawGridOnPdf(
-  doc: jsPDF,
-  grid: GridCell[],
-  startX: number,
-  startY: number,
-): Promise<void> {
-  const perRow = 4;
-  
-  for (let i = 0; i < grid.length; i++) {
-    const cell = grid[i];
-    const row = Math.floor(i / perRow);
-    const col = i % perRow;
-    
-    const svg = createTriangleSVG(cell.row, cell.col, cell.values);
-    
-    const x = startX + col * (TRIANGLE_SIDE + 5);
-    const y = startY + row * (TRIANGLE_HEIGHT + 10);
-    
-    await svg2pdf(svg, doc, {
-      x,
-      y,
-      width: TRIANGLE_SIDE,
-      height: TRIANGLE_HEIGHT,
-    });
   }
 }
