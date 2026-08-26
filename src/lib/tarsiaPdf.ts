@@ -71,17 +71,24 @@ function drawTriangle(
 ) {
   const orientation = (triangle.row + triangle.col) % 2 === 0 ? 'up' : 'down';
 
+  // Координаты вершин треугольника
+  let v0: [number, number], v1: [number, number], v2: [number, number];
+  
+  if (orientation === 'down') {
+    v0 = [x, y];                    // верхний левый
+    v1 = [x + side, y];             // верхний правый
+    v2 = [x + side / 2, y + height]; // нижний
+  } else {
+    v0 = [x + side / 2, y];         // верхний
+    v1 = [x + side, y + height];    // нижний правый
+    v2 = [x, y + height];           // нижний левый
+  }
+
   // Рисуем треугольник
   ctx.beginPath();
-  if (orientation === 'down') {
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + side, y);
-    ctx.lineTo(x + side / 2, y + height);
-  } else {
-    ctx.moveTo(x + side / 2, y);
-    ctx.lineTo(x + side, y + height);
-    ctx.lineTo(x, y + height);
-  }
+  ctx.moveTo(v0[0], v0[1]);
+  ctx.lineTo(v1[0], v1[1]);
+  ctx.lineTo(v2[0], v2[1]);
   ctx.closePath();
   ctx.fillStyle = '#faf5ff';
   ctx.fill();
@@ -91,46 +98,71 @@ function drawTriangle(
 
   // Рисуем текст на сторонах
   ctx.fillStyle = '#581c87';
-  ctx.font = 'bold 14px Roboto, system-ui, sans-serif';
+  ctx.font = 'bold 12px Roboto, system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  const centerX = x + side / 2;
-  const centerY = y + height / 2;
+  const textOffset = 15; // отступ от стороны внутрь треугольника
 
-  // Сторона 1 (горизонтальная или наклонная)
+  // Сторона 0: v0 -> v1
   const text0 = getTriangleText(triangle.values[0], pairs);
   if (text0.length > 0) {
-    const offsetY = orientation === 'down' ? -height / 4 : height / 4;
-    text0.forEach((line, idx) => {
-      ctx.fillText(line, centerX, centerY + offsetY + idx * 16);
-    });
-  }
-
-  // Сторона 2 (левая наклонная)
-  const text1 = getTriangleText(triangle.values[1], pairs);
-  if (text1.length > 0) {
-    const offsetX = orientation === 'down' ? -side / 4 : -side / 4;
-    const offsetY = orientation === 'down' ? height / 4 : -height / 4;
+    const midX = (v0[0] + v1[0]) / 2;
+    const midY = (v0[1] + v1[1]) / 2;
+    const angle = Math.atan2(v1[1] - v0[1], v1[0] - v0[0]);
+    const normalAngle = angle - Math.PI / 2;
+    const offsetX = Math.cos(normalAngle) * textOffset;
+    const offsetY = Math.sin(normalAngle) * textOffset;
+    
     ctx.save();
-    ctx.translate(centerX + offsetX, centerY + offsetY);
-    ctx.rotate(-Math.PI / 3);
-    text1.forEach((line, idx) => {
-      ctx.fillText(line, 0, idx * 16);
+    ctx.translate(midX + offsetX, midY + offsetY);
+    ctx.rotate(angle);
+    const lineHeight = 14;
+    text0.forEach((line, idx) => {
+      const yOffset = (idx - (text0.length - 1) / 2) * lineHeight;
+      ctx.fillText(line, 0, yOffset);
     });
     ctx.restore();
   }
 
-  // Сторона 3 (правая наклонная)
+  // Сторона 1: v1 -> v2
+  const text1 = getTriangleText(triangle.values[1], pairs);
+  if (text1.length > 0) {
+    const midX = (v1[0] + v2[0]) / 2;
+    const midY = (v1[1] + v2[1]) / 2;
+    const angle = Math.atan2(v2[1] - v1[1], v2[0] - v1[0]);
+    const normalAngle = angle - Math.PI / 2;
+    const offsetX = Math.cos(normalAngle) * textOffset;
+    const offsetY = Math.sin(normalAngle) * textOffset;
+    
+    ctx.save();
+    ctx.translate(midX + offsetX, midY + offsetY);
+    ctx.rotate(angle);
+    const lineHeight = 14;
+    text1.forEach((line, idx) => {
+      const yOffset = (idx - (text1.length - 1) / 2) * lineHeight;
+      ctx.fillText(line, 0, yOffset);
+    });
+    ctx.restore();
+  }
+
+  // Сторона 2: v2 -> v0
   const text2 = getTriangleText(triangle.values[2], pairs);
   if (text2.length > 0) {
-    const offsetX = orientation === 'down' ? side / 4 : side / 4;
-    const offsetY = orientation === 'down' ? height / 4 : -height / 4;
+    const midX = (v2[0] + v0[0]) / 2;
+    const midY = (v2[1] + v0[1]) / 2;
+    const angle = Math.atan2(v0[1] - v2[1], v0[0] - v2[0]);
+    const normalAngle = angle - Math.PI / 2;
+    const offsetX = Math.cos(normalAngle) * textOffset;
+    const offsetY = Math.sin(normalAngle) * textOffset;
+    
     ctx.save();
-    ctx.translate(centerX + offsetX, centerY + offsetY);
-    ctx.rotate(Math.PI / 3);
+    ctx.translate(midX + offsetX, midY + offsetY);
+    ctx.rotate(angle);
+    const lineHeight = 14;
     text2.forEach((line, idx) => {
-      ctx.fillText(line, 0, idx * 16);
+      const yOffset = (idx - (text2.length - 1) / 2) * lineHeight;
+      ctx.fillText(line, 0, yOffset);
     });
     ctx.restore();
   }
@@ -138,7 +170,7 @@ function drawTriangle(
 
 function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const grid = getTarsiaGridById(puzzle.shape);
-  const side = 120;
+  const side = 100;
   const height = (Math.sqrt(3) / 2) * side;
   const padding = 40;
   const titleHeight = 60;
@@ -178,11 +210,11 @@ function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
 
 function drawCutoutCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const grid = getTarsiaGridById(puzzle.shape);
-  const side = 80;
+  const side = 70;
   const height = (Math.sqrt(3) / 2) * side;
   const padding = 30;
   const titleHeight = 50;
-  const gap = 20;
+  const gap = 15;
 
   const cols = 4;
   const rows = Math.ceil(grid.triangles.length / cols);
