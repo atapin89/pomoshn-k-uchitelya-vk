@@ -23,13 +23,12 @@ import {
   loadTarsiaPuzzles,
   upsertTarsiaPuzzle,
   deleteTarsiaPuzzle,
-  renameTarsiaPuzzle,
+  renameTorsiaPuzzle,
   serializeTarsiaPuzzle,
   parseTarsiaPuzzleFile,
   parseTarsiaTxtFile,
 } from '@/lib/tarsiaStorage';
 import { getTarsiaGridById } from '@/data/tarsiaGrids';
-import { exportTarsiaToPDF } from '@/lib/tarsiaPdf';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
 
@@ -230,7 +229,7 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
   };
 
   const handleRenamePuzzle = (id: string, newName: string) => {
-    renameTarsiaPuzzle(id, newName);
+    renameTorsiaPuzzle(id, newName);
     refresh();
     if (activePuzzle?.id === id) {
       setActivePuzzle({ ...activePuzzle, title: newName });
@@ -472,7 +471,10 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
           {/* Экспорт */}
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => exportTarsiaToPDF(activePuzzle)}
+              onClick={() => {
+                // TODO: подключение PDF-экспорта на следующем шаге
+                alert('PDF-экспорт будет добавлен на следующем шаге');
+              }}
               disabled={validPairsCount === 0}
               className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
             >
