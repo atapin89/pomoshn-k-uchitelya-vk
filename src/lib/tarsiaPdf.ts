@@ -3,43 +3,7 @@ import type { TarsiaPuzzle, TarsiaTriangle } from '@/types/tarsia';
 import { splitTextToLines } from '@/types/tarsia';
 import { getTarsiaGridById } from '@/data/tarsiaGrids';
 
-const FONT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf';
-const FONT_BOLD_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf';
-
-let fontLoaded = false;
-
-async function loadFonts(doc: jsPDF): Promise<void> {
-  if (fontLoaded) return;
-  try {
-    const [regularRes, boldRes] = await Promise.all([
-      fetch(FONT_URL),
-      fetch(FONT_BOLD_URL),
-    ]);
-    const regularArrayBuffer = await regularRes.arrayBuffer();
-    const boldArrayBuffer = await boldRes.arrayBuffer();
-    const regularBase64 = arrayBufferToBase64(regularArrayBuffer);
-    const boldBase64 = arrayBufferToBase64(boldArrayBuffer);
-    doc.addFileToVFS('Roboto-Regular.ttf', regularBase64);
-    doc.addFileToVFS('Roboto-Bold.ttf', boldBase64);
-    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-    doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
-    fontLoaded = true;
-  } catch {
-    console.warn('Не удалось загрузить шрифт Roboto. Кириллица может не отображаться.');
-    fontLoaded = true;
-  }
-}
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  return btoa(binary);
-}
+type Pt = [number, number];
 
 function sanitizeFileName(name: string): string {
   return name.replace(/[/:*?"<>|]/g, '').replace(/\s+/g, '_').slice(0, 60) || 'tarsia';
@@ -60,6 +24,56 @@ function getTriangleText(
   return splitTextToLines(text, [25, 18, 10]);
 }
 
+// Текст вдоль ребра: центрирован, внутри треугольника, всегда читаемый
+function drawSideText(
+  ctx: CanvasRenderingContext2D,
+  a: Pt,
+  b: Pt,
+  centroid: Pt,
+  lines: string[],
+  side: number,
+) {
+  if (lines.length === 0) return;
+
+  const fontSize = Math.max(9, Math.round(side * 0.11));
+  const lineHeight = fontSize + 3;
+  const offset = side * 0.17; // отступ от ребра внутрь
+
+  const midX = (a[0] + b[0]) / 2;
+  const midY = (a[1] + b[1]) / 2;
+
+  // единичный вектор внутрь треугольника (к центроиду)
+  let ix = centroid[0] - midX;
+  let iy = centroid[1] - midY;
+  const il = Math.hypot(ix, iy) || 1;
+  ix /= il;
+  iy /= il;
+
+  // угол ребра, нормализованный для читаемости (без «вверх ногами»)
+  let angle = Math.atan2(b[1] - a[1], b[0] - a[0]);
+  if (angle > Math.PI / 2) angle -= Math.PI;
+  if (angle < -Math.PI / 2) angle += Math.PI;
+
+  ctx.save();
+  ctx.translate(midX + ix * offset, midY + iy * offset);
+  ctx.rotate(angle);
+
+  // направление «вглубь» в повёрнутой системе координат
+  const fy = -Math.sin(angle) * ix + Math.cos(angle) * iy;
+  const sign = fy >= 0 ? 1 : -1;
+
+  ctx.font = `600 ${fontSize}px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#581c87';
+
+  lines.forEach((line, idx) => {
+    const t = (idx - (lines.length - 1) / 2) * lineHeight * sign;
+    ctx.fillText(line, 0, t);
+  });
+  ctx.restore();
+}
+
 function drawTriangle(
   ctx: CanvasRenderingContext2D,
   triangle: TarsiaTriangle,
@@ -69,22 +83,20 @@ function drawTriangle(
   x: number,
   y: number,
 ) {
-  const orientation = (triangle.row + triangle.col) % 2 === 0 ? 'up' : 'down';
+  const isDown = (triangle.row + triangle.col) % 2 !== 0;
 
-  // Координаты вершин треугольника
-  let v0: [number, number], v1: [number, number], v2: [number, number];
-  
-  if (orientation === 'down') {
-    v0 = [x, y];                    // верхний левый
-    v1 = [x + side, y];             // верхний правый
-    v2 = [x + side / 2, y + height]; // нижний
+  let v0: Pt, v1: Pt, v2: Pt;
+  if (isDown) {
+    v0 = [x, y];
+    v1 = [x + side, y];
+    v2 = [x + side / 2, y + height];
   } else {
-    v0 = [x + side / 2, y];         // верхний
-    v1 = [x + side, y + height];    // нижний правый
-    v2 = [x, y + height];           // нижний левый
+    v0 = [x + side / 2, y];
+    v1 = [x + side, y + height];
+    v2 = [x, y + height];
   }
 
-  // Рисуем треугольник
+  // треугольник
   ctx.beginPath();
   ctx.moveTo(v0[0], v0[1]);
   ctx.lineTo(v1[0], v1[1]);
@@ -96,89 +108,40 @@ function drawTriangle(
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Рисуем текст на сторонах
-  ctx.fillStyle = '#581c87';
-  ctx.font = 'bold 12px Roboto, system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  const centroid: Pt = [
+    (v0[0] + v1[0] + v2[0]) / 3,
+    (v0[1] + v1[1] + v2[1]) / 3,
+  ];
 
-  const textOffset = 15; // отступ от стороны внутрь треугольника
+  // правильная привязка значений к рёбрам по ориентации
+  const edges: [Pt, Pt, string | null][] = isDown
+    ? [
+        [v0, v1, triangle.values[0]], // верхнее ребро
+        [v0, v2, triangle.values[1]], // левое ребро
+        [v1, v2, triangle.values[2]], // правое ребро
+      ]
+    : [
+        [v1, v2, triangle.values[0]], // нижнее ребро
+        [v0, v1, triangle.values[1]], // правое ребро
+        [v0, v2, triangle.values[2]], // левое ребро
+      ];
 
-  // Сторона 0: v0 -> v1
-  const text0 = getTriangleText(triangle.values[0], pairs);
-  if (text0.length > 0) {
-    const midX = (v0[0] + v1[0]) / 2;
-    const midY = (v0[1] + v1[1]) / 2;
-    const angle = Math.atan2(v1[1] - v0[1], v1[0] - v0[0]);
-    const normalAngle = angle - Math.PI / 2;
-    const offsetX = Math.cos(normalAngle) * textOffset;
-    const offsetY = Math.sin(normalAngle) * textOffset;
-    
-    ctx.save();
-    ctx.translate(midX + offsetX, midY + offsetY);
-    ctx.rotate(angle);
-    const lineHeight = 14;
-    text0.forEach((line, idx) => {
-      const yOffset = (idx - (text0.length - 1) / 2) * lineHeight;
-      ctx.fillText(line, 0, yOffset);
-    });
-    ctx.restore();
-  }
-
-  // Сторона 1: v1 -> v2
-  const text1 = getTriangleText(triangle.values[1], pairs);
-  if (text1.length > 0) {
-    const midX = (v1[0] + v2[0]) / 2;
-    const midY = (v1[1] + v2[1]) / 2;
-    const angle = Math.atan2(v2[1] - v1[1], v2[0] - v1[0]);
-    const normalAngle = angle - Math.PI / 2;
-    const offsetX = Math.cos(normalAngle) * textOffset;
-    const offsetY = Math.sin(normalAngle) * textOffset;
-    
-    ctx.save();
-    ctx.translate(midX + offsetX, midY + offsetY);
-    ctx.rotate(angle);
-    const lineHeight = 14;
-    text1.forEach((line, idx) => {
-      const yOffset = (idx - (text1.length - 1) / 2) * lineHeight;
-      ctx.fillText(line, 0, yOffset);
-    });
-    ctx.restore();
-  }
-
-  // Сторона 2: v2 -> v0
-  const text2 = getTriangleText(triangle.values[2], pairs);
-  if (text2.length > 0) {
-    const midX = (v2[0] + v0[0]) / 2;
-    const midY = (v2[1] + v0[1]) / 2;
-    const angle = Math.atan2(v0[1] - v2[1], v0[0] - v2[0]);
-    const normalAngle = angle - Math.PI / 2;
-    const offsetX = Math.cos(normalAngle) * textOffset;
-    const offsetY = Math.sin(normalAngle) * textOffset;
-    
-    ctx.save();
-    ctx.translate(midX + offsetX, midY + offsetY);
-    ctx.rotate(angle);
-    const lineHeight = 14;
-    text2.forEach((line, idx) => {
-      const yOffset = (idx - (text2.length - 1) / 2) * lineHeight;
-      ctx.fillText(line, 0, yOffset);
-    });
-    ctx.restore();
-  }
+  edges.forEach(([a, b, code]) => {
+    drawSideText(ctx, a, b, centroid, getTriangleText(code, pairs), side);
+  });
 }
 
 function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const grid = getTarsiaGridById(puzzle.shape);
   const side = 100;
   const height = (Math.sqrt(3) / 2) * side;
-  const padding = 40;
-  const titleHeight = 60;
+  const padding = 30;
+  const titleHeight = 50;
 
   const maxRow = Math.max(...grid.triangles.map((t) => t.row));
   const maxCol = Math.max(...grid.triangles.map((t) => t.col));
-  const width = padding * 2 + (maxCol + 1) * side;
-  const heightTotal = padding * 2 + titleHeight + (maxRow + 1) * height;
+  const width = padding * 2 + ((maxCol - 1) / 2 + 1) * side;
+  const heightTotal = padding * 2 + titleHeight + maxRow * height;
 
   const canvas = document.createElement('canvas');
   const scale = 2;
@@ -187,18 +150,15 @@ function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const ctx = canvas.getContext('2d')!;
   ctx.scale(scale, scale);
 
-  // Фон
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, heightTotal);
 
-  // Заголовок
   ctx.fillStyle = '#6b21a8';
-  ctx.font = 'bold 28px Roboto, system-ui, sans-serif';
+  ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(puzzle.solutionTitle, width / 2, padding + 20);
+  ctx.fillText(puzzle.solutionTitle, width / 2, padding + 15);
 
-  // Треугольники
   grid.triangles.forEach((tri) => {
     const x = padding + (tri.col - 1) * side / 2;
     const y = padding + titleHeight + (tri.row - 1) * height;
@@ -210,11 +170,11 @@ function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
 
 function drawCutoutCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const grid = getTarsiaGridById(puzzle.shape);
-  const side = 70;
+  const side = puzzle.cardSize === 'small' ? 60 : puzzle.cardSize === 'large' ? 90 : 75;
   const height = (Math.sqrt(3) / 2) * side;
-  const padding = 30;
-  const titleHeight = 50;
-  const gap = 15;
+  const padding = 25;
+  const titleHeight = 45;
+  const gap = 14;
 
   const cols = 4;
   const rows = Math.ceil(grid.triangles.length / cols);
@@ -228,18 +188,15 @@ function drawCutoutCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const ctx = canvas.getContext('2d')!;
   ctx.scale(scale, scale);
 
-  // Фон
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, heightTotal);
 
-  // Заголовок
   ctx.fillStyle = '#6b21a8';
-  ctx.font = 'bold 24px Roboto, system-ui, sans-serif';
+  ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(puzzle.puzzleTitle, width / 2, padding + 15);
+  ctx.fillText(puzzle.puzzleTitle, width / 2, padding + 12);
 
-  // Треугольники
   grid.triangles.forEach((tri, idx) => {
     const col = idx % cols;
     const row = Math.floor(idx / cols);
@@ -252,35 +209,32 @@ function drawCutoutCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
 }
 
 export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
-  if (puzzle.pairs.length === 0) {
+  const validPairs = puzzle.pairs.filter((p) => p.left.trim() && p.right.trim());
+  if (validPairs.length === 0) {
     alert('В пазле нет пар для печати');
     return;
   }
 
   const doc = new jsPDF();
-  await loadFonts(doc);
-
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
 
-  // Страница 1: Решение
+  // Страница 1: решение (собранная фигура)
   if (puzzle.showSolution) {
     const solutionCanvas = drawSolutionCanvas(puzzle);
-    const imgData = solutionCanvas.toDataURL('image/png');
     const imgW = pageW - 20;
     const imgH = (solutionCanvas.height * imgW) / solutionCanvas.width;
     const y = Math.max(10, (pageH - imgH) / 2);
-    doc.addImage(imgData, 'PNG', 10, y, imgW, imgH);
+    doc.addImage(solutionCanvas.toDataURL('image/png'), 'PNG', 10, y, imgW, imgH);
   }
 
-  // Страница 2+: Вырезалка
+  // Страница 2: вырезалка (разрозненные треугольники)
   doc.addPage();
   const cutoutCanvas = drawCutoutCanvas(puzzle);
-  const cutoutImgData = cutoutCanvas.toDataURL('image/png');
   const cutoutImgW = pageW - 20;
   const cutoutImgH = (cutoutCanvas.height * cutoutImgW) / cutoutCanvas.width;
   const cutoutY = Math.max(10, (pageH - cutoutImgH) / 2);
-  doc.addImage(cutoutImgData, 'PNG', 10, cutoutY, cutoutImgW, cutoutImgH);
+  doc.addImage(cutoutCanvas.toDataURL('image/png'), 'PNG', 10, cutoutY, cutoutImgW, cutoutImgH);
 
   doc.save(sanitizeFileName(`тарсия_${puzzle.title}.pdf`));
 }
