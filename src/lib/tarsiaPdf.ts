@@ -8,8 +8,9 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[/:*?"<>|]/g, '').replace(/\s+/g, '_').slice(0, 60) || 'tarsia';
 }
 
-// Компактный перенос: максимум 3 строки, максимум 14 символов на строку
-function splitTextCompact(text: string, maxChars: number = 14): string[] {
+// Максимум 12 символов на строку, максимум 3 строки
+function splitTextCompact(text: string): string[] {
+  const maxChars = 12;
   const words = text.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [];
   const lines: string[] = [];
@@ -24,7 +25,7 @@ function splitTextCompact(text: string, maxChars: number = 14): string[] {
     }
   }
   if (cur) lines.push(cur);
-  return lines.slice(0, 3); // не больше 3 строк
+  return lines.slice(0, 3);
 }
 
 function getTriangleText(
@@ -38,10 +39,9 @@ function getTriangleText(
   if (!pair) return [];
   const text = (match[2] === 'q' ? pair.left : pair.right).trim();
   if (!text) return [];
-  return splitTextCompact(text, 14); // максимум 14 символов на строку
+  return splitTextCompact(text);
 }
 
-// Текст ВНУТРИ треугольника, всегда читаемый
 function drawSideText(
   ctx: CanvasRenderingContext2D,
   a: Pt,
@@ -52,33 +52,28 @@ function drawSideText(
 ) {
   if (lines.length === 0) return;
 
-  // ФИКСИРОВАННЫЙ маленький шрифт — 9px
-  const fontSize = 9;
-  const lineHeight = 11;
+  const fontSize = 8;        // было 12 → стало 8
+  const lineHeight = 9;      // было 14 → стало 9
+  const offset = 10;         // было 15 → стало 10 (отступ от грани внутрь)
 
   const midX = (a[0] + b[0]) / 2;
   const midY = (a[1] + b[1]) / 2;
 
-  // Вектор от середины ребра к центроиду — ВСЕГДА внутрь треугольника
+  // Нормаль через центроид — ВСЕГДА внутрь треугольника
   let ix = centroid[0] - midX;
   let iy = centroid[1] - midY;
   const il = Math.hypot(ix, iy) || 1;
   ix /= il;
   iy /= il;
 
-  // Угол ребра, нормализованный (без переворота текста)
   let angle = Math.atan2(b[1] - a[1], b[0] - a[0]);
   if (angle > Math.PI / 2) angle -= Math.PI;
   if (angle < -Math.PI / 2) angle += Math.PI;
-
-  // Отступ от ребра внутрь — 25px (больше, чтобы не наезжали)
-  const offset = 25;
 
   ctx.save();
   ctx.translate(midX + ix * offset, midY + iy * offset);
   ctx.rotate(angle);
 
-  // В повёрнутой СК определяем, в какую сторону от ребра идёт внутренность
   const fy = -Math.sin(angle) * ix + Math.cos(angle) * iy;
   const sign = fy >= 0 ? 1 : -1;
 
@@ -133,17 +128,16 @@ function drawTriangle(
     (v0[1] + v1[1] + v2[1]) / 3,
   ];
 
-  // Привязка значений к рёбрам по ориентации
   const edges: [Pt, Pt, string | null][] = isDown
     ? [
-        [v0, v1, triangle.values[0]], // верхнее
-        [v0, v2, triangle.values[1]], // левое
-        [v1, v2, triangle.values[2]], // правое
+        [v0, v1, triangle.values[0]],
+        [v0, v2, triangle.values[1]],
+        [v1, v2, triangle.values[2]],
       ]
     : [
-        [v2, v1, triangle.values[0]], // нижнее
-        [v0, v1, triangle.values[1]], // правое
-        [v0, v2, triangle.values[2]], // левое
+        [v2, v1, triangle.values[0]],
+        [v0, v1, triangle.values[1]],
+        [v0, v2, triangle.values[2]],
       ];
 
   edges.forEach(([a, b, code]) => {
@@ -153,10 +147,10 @@ function drawTriangle(
 
 function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const grid = getTarsiaGridById(puzzle.shape);
-  const side = 100;
+  const side = 90;  // уменьшено с 100
   const height = (Math.sqrt(3) / 2) * side;
-  const padding = 40;
-  const titleHeight = 60;
+  const padding = 30;
+  const titleHeight = 50;
 
   const maxRow = Math.max(...grid.triangles.map((t) => t.row));
   const maxCol = Math.max(...grid.triangles.map((t) => t.col));
@@ -174,10 +168,10 @@ function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   ctx.fillRect(0, 0, width, heightTotal);
 
   ctx.fillStyle = '#6b21a8';
-  ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+  ctx.font = 'bold 22px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(puzzle.solutionTitle, width / 2, padding + 20);
+  ctx.fillText(puzzle.solutionTitle, width / 2, padding + 15);
 
   grid.triangles.forEach((tri) => {
     const x = padding + (tri.col - 1) * side / 2;
@@ -190,11 +184,11 @@ function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
 
 function drawCutoutCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const grid = getTarsiaGridById(puzzle.shape);
-  const side = 70;
+  const side = 60;  // уменьшено с 70
   const height = (Math.sqrt(3) / 2) * side;
-  const padding = 30;
-  const titleHeight = 50;
-  const gap = 15;
+  const padding = 25;
+  const titleHeight = 45;
+  const gap = 12;
 
   const cols = 4;
   const rows = Math.ceil(grid.triangles.length / cols);
@@ -212,10 +206,10 @@ function drawCutoutCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   ctx.fillRect(0, 0, width, heightTotal);
 
   ctx.fillStyle = '#6b21a8';
-  ctx.font = 'bold 20px system-ui, -apple-system, sans-serif';
+  ctx.font = 'bold 20px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(puzzle.puzzleTitle, width / 2, padding + 15);
+  ctx.fillText(puzzle.puzzleTitle, width / 2, padding + 12);
 
   grid.triangles.forEach((tri, idx) => {
     const col = idx % cols;
@@ -240,20 +234,30 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
 
   if (puzzle.showSolution) {
     const solutionCanvas = drawSolutionCanvas(puzzle);
-    const imgData = solutionCanvas.toDataURL('image/png');
     const imgW = pageW - 20;
     const imgH = (solutionCanvas.height * imgW) / solutionCanvas.width;
-    const y = Math.max(10, (pageH - imgH) / 2);
-    doc.addImage(imgData, 'PNG', 10, y, imgW, imgH);
+    doc.addImage(
+      solutionCanvas.toDataURL('image/png'),
+      'PNG',
+      10,
+      Math.max(10, (pageH - imgH) / 2),
+      imgW,
+      imgH,
+    );
   }
 
   doc.addPage();
   const cutoutCanvas = drawCutoutCanvas(puzzle);
-  const cutoutImgData = cutoutCanvas.toDataURL('image/png');
   const cutoutImgW = pageW - 20;
   const cutoutImgH = (cutoutCanvas.height * cutoutImgW) / cutoutCanvas.width;
-  const cutoutY = Math.max(10, (pageH - cutoutImgH) / 2);
-  doc.addImage(cutoutImgData, 'PNG', 10, cutoutY, cutoutImgW, cutoutImgH);
+  doc.addImage(
+    cutoutCanvas.toDataURL('image/png'),
+    'PNG',
+    10,
+    Math.max(10, (pageH - cutoutImgH) / 2),
+    cutoutImgW,
+    cutoutImgH,
+  );
 
   doc.save(sanitizeFileName(`тарсия_${puzzle.title}.pdf`));
 }
