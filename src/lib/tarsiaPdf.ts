@@ -17,17 +17,14 @@ function getTriangleText(
   if (!valueCode) return [];
   const match = valueCode.match(/^(\d+)([qa])$/);
   if (!match) return [];
-  const num = parseInt(match[1]);
-  const type = match[2];
-  const pair = pairs[num - 1];
+  const pair = pairs[parseInt(match[1]) - 1];
   if (!pair) return [];
-  const text = (type === 'q' ? pair.left : pair.right).trim();
+  const text = (match[2] === 'q' ? pair.left : pair.right).trim();
   if (!text) return [];
-  // разбиваем на короткие строки, чтобы помещались вдоль стороны
-  return splitTextToLines(text, [maxChars, maxChars - 4, maxChars - 8]);
+  return splitTextToLines(text, [maxChars, maxChars - 3, maxChars - 6]);
 }
 
-// Рисуем текст вдоль ребра, всегда внутри треугольника, всегда читаемо
+// Текст вдоль ребра: всегда ВНУТРИ треугольника, всегда читаемый
 function drawSideText(
   ctx: CanvasRenderingContext2D,
   a: Pt,
@@ -38,34 +35,30 @@ function drawSideText(
 ) {
   if (lines.length === 0) return;
 
-  // размер шрифта зависит от стороны, не больше 14
-  const fontSize = Math.max(9, Math.min(14, Math.round(side * 0.1)));
-  const lineHeight = fontSize + 2;
-  // отступ от ребра внутрь — больше, чем было
-  const offset = side * 0.2;
-
+  const fontSize = Math.max(9, Math.min(13, Math.round(side * 0.12)));
+  const lineHeight = fontSize + 3;
   const midX = (a[0] + b[0]) / 2;
   const midY = (a[1] + b[1]) / 2;
 
-  // единичный вектор от середины ребра к центроиду (всегда внутрь)
+  // направление внутрь (к центроиду)
   let ix = centroid[0] - midX;
   let iy = centroid[1] - midY;
   const il = Math.hypot(ix, iy) || 1;
   ix /= il;
   iy /= il;
 
-  // угол ребра, нормализованный так, чтобы текст не был вверх ногами
+  // угол ребра, нормализованный (без «вверх ногами»)
   let angle = Math.atan2(b[1] - a[1], b[0] - a[0]);
   if (angle > Math.PI / 2) angle -= Math.PI;
   if (angle < -Math.PI / 2) angle += Math.PI;
 
   ctx.save();
-  ctx.translate(midX + ix * offset, midY + iy * offset);
+  ctx.translate(midX, midY);
   ctx.rotate(angle);
 
-  // определяем, в какую сторону от ребра "вглубь" в повёрнутой системе
+  // знак: в какую сторону локальной Y лежит внутренность
   const fy = -Math.sin(angle) * ix + Math.cos(angle) * iy;
-  const sign = fy >= 0 ? 1 : -1;
+  const s = fy >= 0 ? 1 : -1;
 
   ctx.font = `600 ${fontSize}px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`;
   ctx.textAlign = 'center';
@@ -73,8 +66,7 @@ function drawSideText(
   ctx.fillStyle = '#4c1d95';
 
   lines.forEach((line, idx) => {
-    const t = (idx - (lines.length - 1) / 2) * lineHeight * sign;
-    ctx.fillText(line, 0, t);
+    ctx.fillText(line, 0, s * (fontSize * 0.9 + idx * lineHeight));
   });
   ctx.restore();
 }
@@ -88,7 +80,8 @@ function drawTriangle(
   x: number,
   y: number,
 ) {
-  const isDown = (triangle.row + triangle.col) % 2 !== 0;
+  // ПРАВИЛЬНАЯ ориентация как в оригинале: чётная сумма — вершина вниз
+  const isDown = (triangle.row + triangle.col) % 2 === 0;
 
   let v0: Pt, v1: Pt, v2: Pt;
   if (isDown) {
@@ -101,7 +94,6 @@ function drawTriangle(
     v2 = [x, y + height];
   }
 
-  // треугольник
   ctx.beginPath();
   ctx.moveTo(v0[0], v0[1]);
   ctx.lineTo(v1[0], v1[1]);
@@ -118,12 +110,9 @@ function drawTriangle(
     (v0[1] + v1[1] + v2[1]) / 3,
   ];
 
-  // максимальная длина строки в символах зависит от стороны
-  const maxChars = Math.max(8, Math.round(side / 5));
+  const maxChars = Math.max(8, Math.round(side / 6));
 
-  // привязка значений к рёбрам по ориентации
-  // isDown (row+col нечётное) — верх горизонтальный, вершина внизу
-  // !isDown (чётное) — вершина сверху, низ горизонтальный
+  // привязка значений к рёбрам по ориентации (как в оригинальном рендере)
   const edges: [Pt, Pt, string | null][] = isDown
     ? [
         [v0, v1, triangle.values[0]], // верхнее ребро
@@ -131,34 +120,27 @@ function drawTriangle(
         [v1, v2, triangle.values[2]], // правое ребро
       ]
     : [
-        [v1, v2, triangle.values[0]], // нижнее ребро
-        [v0, v1, triangle.values[2]], // правое ребро (values[2])
-        [v0, v2, triangle.values[1]], // левое ребро (values[1])
+        [v2, v1, triangle.values[0]], // нижнее ребро
+        [v0, v1, triangle.values[1]], // правое ребро
+        [v0, v2, triangle.values[2]], // левое ребро
       ];
 
   edges.forEach(([a, b, code]) => {
-    drawSideText(
-      ctx,
-      a,
-      b,
-      centroid,
-      getTriangleText(code, pairs, maxChars),
-      side,
-    );
+    drawSideText(ctx, a, b, centroid, getTriangleText(code, pairs, maxChars), side);
   });
 }
 
 function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const grid = getTarsiaGridById(puzzle.shape);
-  // для решения размер побольше, но компактно
-  const side = puzzle.shape === 'triangle' || puzzle.shape === 'hex' ? 90 : 80;
+  const big = grid.triangles.length > 12;
+  const side = big ? 95 : 110;
   const height = (Math.sqrt(3) / 2) * side;
   const padding = 30;
   const titleHeight = 50;
 
   const maxRow = Math.max(...grid.triangles.map((t) => t.row));
   const maxCol = Math.max(...grid.triangles.map((t) => t.col));
-  const width = padding * 2 + ((maxCol - 1) / 2 + 1) * side + side / 2;
+  const width = padding * 2 + ((maxCol - 1) / 2 + 1) * side;
   const heightTotal = padding * 2 + titleHeight + maxRow * height;
 
   const canvas = document.createElement('canvas');
@@ -172,7 +154,7 @@ function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   ctx.fillRect(0, 0, width, heightTotal);
 
   ctx.fillStyle = '#6b21a8';
-  ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+  ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(puzzle.solutionTitle, width / 2, padding + 15);
@@ -188,16 +170,14 @@ function drawSolutionCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
 
 function drawCutoutCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   const grid = getTarsiaGridById(puzzle.shape);
-  // размер карточки влияет на side
   const side =
-    puzzle.cardSize === 'small' ? 70 : puzzle.cardSize === 'large' ? 100 : 85;
+    puzzle.cardSize === 'small' ? 60 : puzzle.cardSize === 'large' ? 95 : 75;
   const height = (Math.sqrt(3) / 2) * side;
   const padding = 25;
   const titleHeight = 45;
-  const gap = 12;
+  const gap = 14;
 
-  // количество колонок зависит от формы
-  const cols = grid.triangles.length <= 7 ? 3 : grid.triangles.length <= 16 ? 4 : 5;
+  const cols = grid.triangles.length <= 10 ? 4 : grid.triangles.length <= 18 ? 5 : 6;
   const rows = Math.ceil(grid.triangles.length / cols);
   const width = padding * 2 + cols * (side + gap);
   const heightTotal = padding * 2 + titleHeight + rows * (height + gap);
@@ -218,7 +198,6 @@ function drawCutoutCanvas(puzzle: TarsiaPuzzle): HTMLCanvasElement {
   ctx.textBaseline = 'middle';
   ctx.fillText(puzzle.puzzleTitle, width / 2, padding + 12);
 
-  // тонкая подпись для ученика
   ctx.fillStyle = '#9ca3af';
   ctx.font = '10px system-ui, sans-serif';
   ctx.fillText('Разрежь по контуру и соедини вопрос с ответом', width / 2, padding + 30);
@@ -249,16 +228,14 @@ export async function exportTarsiaToPDF(puzzle: TarsiaPuzzle): Promise<void> {
     const solutionCanvas = drawSolutionCanvas(puzzle);
     const imgW = pageW - 20;
     const imgH = (solutionCanvas.height * imgW) / solutionCanvas.width;
-    const y = Math.max(10, (pageH - imgH) / 2);
-    doc.addImage(solutionCanvas.toDataURL('image/png'), 'PNG', 10, y, imgW, imgH);
+    doc.addImage(solutionCanvas.toDataURL('image/png'), 'PNG', 10, Math.max(10, (pageH - imgH) / 2), imgW, imgH);
   }
 
   doc.addPage();
   const cutoutCanvas = drawCutoutCanvas(puzzle);
   const cutoutImgW = pageW - 20;
   const cutoutImgH = (cutoutCanvas.height * cutoutImgW) / cutoutCanvas.width;
-  const cutoutY = Math.max(10, (pageH - cutoutImgH) / 2);
-  doc.addImage(cutoutCanvas.toDataURL('image/png'), 'PNG', 10, cutoutY, cutoutImgW, cutoutImgH);
+  doc.addImage(cutoutCanvas.toDataURL('image/png'), 'PNG', 10, Math.max(10, (pageH - cutoutImgH) / 2), cutoutImgW, cutoutImgH);
 
   doc.save(sanitizeFileName(`тарсия_${puzzle.title}.pdf`));
 }
