@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Triangle,
-  Hexagon,
   Plus,
   Upload,
   Download,
@@ -17,7 +16,7 @@ import {
   HelpCircle,
   GraduationCap,
 } from 'lucide-react';
-import type { TarsiaPuzzle, TarsiaShape, TarsiaCardSize } from '@/types/tarsia';
+import type { TarsiaPuzzle, TarsiaShape, TarsiaPair } from '@/types/tarsia';
 import { generateTarsiaId, validateTarsiaPairs } from '@/types/tarsia';
 import {
   loadTarsiaPuzzles,
@@ -37,42 +36,34 @@ interface TarsiaScreenProps {
   onBack: () => void;
 }
 
-const SHAPE_OPTIONS: { id: TarsiaShape; label: string; Icon: typeof Triangle }[] = [
-  { id: 'small-triangle', label: 'Треуг. мал.', Icon: Triangle },
-  { id: 'triangle', label: 'Треуг. бол.', Icon: Triangle },
-  { id: 'small-hex', label: 'Шест. мал.', Icon: Hexagon },
-  { id: 'hex', label: 'Шест. бол.', Icon: Hexagon },
-];
+// Форма всегда треугольная: до 9 пар — маленький, 10–18 — большой
+function autoShape(pairs: TarsiaPair[]): TarsiaShape {
+  return validateTarsiaPairs(pairs).length <= 9 ? 'small-triangle' : 'triangle';
+}
 
-const CARD_SIZES: { id: TarsiaCardSize; label: string }[] = [
-  { id: 'small', label: 'Мелкий' },
-  { id: 'medium', label: 'Средний' },
-  { id: 'large', label: 'Крупный' },
-];
-
-// [ПРАВКА 1] Демо расширено с 6 до 9 пар под маленькую треугольную сетку
 const DEMO_PAIRS: { left: string; right: string }[] = [
   { left: 'Столица России', right: 'Москва' },
-  { left: 'Самая длинная река России', right: 'Обь' },
-  { left: 'Самое глубокое озеро', right: 'Байкал' },
-  { left: 'Самая высокая гора мира', right: 'Эверест' },
-  { left: 'Материк, на котором живём', right: 'Евразия' },
-  { left: 'Океан у берегов России на востоке', right: 'Тихий' },
-  { left: 'Самое большое государство мира', right: 'Россия' },
-  { left: 'Озеро, которое зовут «морем» из-за размера', right: 'Каспийское' },
-  { left: 'Высочайший вулкан России', right: 'Ключевская Сопка' },
+  { left: 'Самая длинная река', right: 'Обь' },
+  { left: 'Глубокое озеро', right: 'Байкал' },
+  { left: 'Высочайшая гора', right: 'Эверест' },
+  { left: 'Наш материк', right: 'Евразия' },
+  { left: 'Океан на востоке', right: 'Тихий' },
+  { left: 'Крупнейшая страна', right: 'Россия' },
+  { left: 'Озеро-море', right: 'Каспийское' },
+  { left: 'Вулкан Камчатки', right: 'Ключевская' },
 ];
 
 function createDemoPuzzle(): TarsiaPuzzle {
+  const pairs = DEMO_PAIRS.map((p) => ({
+    id: generateTarsiaId('pair'),
+    left: p.left,
+    right: p.right,
+  }));
   return {
     id: generateTarsiaId('tarsia'),
     title: 'Окружающий мир (демо)',
-    shape: 'small-triangle', // [ПРАВКА 2] было 'triangle'
-    pairs: DEMO_PAIRS.map((p) => ({
-      id: generateTarsiaId('pair'),
-      left: p.left,
-      right: p.right,
-    })),
+    shape: autoShape(pairs),
+    pairs,
     puzzleTitle: 'Соедини вопрос с ответом',
     solutionTitle: 'Решение',
     showSolution: true,
@@ -85,16 +76,15 @@ function createDemoPuzzle(): TarsiaPuzzle {
 const HOW_ITEMS = [
   {
     q: 'Как создать пазл',
-    a: 'Нажмите «Создать», введите название и выберите форму (треугольная или шестиугольная, маленькая или большая). В списке пар введите «вопрос → ответ» для каждой пары. Пазл сохраняет автоматически.',
+    a: 'Нажмите «Создать» и введите пары «вопрос → ответ» (до 15 символов в каждой части). Пазл сохраняется автоматически. Форма всегда треугольная.',
   },
   {
-    q: 'Выбор формы и размера',
-    // [ПРАВКА 5] обновлено количество пар для каждой формы
-    a: 'Маленький треугольник — 9 пар (разминка). Большой треугольник — 18 пар (урок). Шестиугольники — 11 и 30 пар, сложнее, для старших классов. Размер карточек (мелкий/средний/крупный) выбирается перед экспортом в PDF.',
+    q: 'Размер треугольника',
+    a: 'Подбирается автоматически: до 9 пар — маленький треугольник (разминка), от 10 до 18 пар — большой (полный урок). Пустые стороны остаются без надписей.',
   },
   {
     q: 'Импорт и экспорт',
-    a: '«Импорт» принимает .json (пазлы из Помощника учителя) и .txt (пары в формате «вопрос\\tответ», по одной на строку). «Экспорт JSON» скачивает файл для обмена с коллегами.',
+    a: '«Импорт» принимает .json (пазлы из Помощника учителя) и .txt (пары в формате «вопрос\tответ», по одной на строку). «Экспорт JSON» скачивает файл для обмена с коллегами.',
   },
   {
     q: 'Печать в PDF',
@@ -109,15 +99,15 @@ const HOW_ITEMS = [
 const FAQ_ITEMS = [
   {
     q: 'Сценарий 1 · Разминка в начале урока',
-    a: 'Выберите «Треуг. мал.» (9 пар) по теме прошлого урока. Раздайте разрезанные карточки парам учеников, засекайте 5–7 минут. Первой паре, собравшей фигуру, — «+1 к оценке».',
+    a: 'Маленький треугольник (до 9 пар) по теме прошлого урока. Раздайте разрезанные карточки парам учеников, засекайте 5–7 минут. Первой паре, собравшей фигуру, — «+1 к оценке».',
   },
   {
     q: 'Сценарий 2 · Повторение перед контрольной',
-    a: '«Треуг. бол.» (18 пар) — все ключевые определения темы. Команды по 3–4 человека, раздать распечатки. Кто быстрее и правильнее собрал — победитель.',
+    a: 'Большой треугольник (10–18 пар) — все ключевые определения темы. Команды по 3–4 человека, раздать распечатки. Кто быстрее и правильнее собрал — победитель.',
   },
   {
-    q: 'Сценарий 3 · Межпредметный урок',
-    a: 'Шестиугольная форма сложнее — используйте для терминов, где нужно соединить 3 стороны (например, «термин — определение — пример»). Хорошо работает на истории, биологии, химии.',
+    q: 'Сценарий 3 · Домашнее задание',
+    a: 'Раздайте вырезалку домой: ученики собирают пазл и вклеивают в тетрадь, сверяясь с решением на первой странице PDF.',
   },
   {
     q: 'Сценарий 4 · Обмен с коллегами',
@@ -125,7 +115,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Сколько пар нужно для урока?',
-    a: '9 пар — 5–10 минут (разминка). 18 пар — 30–40 минут (полный урок). 30 пар — внеклассное мероприятие. Меньше 4 пар — пазл собирается слишком быстро.',
+    a: 'До 9 пар — 5–10 минут (разминка). 10–18 пар — 20–40 минут (урок или повторение). Меньше 4 пар — пазл собирается слишком быстро.',
   },
   {
     q: '⚠️ Персональные данные',
@@ -155,7 +145,7 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
     const puzzle: TarsiaPuzzle = {
       id: generateTarsiaId('tarsia'),
       title: 'Новый пазл',
-      shape: 'small-triangle', // [ПРАВКА 3] было 'triangle'
+      shape: 'small-triangle',
       pairs: [],
       puzzleTitle: 'Соедини вопрос с ответом',
       solutionTitle: 'Решение',
@@ -191,7 +181,7 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
           puzzle = {
             id: generateTarsiaId('tarsia'),
             title: file.name.replace(/\.[^.]+$/, '') || 'Импортированный пазл',
-            shape: 'small-triangle', // [ПРАВКА 4] было 'triangle'
+            shape: autoShape(pairs),
             pairs,
             puzzleTitle: 'Соедини вопрос с ответом',
             solutionTitle: 'Решение',
@@ -202,7 +192,10 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
           };
         }
       } else {
-        puzzle = parseTarsiaPuzzleFile(text);
+        const parsed = parseTarsiaPuzzleFile(text);
+        if (parsed) {
+          puzzle = { ...parsed, shape: autoShape(parsed.pairs), cardSize: 'medium' };
+        }
       }
 
       if (puzzle) {
@@ -251,7 +244,7 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
 
   const handleSavePuzzle = () => {
     if (!activePuzzle) return;
-    upsertTarsiaPuzzle(activePuzzle);
+    upsertTarsiaPuzzle({ ...activePuzzle, shape: autoShape(activePuzzle.pairs) });
     refresh();
     triggerHaptic('light');
   };
@@ -299,7 +292,8 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
     ? validateTarsiaPairs(activePuzzle.pairs).length
     : 0;
 
-  const gridInfo = activePuzzle ? getTarsiaGridById(activePuzzle.shape) : null;
+  const currentShape = activePuzzle ? autoShape(activePuzzle.pairs) : 'small-triangle';
+  const gridInfo = getTarsiaGridById(currentShape);
 
   // ===== ЭКРАН РЕДАКТОРА =====
   if (activePuzzle) {
@@ -313,7 +307,7 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
                 {activePuzzle.title}
               </h1>
               <p className="text-xs text-purple-200">
-                пар: {validPairsCount} · {SHAPE_OPTIONS.find((s) => s.id === activePuzzle.shape)?.label}
+                пар: {validPairsCount} · треугольник {gridInfo.triangles.length <= 10 ? 'мал.' : 'бол.'}
               </p>
             </div>
             <button
@@ -335,35 +329,6 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
               onChange={(e) => setActivePuzzle({ ...activePuzzle, title: e.target.value })}
               className="w-full rounded-xl border border-gray-200 p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
-          </div>
-
-          {/* Форма */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <label className="text-sm font-semibold text-purple-700">Форма головоломки</label>
-            <div className="grid grid-cols-2 gap-2">
-              {SHAPE_OPTIONS.map((opt) => {
-                const Icon = opt.Icon;
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => setActivePuzzle({ ...activePuzzle, shape: opt.id })}
-                    className={`py-3 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm transition-colors ${
-                      activePuzzle.shape === opt.id
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-purple-50 text-purple-700'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-            {gridInfo && (
-              <p className="text-xs text-gray-500">
-                {gridInfo.description} — оптимально пар: {gridInfo.questionCount}
-              </p>
-            )}
           </div>
 
           {/* Заголовки */}
@@ -398,31 +363,11 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
             </label>
           </div>
 
-          {/* Размер карточек */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <label className="text-sm font-semibold text-purple-700">Размер карточек</label>
-            <div className="grid grid-cols-3 gap-2">
-              {CARD_SIZES.map((size) => (
-                <button
-                  key={size.id}
-                  onClick={() => setActivePuzzle({ ...activePuzzle, cardSize: size.id })}
-                  className={`py-2.5 rounded-xl font-semibold text-sm transition-colors ${
-                    activePuzzle.cardSize === size.id
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-purple-50 text-purple-700'
-                  }`}
-                >
-                  {size.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Пары */}
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-semibold text-purple-700">
-                Пары «Вопрос — Ответ» ({validPairsCount})
+                Пары «Вопрос → Ответ» ({validPairsCount}) · до 15 символов
               </label>
               <button
                 onClick={handleShufflePairs}
@@ -442,17 +387,19 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
                   </span>
                   <input
                     type="text"
+                    maxLength={15}
                     value={pair.left}
                     onChange={(e) => handleUpdatePair(pair.id, 'left', e.target.value)}
-                    placeholder="Вопрос"
+                    placeholder="Вопрос (до 15)"
                     className="flex-1 rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                   />
                   <span className="text-gray-400 pt-3">→</span>
                   <input
                     type="text"
+                    maxLength={15}
                     value={pair.right}
                     onChange={(e) => handleUpdatePair(pair.id, 'right', e.target.value)}
-                    placeholder="Ответ"
+                    placeholder="Ответ (до 15)"
                     className="flex-1 rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                   />
                   <button
@@ -477,14 +424,14 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
           {/* Экспорт */}
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => exportTarsiaToPDF(activePuzzle)}
+              onClick={() => exportTarsiaToPDF({ ...activePuzzle, shape: currentShape })}
               disabled={validPairsCount === 0}
               className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
             >
               <FileText className="w-5 h-5" /> Скачать PDF
             </button>
             <button
-              onClick={() => handleExportJSON(activePuzzle)}
+              onClick={() => handleExportJSON({ ...activePuzzle, shape: currentShape })}
               disabled={validPairsCount === 0}
               className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
             >
@@ -571,7 +518,7 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
                 >
                   <h4 className="font-semibold text-gray-800 text-sm truncate">{puzzle.title}</h4>
                   <p className="text-xs text-gray-500">
-                    {SHAPE_OPTIONS.find((s) => s.id === puzzle.shape)?.label} · пар: {validateTarsiaPairs(puzzle.pairs).length} ·{' '}
+                    пар: {validateTarsiaPairs(puzzle.pairs).length} ·{' '}
                     {new Date(puzzle.updatedAt).toLocaleDateString('ru-RU')}
                   </p>
                 </button>
