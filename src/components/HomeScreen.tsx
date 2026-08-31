@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { 
-  Clock, 
-  Dices, 
-  Volume2, 
-  Layers, 
-  HelpCircle, 
-  Grid3x3, 
-  BookOpen, 
-  Calculator, 
+import {
+  Clock,
+  Dices,
+  Volume2,
+  Layers,
+  HelpCircle,
+  Grid3x3,
+  BookOpen,
+  Calculator,
   Trophy,
   LayoutGrid,
   Users,
@@ -24,15 +24,15 @@ import { helpTexts } from '@/data/helpTexts';
 
 // ===== Типы =====
 
-type SectionId = 
-  | 'timer' 
-  | 'generator' 
-  | 'noise' 
-  | 'flashcards' 
-  | 'wordsearch' 
-  | 'manual' 
-  | 'calculators' 
-  | 'bingo' 
+type SectionId =
+  | 'timer'
+  | 'generator'
+  | 'noise'
+  | 'flashcards'
+  | 'wordsearch'
+  | 'manual'
+  | 'calculators'
+  | 'bingo'
   | 'edugame'
   | 'activity'
   | 'pomodoro'
@@ -141,7 +141,7 @@ const SECTIONS: Section[] = [
 export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [activeHelpModal, setActiveHelpModal] = useState<SectionId | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  
+
   const [visibleSections, setVisibleSections] = useState<Set<SectionId>>(() => {
     try {
       const raw = localStorage.getItem(VISIBILITY_KEY);
@@ -189,16 +189,13 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   const getHelpTitle = (): string => {
     if (!activeHelpModal) return '';
-    
     const helpText = helpTexts[activeHelpModal as keyof typeof helpTexts];
     if (helpText?.title) return helpText.title;
-    
     return activeSection?.title || 'Помощь';
   };
 
   const getHelpContent = (): string => {
     if (!activeHelpModal) return '';
-    
     return activeSection?.hint || 'Описание скоро появится';
   };
 
@@ -320,7 +317,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         </div>
       </main>
 
-      {/* Модальное окно настроек видимости (3 столбца + переключатели) */}
+      {/* Модальное окно настроек видимости (3 столбца + переключатель в строку с названием) */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
@@ -349,7 +346,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                     <button
                       key={section.id}
                       onClick={() => toggleSectionVisibility(section.id)}
-                      className={`relative flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl border-2 transition-all active:scale-95 ${
+                      className={`relative flex flex-col items-stretch gap-1.5 p-2 rounded-2xl border-2 transition-all active:scale-95 ${
                         isVisible
                           ? 'border-purple-400 bg-purple-50'
                           : 'border-gray-200 bg-gray-50 opacity-60'
@@ -357,30 +354,30 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                       aria-label={isVisible ? `Скрыть: ${section.title}` : `Показать: ${section.title}`}
                       aria-pressed={isVisible}
                     >
-                      {section.isTest && isVisible && (
-                        <span className="absolute top-1 right-1 bg-amber-400 text-amber-900 text-[8px] font-bold px-1 py-0.5 rounded-md shadow-sm flex items-center gap-0.5">
-                          <FlaskConical className="w-2 h-2" />
+                      {section.isTest && (
+                        <span className="absolute top-1 right-1 bg-amber-400 text-amber-900 text-[8px] font-bold px-1 py-0.5 rounded-md shadow-sm z-10">
                           тест
                         </span>
                       )}
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center self-center ${
                         isVisible ? 'bg-purple-100' : 'bg-gray-100'
                       }`}>
-                        <Icon className={`w-5 h-5 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
+                        <Icon className={`w-4 h-4 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
                       </div>
-                      <span className={`text-[11px] font-semibold leading-tight text-center line-clamp-2 ${
-                        isVisible ? 'text-gray-800' : 'text-gray-500'
-                      }`}>
-                        {section.title}
-                      </span>
-
-                      {/* Переключатель */}
-                      <div className={`relative mt-1 w-9 h-5 rounded-full transition-colors ${
-                        isVisible ? 'bg-purple-600' : 'bg-gray-300'
-                      }`}>
-                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                          isVisible ? 'translate-x-4' : 'translate-x-0'
-                        }`} />
+                      {/* Название и переключатель в одну строку */}
+                      <div className="flex items-center gap-1">
+                        <span className={`flex-1 min-w-0 text-left text-[10px] font-semibold leading-tight truncate ${
+                          isVisible ? 'text-gray-800' : 'text-gray-500'
+                        }`}>
+                          {section.title}
+                        </span>
+                        <div className={`relative shrink-0 w-7 h-4 rounded-full transition-colors ${
+                          isVisible ? 'bg-purple-600' : 'bg-gray-300'
+                        }`}>
+                          <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${
+                            isVisible ? 'translate-x-3' : 'translate-x-0'
+                          }`} />
+                        </div>
                       </div>
                     </button>
                   );
