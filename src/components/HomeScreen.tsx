@@ -12,9 +12,9 @@ import {
   LayoutGrid,
   Users,
   Timer,
+  Triangle,
   Settings,
-  Eye,
-  EyeOff,
+  FlaskConical,
   X,
   Check,
   type LucideIcon,
@@ -35,7 +35,8 @@ type SectionId =
   | 'bingo' 
   | 'edugame'
   | 'activity'
-  | 'pomodoro';
+  | 'pomodoro'
+  | 'tarsia';
 
 interface Section {
   id: SectionId;
@@ -89,6 +90,14 @@ const SECTIONS: Section[] = [
     description: 'Изучение и запоминание',
     hint: 'Интервальное повторение: создавайте колоды, изучайте карточки, проходите тесты.',
     icon: Layers,
+  },
+  {
+    id: 'tarsia',
+    title: 'Тарсия пазлы',
+    description: 'Головоломки',
+    hint: 'Геометрические головоломки: треугольники с вопросами и ответами на гранях. Создание, PDF для печати, обмен с коллегами.',
+    icon: Triangle,
+    isTest: true,
   },
   {
     id: 'wordsearch',
@@ -166,6 +175,14 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       }
       return next;
     });
+  };
+
+  const showAll = () => {
+    setVisibleSections(new Set(SECTIONS.map(s => s.id)));
+  };
+
+  const hideAll = () => {
+    setVisibleSections(new Set());
   };
 
   const activeSection = SECTIONS.find((s) => s.id === activeHelpModal);
@@ -303,7 +320,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         </div>
       </main>
 
-      {/* Модальное окно настроек видимости */}
+      {/* Модальное окно настроек видимости (3 столбца + переключатели) */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
@@ -318,44 +335,73 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-2">
+            <div className="flex-1 overflow-y-auto p-5">
               <p className="text-sm text-gray-500 mb-3">
-                Отметьте разделы, которые хотите видеть на главном экране. Остальные будут скрыты.
+                Включите разделы, которые хотите видеть на главном экране.
               </p>
-              {SECTIONS.map(section => {
-                const Icon = section.icon;
-                const isVisible = visibleSections.has(section.id);
-                return (
-                  <div
-                    key={section.id}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${
-                      isVisible ? 'border-purple-300 bg-purple-50' : 'border-gray-200 bg-gray-50 opacity-70'
-                    }`}
-                  >
-                    <Icon className={`w-5 h-5 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-semibold text-sm ${isVisible ? 'text-gray-800' : 'text-gray-500'}`}>
-                        {section.title}
-                      </p>
-                      {section.isTest && (
-                        <span className="text-[10px] text-amber-600 font-semibold">тестовый режим</span>
-                      )}
-                    </div>
+
+              {/* Сетка из 3 столбцов */}
+              <div className="grid grid-cols-3 gap-2">
+                {SECTIONS.map(section => {
+                  const Icon = section.icon;
+                  const isVisible = visibleSections.has(section.id);
+                  return (
                     <button
+                      key={section.id}
                       onClick={() => toggleSectionVisibility(section.id)}
-                      className={`p-1.5 rounded-lg transition-colors ${
+                      className={`relative flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl border-2 transition-all active:scale-95 ${
                         isVisible
-                          ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                          : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                          ? 'border-purple-400 bg-purple-50'
+                          : 'border-gray-200 bg-gray-50 opacity-60'
                       }`}
-                      aria-label={isVisible ? 'Скрыть раздел' : 'Показать раздел'}
-                      title={isVisible ? 'Скрыть' : 'Показать'}
+                      aria-label={isVisible ? `Скрыть: ${section.title}` : `Показать: ${section.title}`}
+                      aria-pressed={isVisible}
                     >
-                      {isVisible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                      {section.isTest && isVisible && (
+                        <span className="absolute top-1 right-1 bg-amber-400 text-amber-900 text-[8px] font-bold px-1 py-0.5 rounded-md shadow-sm flex items-center gap-0.5">
+                          <FlaskConical className="w-2 h-2" />
+                          тест
+                        </span>
+                      )}
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                        isVisible ? 'bg-purple-100' : 'bg-gray-100'
+                      }`}>
+                        <Icon className={`w-5 h-5 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
+                      </div>
+                      <span className={`text-[11px] font-semibold leading-tight text-center line-clamp-2 ${
+                        isVisible ? 'text-gray-800' : 'text-gray-500'
+                      }`}>
+                        {section.title}
+                      </span>
+
+                      {/* Переключатель */}
+                      <div className={`relative mt-1 w-9 h-5 rounded-full transition-colors ${
+                        isVisible ? 'bg-purple-600' : 'bg-gray-300'
+                      }`}>
+                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                          isVisible ? 'translate-x-4' : 'translate-x-0'
+                        }`} />
+                      </div>
                     </button>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+
+              {/* Кнопки массовых действий */}
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={showAll}
+                  className="flex-1 py-2 rounded-xl border-2 border-purple-300 text-purple-700 font-semibold text-xs hover:bg-purple-50 transition-colors"
+                >
+                  Показать все
+                </button>
+                <button
+                  onClick={hideAll}
+                  className="flex-1 py-2 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold text-xs hover:bg-gray-50 transition-colors"
+                >
+                  Скрыть все
+                </button>
+              </div>
             </div>
 
             <div className="p-5 border-t border-gray-200">
