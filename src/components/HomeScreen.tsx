@@ -9,6 +9,7 @@ import {
   BookOpen,
   Box,
   Package,
+  MonitorPlay,
   Calculator,
   Trophy,
   LayoutGrid,
@@ -38,7 +39,8 @@ type SectionId =
   | 'activity'
   | 'pomodoro'
   | 'dice'
-  | 'equipment';
+  | 'equipment'
+  | 'teleprompter';
 
 interface Section {
   id: SectionId;
@@ -141,6 +143,13 @@ const SECTIONS: Section[] = [
     description: 'Учёт выдачи',
     hint: 'Учёт выдачи и возврата учебных принадлежностей: калькуляторы, линейки, ножницы и любые свои предметы. Статистика в реальном времени, список «на руках», история выдач и возвратов.',
     icon: Package,
+  },
+  {
+    id: 'teleprompter',
+    title: 'Телесуфлер',
+    description: 'Чтение с экрана',
+    hint: 'Профессиональный телесуфлер: плавная прокрутка текста, скорость 0.5–3×, темы (светлая/тёмная/контраст), зеркалирование, режим презентации, таймер выступления, веб-камера и запись видео. Сценарии сохраняются локально.',
+    icon: MonitorPlay,
   },
 ];
 
