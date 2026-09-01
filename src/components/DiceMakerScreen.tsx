@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import { Box, Download, Type, Image as ImageIcon, Layers, Lightbulb } from 'lucide-react';
+import { Box, Download, Type, Sparkles, Lightbulb, HelpCircle, BookOpen } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
 
-type DiceMode = 'text' | 'images' | 'both';
+type DiceMode = 'text' | 'images';
 
 interface DiceSettings {
   mode: DiceMode;
@@ -18,14 +18,18 @@ interface DiceSettings {
 const SETTINGS_KEY = 'dice-maker-settings';
 
 const CATEGORIES: { id: string; label: string; items: string[] }[] = [
-  { id: 'animals', label: 'Животные', items: ['🐶', '', '', '🦊', '🐻', ''] },
-  { id: 'food', label: 'Еда', items: ['🍎', '🍌', '🍕', '🥕', '', '🧀'] },
-  { id: 'clothes', label: 'Одежда', items: ['👕', '', '', '👗', '🧤', '👟'] },
-  { id: 'transport', label: 'Транспорт', items: ['🚗', '🚌', '🚲', '️', '🚂', '🛵'] },
-  { id: 'weather', label: 'Погода', items: ['☀️', '🌧️', '❄️', '🌈', '⛈️', '🌙'] },
-  { id: 'jobs', label: 'Профессии', items: ['👩‍⚕️', '👨‍🚒', '👮♀️', '👩‍🏫', '👨🍳', '‍♀️'] },
-  { id: 'emotions', label: 'Эмоции', items: ['😀', '😢', '😡', '😲', '😴', '🤩'] },
-  { id: 'colors', label: 'Цвета', items: ['🟥', '🟦', '', '', '🟪', '🟧'] },
+  { id: 'animals', label: 'Животные', items: ['🐶', '🐱', '🐭', '🦊', '🐻', '🐼', '🐰', '🦁', '🐸', '🐵'] },
+  { id: 'food', label: 'Еда', items: ['🍎', '🍌', '🍕', '🥕', '🍔', '🍩', '🍪', '🌽', '🧀', '🍓'] },
+  { id: 'clothes', label: 'Одежда', items: ['👕', '👖', '👗', '👔', '👒', '🧤', '👟', '👠', '🧣', '👜'] },
+  { id: 'transport', label: 'Транспорт', items: ['🚗', '🚌', '🚲', '✈️', '🚂', '🛵', '🚁', '⛵', '🛴', '🚜'] },
+  { id: 'weather', label: 'Погода', items: ['☀️', '🌧️', '❄️', '🌈', '⛈️', '🌙', '🌪️', '🌫️', '⚡', '🌤️'] },
+  { id: 'jobs', label: 'Профессии', items: ['👩‍⚕️', '👨‍🚒', '👮‍♀️', '👩‍🏫', '👨‍🍳', '👨‍🌾', '👩‍🔬', '👨‍✈️', '👩‍🎤', '👨‍🎨'] },
+  { id: 'emotions', label: 'Эмоции', items: ['😀', '😢', '😡', '😲', '😴', '🤩', '😎', '🤔', '😍', '🥳'] },
+  { id: 'colors', label: 'Цвета', items: ['🟥', '🟦', '🟩', '🟨', '🟪', '🟧', '🟫', '⬛', '⬜', '🩷'] },
+  { id: 'nature', label: 'Природа', items: ['🌳', '🌲', '🌻', '🌵', '🍄', '🌸', '🌊', '🏔️', '🌋', '🌾'] },
+  { id: 'sports', label: 'Спорт', items: ['⚽', '🏀', '🏈', '⚾', '🎾', '🏐', '🏓', '🎱', '🥊', '🏊'] },
+  { id: 'music', label: 'Музыка', items: ['🎵', '🎶', '🎸', '🎹', '🎺', '🎻', '🥁', '🎤', '🎧', '🎼'] },
+  { id: 'school', label: 'Школа', items: ['📚', '✏️', '📐', '🎒', '📏', '🔬', '🧪', '🖍️', '📝', '🏫'] },
 ];
 
 const FONTS = [
@@ -37,7 +41,7 @@ const FONTS = [
 ];
 
 const DEFAULT_SETTINGS: DiceSettings = {
-  mode: 'both',
+  mode: 'text',
   textFaces: ['Кто?', 'Что?', 'Где?', 'Когда?', 'Почему?', 'Как?'],
   category: 'animals',
   fontFamily: 'Verdana, sans-serif',
@@ -45,13 +49,6 @@ const DEFAULT_SETTINGS: DiceSettings = {
   showDots: true,
 };
 
-const IDEA_ITEMS = [
-  'Кубик с картинками + кубик с вопросами: ученик бросает оба и отвечает на вопрос про выпавшую картинку.',
-  'Два кубика с картинками: ученик составляет предложение, связывающее два выпавших объекта.',
-  'Кубик с буквосочетаниями: за 2 минуты записать как можно больше слов с выпавшей комбинацией.',
-];
-
-// Точки (пипсы) для граней 1–6, координаты в долях стороны
 const PIPS: Record<number, [number, number][]> = {
   1: [[0.5, 0.5]],
   2: [[0.25, 0.25], [0.75, 0.75]],
@@ -61,12 +58,76 @@ const PIPS: Record<number, [number, number][]> = {
   6: [[0.25, 0.25], [0.25, 0.5], [0.25, 0.75], [0.75, 0.25], [0.75, 0.5], [0.75, 0.75]],
 };
 
+const FAQ_ITEMS = [
+  {
+    q: 'Как собрать кубик после печати?',
+    a: '1. Вырежьте шаблон по внешнему контуру.\n2. Аккуратно согните по пунктирным линиям (используйте линейку и тупой предмет для чётких сгибов).\n3. Нанесите клей на серые клапаны и приклейте их к внутренней стороне соответствующих граней.\n4. Дайте высохнуть 10-15 минут.',
+  },
+  {
+    q: 'На какой бумаге лучше печатать?',
+    a: 'Оптимально: плотная бумага 160-200 г/м². На обычной офисной 80 г/м² кубик получится хлипким. Для долговечности можно заламинировать распечатанный лист перед вырезанием.',
+  },
+  {
+    q: 'Текст не помещается на грани — что делать?',
+    a: 'Уменьшите размер шрифта ползунком (12-16 для длинных фраз). Или сократите текст: вместо «Когда произошло это событие?» → «Когда?». Шрифт Verdana или Comic Sans читается лучше при мелких размерах.',
+  },
+  {
+    q: 'Что такое «Точки на фоне»?',
+    a: 'Это классический точечный рисунок, как на игральных костях (от 1 до 6 точек). Включается, если кубик будет использоваться в настольных играх, где нужны значения очков. Точки рисуются полупрозрачным серым за текстом.',
+  },
+  {
+    q: 'Как печатать на Letter (американский формат)?',
+    a: 'Откройте PDF, нажмите «Печать», в настройках выберите масштаб 90% и минимальные поля. Или используйте опцию «Подогнать по размеру страницы».',
+  },
+  {
+    q: 'Можно ли распечатать несколько кубиков на одном листе?',
+    a: 'В текущей версии на лист A4 помещается один кубик. Для нескольких кубиков распечатайте несколько копий PDF или уменьшите масштаб до 70% — тогда поместятся два кубика рядом.',
+  },
+];
+
+const SCENARIO_ITEMS = [
+  {
+    icon: '📖',
+    title: 'Изучение языков',
+    description: 'Кубик с вопросами (Кто? Что? Где? Когда?) + кубик с иконками (предметы). Ученик бросает оба и составляет предложение на изучаемом языке: «Кто? — 🐶. Где? — 🏫» → «The dog is at school».',
+  },
+  {
+    icon: '🎭',
+    title: 'Развитие речи',
+    description: 'Два кубика с иконками. Ученик бросает обе и составляет историю, связывающую выпавшие объекты. Например: 🚗 + 🌧️ → «Однажды в дождливый день машина отправилась в путешествие…»',
+  },
+  {
+    icon: '✍️',
+    title: 'Буквосочетания и орфография',
+    description: 'Кубик с текстом: буквосочетания (ЧА, ЩА, ЖИ, ШИ, ЧУ, ЩУ). За 2 минуты ученик записывает как можно больше слов с выпавшей комбинацией. Кто больше — тот победил.',
+  },
+  {
+    icon: '🧮',
+    title: 'Математика',
+    description: 'Кубик с цифрами 1-6 и кубик с действиями (+, −, ×, ÷, >, <). Бросают оба: 4 × 3 = 12. Для старших классов: два кубика с двузначными числами.',
+  },
+  {
+    icon: '🎨',
+    title: 'Творческое письмо',
+    description: 'Кубик с эмоциями + кубик с местами + кубик с персонажами. Выпало: 😢 + 🏔️ + 👩‍🚒 → «Пожарная плакала на вершине горы, потому что…»',
+  },
+  {
+    icon: '🌍',
+    title: 'География и история',
+    description: 'Кубик с вопросами + кубик с иконками стран/эпох. Бросок: «Когда?» + 🏛️ → ученик называет историческое событие, связанное с Древней Грецией.',
+  },
+];
+
 function loadSettings(): DiceSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      if (p && Array.isArray(p.textFaces) && p.textFaces.length === 6) return { ...DEFAULT_SETTINGS, ...p };
+      if (p && Array.isArray(p.textFaces) && p.textFaces.length === 6) {
+        // Миграция: если из localStorage пришёл старый режим 'both', сбрасываем на 'text'
+        if (p.mode === 'both') p.mode = 'text';
+        return { ...DEFAULT_SETTINGS, ...p };
+      }
     }
   } catch {
     // ignore
@@ -122,7 +183,6 @@ interface NetProps {
 }
 
 function Net({ x0, y0, S, values, type, settings }: NetProps) {
-  // Грани: [перед, право, зад, лево, верх, низ], значения точек 1–6
   const faces = [
     { x: x0 + S, y: y0 + S, v: 1, val: values[0] },
     { x: x0 + 2 * S, y: y0 + S, v: 2, val: values[1] },
@@ -146,15 +206,12 @@ function Net({ x0, y0, S, values, type, settings }: NetProps) {
 
   return (
     <g>
-      {/* Клапаны для склейки */}
       {tabs.map((d, i) => (
         <path key={i} d={d} fill="#f3f4f6" stroke="#111827" strokeWidth={1.5} />
       ))}
-      {/* Грани */}
       {faces.map((f, i) => (
         <rect key={i} x={f.x} y={f.y} width={S} height={S} fill="#ffffff" stroke="#111827" strokeWidth={2} />
       ))}
-      {/* Линии сгиба (пунктир) */}
       <g stroke="#6b7280" strokeWidth={1.5} strokeDasharray="6 4">
         <line x1={x0 + S} y1={y0 + S} x2={x0 + 2 * S} y2={y0 + S} />
         <line x1={x0 + S} y1={y0 + 2 * S} x2={x0 + 2 * S} y2={y0 + 2 * S} />
@@ -162,7 +219,6 @@ function Net({ x0, y0, S, values, type, settings }: NetProps) {
         <line x1={x0 + 2 * S} y1={y0 + S} x2={x0 + 2 * S} y2={y0 + 2 * S} />
         <line x1={x0 + 3 * S} y1={y0 + S} x2={x0 + 3 * S} y2={y0 + 2 * S} />
       </g>
-      {/* Содержимое граней */}
       {faces.map((f, i) => {
         if (type === 'image') {
           return (
@@ -205,8 +261,7 @@ function Net({ x0, y0, S, values, type, settings }: NetProps) {
 const Sheet = ({ settings, sheetRef }: { settings: DiceSettings; sheetRef: React.RefObject<SVGSVGElement> }) => {
   const W = 794, H = 1123;
   const cat = CATEGORIES.find((c) => c.id === settings.category) || CATEGORIES[0];
-  const single = settings.mode !== 'both';
-  const S = single ? 170 : 120;
+  const S = 170;
   const netW = 4 * S + 28;
   const netH = 3 * S + 28;
   const x0 = (W - netW) / 2 + 14;
@@ -223,33 +278,21 @@ const Sheet = ({ settings, sheetRef }: { settings: DiceSettings; sheetRef: React
       <text x={W / 2} y={40} textAnchor="middle" fontSize={16} fill="#6b7280" fontFamily="Verdana, sans-serif">
         Вырежи по контуру, согни по пунктиру, склей клапаны
       </text>
-      {single ? (
-        <Net
-          x0={x0}
-          y0={(H - netH) / 2 + 14}
-          S={S}
-          values={settings.mode === 'text' ? settings.textFaces : cat.items}
-          type={settings.mode === 'text' ? 'text' : 'image'}
-          settings={settings}
-        />
-      ) : (
-        <>
-          <text x={W / 2} y={72} textAnchor="middle" fontSize={14} fill="#9ca3af" fontFamily="Verdana, sans-serif">
-            Кубик с картинками
-          </text>
-          <Net x0={x0} y0={86} S={S} values={cat.items} type="image" settings={settings} />
-          <text x={W / 2} y={86 + netH + 34} textAnchor="middle" fontSize={14} fill="#9ca3af" fontFamily="Verdana, sans-serif">
-            Кубик с текстом
-          </text>
-          <Net x0={x0} y0={86 + netH + 46} S={S} values={settings.textFaces} type="text" settings={settings} />
-        </>
-      )}
+      <Net
+        x0={x0}
+        y0={(H - netH) / 2 + 14}
+        S={S}
+        values={settings.mode === 'text' ? settings.textFaces : cat.items.slice(0, 6)}
+        type={settings.mode === 'text' ? 'text' : 'image'}
+        settings={settings}
+      />
     </svg>
   );
 };
 
 export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<DiceSettings>(() => loadSettings());
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const sheetRef = useRef<SVGSVGElement>(null);
 
   const update = (patch: Partial<DiceSettings>) => {
@@ -296,8 +339,9 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
     doc.save('кубики.pdf');
   };
 
-  const withText = settings.mode !== 'images';
-  const withImages = settings.mode !== 'text';
+  const withText = settings.mode === 'text';
+  const withImages = settings.mode === 'images';
+  const currentCat = CATEGORIES.find((c) => c.id === settings.category) || CATEGORIES[0];
 
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
@@ -313,13 +357,13 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
-        {/* Режим */}
+        {/* Режим: 2 кнопки вместо 3 */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <label className="text-sm font-semibold text-purple-700">Режим</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => update({ mode: 'text' })}
-              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-xs transition-colors ${
+              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm transition-colors ${
                 settings.mode === 'text' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
               }`}
             >
@@ -327,32 +371,23 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
             </button>
             <button
               onClick={() => update({ mode: 'images' })}
-              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-xs transition-colors ${
+              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm transition-colors ${
                 settings.mode === 'images' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
               }`}
             >
-              <ImageIcon className="w-5 h-5" /> Картинки
-            </button>
-            <button
-              onClick={() => update({ mode: 'both' })}
-              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-xs transition-colors ${
-                settings.mode === 'both' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
-              }`}
-            >
-              <Layers className="w-5 h-5" /> Оба
+              <Sparkles className="w-5 h-5" /> Иконки
             </button>
           </div>
           <p className="text-xs text-gray-500">
-            {settings.mode === 'text' && 'Один кубик с вашим текстом на гранях.'}
-            {settings.mode === 'images' && 'Один кубик с картинками из выбранной категории.'}
-            {settings.mode === 'both' && 'Два кубика на листе: картинки + текст (игра «вопрос-ответ»).'}
+            {settings.mode === 'text' && 'Кубик с вашим текстом на 6 гранях: вопросы, термины, цифры.'}
+            {settings.mode === 'images' && 'Кубик с иконками из выбранной категории на гранях.'}
           </p>
         </div>
 
-        {/* Категория картинок */}
+        {/* Категория иконок с горизонтальной прокруткой */}
         {withImages && (
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <label className="text-sm font-semibold text-purple-700">Категория картинок</label>
+            <label className="text-sm font-semibold text-purple-700">Категория иконок</label>
             <select
               value={settings.category}
               onChange={(e) => update({ category: e.target.value })}
@@ -362,10 +397,33 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
                 <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </select>
-            <div className="flex justify-between text-2xl">
-              {(CATEGORIES.find((c) => c.id === settings.category) || CATEGORIES[0]).items.map((e, i) => (
-                <span key={i}>{e}</span>
-              ))}
+            <p className="text-xs text-gray-500">
+              На грани попадут первые 6 иконок из выбранной категории.
+            </p>
+            {/* Горизонтальная прокрутка иконок */}
+            <div className="relative">
+              <div
+                className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1"
+                style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}
+              >
+                {currentCat.items.map((icon, i) => (
+                  <div
+                    key={i}
+                    className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-3xl border-2 transition-all ${
+                      i < 6 ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-gray-200 opacity-50'
+                    }`}
+                    title={i < 6 ? `Грань ${i + 1}` : 'Не используется'}
+                  >
+                    {icon}
+                  </div>
+                ))}
+              </div>
+              {/* Подсказка прокрутки */}
+              {currentCat.items.length > 5 && (
+                <p className="text-[10px] text-gray-400 text-center mt-1">
+                  ← проведите для просмотра остальных →
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -441,17 +499,59 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           <Download className="w-5 h-5" /> Скачать PDF
         </button>
 
-        {/* Идеи */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-2">
-          <div className="flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 text-amber-500" />
-            <h3 className="font-bold text-purple-700 text-sm">Идеи для занятий</h3>
+        {/* FAQ */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-4 border-b border-gray-100">
+            <HelpCircle className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-700">Частые вопросы</h3>
+            <span className="text-xs font-bold text-purple-400">{FAQ_ITEMS.length}</span>
           </div>
-          {IDEA_ITEMS.map((idea, i) => (
-            <p key={i} className="text-xs text-gray-600 leading-relaxed">• {idea}</p>
-          ))}
-          <p className="text-[11px] text-gray-400 pt-1">
-            Совет: если текст не помещается на грани — уменьшите размер шрифта. На листе Letter используйте масштаб печати 90%.
+          <div className="p-2 space-y-1">
+            {FAQ_ITEMS.map((item, idx) => (
+              <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                  className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                >
+                  <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                  <span className="text-purple-600 text-lg leading-none">{openFaq === idx ? '−' : '+'}</span>
+                </button>
+                {openFaq === idx && (
+                  <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100 whitespace-pre-line">
+                    {item.a}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Сценарии использования */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-4 border-b border-gray-100">
+            <BookOpen className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-700">Сценарии для занятий</h3>
+            <span className="text-xs font-bold text-purple-400">{SCENARIO_ITEMS.length}</span>
+          </div>
+          <div className="p-3 space-y-2">
+            {SCENARIO_ITEMS.map((s, idx) => (
+              <div key={idx} className="border border-purple-100 rounded-xl p-3 flex gap-3 hover:bg-purple-50/50 transition-colors">
+                <span className="text-3xl shrink-0">{s.icon}</span>
+                <div className="min-w-0">
+                  <h4 className="font-bold text-sm text-gray-800 mb-1">{s.title}</h4>
+                  <p className="text-xs text-gray-600 leading-relaxed">{s.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Финальная подсказка */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2 items-start">
+          <Lightbulb className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-900 leading-relaxed">
+            <b>Совет:</b> если текст не помещается на грани — уменьшите размер шрифта.
+            На листе Letter используйте масштаб печати 90%. Для долговечных кубиков — печатайте на бумаге 160-200 г/м².
           </p>
         </div>
       </main>
