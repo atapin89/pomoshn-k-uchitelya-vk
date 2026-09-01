@@ -194,7 +194,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-12 sm:pt-10 pb-4">
-        {/* Верхняя строка: настройки слева, проект справа */}
         <div className="flex items-center justify-between mb-2">
           <button
             onClick={() => setShowSettings(true)}
@@ -218,12 +217,10 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           </p>
         </div>
 
-        {/* Заголовок */}
         <h1 className="text-3xl sm:text-4xl font-extrabold text-purple-700 text-center whitespace-nowrap mt-6">
           Помощник учителя
         </h1>
 
-        {/* Подзаголовок с иконкой руководства */}
         <div className="flex items-center justify-center gap-2 mt-1">
           <p className="text-sm sm:text-base text-gray-500 text-center whitespace-nowrap">
             Простые инструменты для сложных задач
@@ -307,7 +304,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         </div>
       </main>
 
-      {/* Модальное окно настроек видимости (3 столбца + переключатель в строку с названием) */}
+      {/* ===== МОДАЛЬНОЕ ОКНО НАСТРОЕК (список строк: иконка + название + переключатель) ===== */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
@@ -322,13 +319,13 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5">
-              <p className="text-sm text-gray-500 mb-3">
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <p className="text-sm text-gray-500 mb-3 px-1">
                 Включите разделы, которые хотите видеть на главном экране.
               </p>
 
-              {/* Сетка из 3 столбцов */}
-              <div className="grid grid-cols-3 gap-2">
+              {/* Список строк: иконка + название + переключатель */}
+              <div className="space-y-2">
                 {SECTIONS.map(section => {
                   const Icon = section.icon;
                   const isVisible = visibleSections.has(section.id);
@@ -336,38 +333,43 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                     <button
                       key={section.id}
                       onClick={() => toggleSectionVisibility(section.id)}
-                      className={`relative flex flex-col items-stretch gap-1.5 p-2 rounded-2xl border-2 transition-all active:scale-95 ${
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all active:scale-[0.99] ${
                         isVisible
-                          ? 'border-purple-400 bg-purple-50'
-                          : 'border-gray-200 bg-gray-50 opacity-60'
+                          ? 'border-purple-200 bg-white'
+                          : 'border-gray-200 bg-gray-50'
                       }`}
                       aria-label={isVisible ? `Скрыть: ${section.title}` : `Показать: ${section.title}`}
                       aria-pressed={isVisible}
                     >
-                      {section.isTest && (
-                        <span className="absolute top-1 right-1 bg-amber-400 text-amber-900 text-[8px] font-bold px-1 py-0.5 rounded-md shadow-sm z-10">
-                          тест
-                        </span>
-                      )}
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center self-center ${
-                        isVisible ? 'bg-purple-100' : 'bg-gray-100'
+                      {/* Иконка */}
+                      <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${
+                        isVisible ? 'bg-purple-100' : 'bg-gray-200'
                       }`}>
-                        <Icon className={`w-4 h-4 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
+                        <Icon className={`w-5 h-5 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
                       </div>
-                      {/* Название и переключатель в одну строку */}
-                      <div className="flex items-center gap-1">
-                        <span className={`flex-1 min-w-0 text-left text-[10px] font-semibold leading-tight truncate ${
+
+                      {/* Название (1-2 строки, центрирование по вертикали через flex items-center родителя) */}
+                      <div className="flex-1 min-w-0 text-left">
+                        <span className={`block text-sm font-semibold leading-tight ${
                           isVisible ? 'text-gray-800' : 'text-gray-500'
                         }`}>
                           {section.title}
                         </span>
-                        <div className={`relative shrink-0 w-7 h-4 rounded-full transition-colors ${
-                          isVisible ? 'bg-purple-600' : 'bg-gray-300'
-                        }`}>
-                          <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${
-                            isVisible ? 'translate-x-3' : 'translate-x-0'
-                          }`} />
-                        </div>
+                        {section.isTest && (
+                          <span className="inline-flex items-center gap-0.5 mt-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            <FlaskConical className="w-2.5 h-2.5" />
+                            тест
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Переключатель (iOS-style) */}
+                      <div className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
+                        isVisible ? 'bg-purple-600' : 'bg-gray-300'
+                      }`}>
+                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          isVisible ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
                       </div>
                     </button>
                   );
