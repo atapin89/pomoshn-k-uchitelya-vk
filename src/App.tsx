@@ -22,6 +22,7 @@ import TapperScreen from '@/components/TapperScreen';
 import PomodoroScreen from '@/components/PomodoroScreen';
 import DiceMakerScreen from '@/components/DiceMakerScreen';
 import EquipmentScreen from '@/components/EquipmentScreen';
+import TeleprompterScreen from '@/components/TeleprompterScreen';
 
 type Route = 
   | 'home' 
@@ -39,7 +40,8 @@ type Route =
   | 'activity'
   | 'pomodoro'
   | 'dice'
-  | 'equipment';
+  | 'equipment'
+  | 'teleprompter';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -138,6 +140,7 @@ export default function App() {
     pomodoro: <PomodoroScreen onBack={navigateHome} />,
     dice: <DiceMakerScreen onBack={navigateHome} />,
     equipment: <EquipmentScreen onBack={navigateHome} />,
+    teleprompter: <TeleprompterScreen onBack={navigateHome} />,
     timer: null,
   };
 
