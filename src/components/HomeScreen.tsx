@@ -131,6 +131,7 @@ const SECTIONS: Section[] = [
 export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [activeHelpModal, setActiveHelpModal] = useState<SectionId | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [gearActive, setGearActive] = useState(false);
 
   const [visibleSections, setVisibleSections] = useState<Set<SectionId>>(() => {
     try {
@@ -194,15 +195,34 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-12 sm:pt-10 pb-4">
+        {/* Верхняя строка: анимированная шестерёнка слева, проект справа */}
         <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={() => setShowSettings(true)}
-            className="text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-            aria-label="Настроить отображение разделов"
-            title="Настроить разделы"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
+          <div className="relative flex items-center">
+            <button
+              onClick={() => setShowSettings(true)}
+              onMouseEnter={() => setGearActive(true)}
+              onMouseLeave={() => setGearActive(false)}
+              onFocus={() => setGearActive(true)}
+              onBlur={() => setGearActive(false)}
+              className="text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              aria-label="Настройки внешнего вида"
+              title="Настроить разделы"
+            >
+              <Settings
+                className={`w-5 h-5 transition-transform duration-700 ease-in-out ${
+                  gearActive ? 'rotate-[360deg] text-purple-600' : 'rotate-0'
+                }`}
+              />
+            </button>
+            {/* Раскрывающееся пояснение */}
+            <span
+              className={`absolute left-11 top-1/2 -translate-y-1/2 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-2 py-1 whitespace-nowrap origin-left transition-all duration-300 pointer-events-none z-20 ${
+                gearActive ? 'opacity-100 scale-100' : 'opacity-0 scale-x-0'
+              }`}
+            >
+              Настройки внешнего вида
+            </span>
+          </div>
 
           <p className="text-sm text-gray-500 text-right">
             Проект{' '}
@@ -217,10 +237,12 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           </p>
         </div>
 
+        {/* Заголовок */}
         <h1 className="text-3xl sm:text-4xl font-extrabold text-purple-700 text-center whitespace-nowrap mt-6">
           Помощник учителя
         </h1>
 
+        {/* Подзаголовок с иконкой руководства */}
         <div className="flex items-center justify-center gap-2 mt-1">
           <p className="text-sm sm:text-base text-gray-500 text-center whitespace-nowrap">
             Простые инструменты для сложных задач
@@ -304,7 +326,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         </div>
       </main>
 
-      {/* ===== МОДАЛЬНОЕ ОКНО НАСТРОЕК (список строк: иконка + название + переключатель) ===== */}
+      {/* ===== МОДАЛКА НАСТРОЕК: сетка 3 столбца, карточка = иконка + текст + переключатель в одну линию ===== */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
@@ -324,8 +346,8 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                 Включите разделы, которые хотите видеть на главном экране.
               </p>
 
-              {/* Список строк: иконка + название + переключатель */}
-              <div className="space-y-2">
+              {/* Сетка из 3 столбцов */}
+              <div className="grid grid-cols-3 gap-2">
                 {SECTIONS.map(section => {
                   const Icon = section.icon;
                   const isVisible = visibleSections.has(section.id);
@@ -333,42 +355,34 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                     <button
                       key={section.id}
                       onClick={() => toggleSectionVisibility(section.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all active:scale-[0.99] ${
+                      className={`flex items-center gap-1.5 p-1.5 rounded-xl border-2 transition-all active:scale-95 ${
                         isVisible
-                          ? 'border-purple-200 bg-white'
-                          : 'border-gray-200 bg-gray-50'
+                          ? 'border-purple-300 bg-purple-50'
+                          : 'border-gray-200 bg-gray-50 opacity-60'
                       }`}
                       aria-label={isVisible ? `Скрыть: ${section.title}` : `Показать: ${section.title}`}
                       aria-pressed={isVisible}
                     >
                       {/* Иконка */}
-                      <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${
+                      <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${
                         isVisible ? 'bg-purple-100' : 'bg-gray-200'
                       }`}>
-                        <Icon className={`w-5 h-5 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
+                        <Icon className={`w-4 h-4 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
                       </div>
 
-                      {/* Название (1-2 строки, центрирование по вертикали через flex items-center родителя) */}
-                      <div className="flex-1 min-w-0 text-left">
-                        <span className={`block text-sm font-semibold leading-tight ${
-                          isVisible ? 'text-gray-800' : 'text-gray-500'
-                        }`}>
-                          {section.title}
-                        </span>
-                        {section.isTest && (
-                          <span className="inline-flex items-center gap-0.5 mt-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                            <FlaskConical className="w-2.5 h-2.5" />
-                            тест
-                          </span>
-                        )}
-                      </div>
+                      {/* Название: 1–2 строки, центрируется по вертикали */}
+                      <span className={`flex-1 min-w-0 text-left text-[10px] font-semibold leading-tight line-clamp-2 ${
+                        isVisible ? 'text-gray-800' : 'text-gray-500'
+                      }`}>
+                        {section.title}
+                      </span>
 
-                      {/* Переключатель (iOS-style) */}
-                      <div className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
+                      {/* Переключатель */}
+                      <div className={`relative shrink-0 w-8 h-4 rounded-full transition-colors ${
                         isVisible ? 'bg-purple-600' : 'bg-gray-300'
                       }`}>
-                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          isVisible ? 'translate-x-5' : 'translate-x-0'
+                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${
+                          isVisible ? 'translate-x-4' : 'translate-x-0'
                         }`} />
                       </div>
                     </button>
