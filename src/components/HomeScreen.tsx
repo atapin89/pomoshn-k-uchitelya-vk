@@ -8,6 +8,7 @@ import {
   Grid3x3,
   BookOpen,
   Box,
+  Package,
   Calculator,
   Trophy,
   LayoutGrid,
@@ -36,7 +37,8 @@ type SectionId =
   | 'edugame'
   | 'activity'
   | 'pomodoro'
-  | 'dice';
+  | 'dice'
+  | 'equipment';
 
 interface Section {
   id: SectionId;
@@ -132,6 +134,13 @@ const SECTIONS: Section[] = [
     description: 'Конструктор кубиков',
     hint: 'Создавайте и печатайте игральные кубики: текст, картинки или два кубика на листе. Шрифт, размер, точки на фоне. PDF для печати.',
     icon: Box,
+  },
+  {
+    id: 'equipment',
+    title: 'Оборудование',
+    description: 'Учёт выдачи',
+    hint: 'Учёт выдачи и возврата учебных принадлежностей: калькуляторы, линейки, ножницы и любые свои предметы. Статистика в реальном времени, список «на руках», история выдач и возвратов.',
+    icon: Package,
   },
 ];
 
