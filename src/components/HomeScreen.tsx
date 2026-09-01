@@ -7,6 +7,7 @@ import {
   HelpCircle,
   Grid3x3,
   BookOpen,
+  Box,
   Calculator,
   Trophy,
   LayoutGrid,
@@ -34,7 +35,8 @@ type SectionId =
   | 'bingo'
   | 'edugame'
   | 'activity'
-  | 'pomodoro';
+  | 'pomodoro'
+  | 'dice';
 
 interface Section {
   id: SectionId;
@@ -123,6 +125,14 @@ const SECTIONS: Section[] = [
     description: 'Опрос учеников',
     hint: 'Отслеживайте, кого опросили и кто был активен. Счётчик ответов. Сводка в конце урока.',
     icon: Users,
+  },
+  {
+    id: 'dice',
+    title: 'Кубики',
+    description: 'Конструктор кубиков',
+    hint: 'Создавайте и печатайте игральные кубики: текст, картинки или два кубика на листе. Шрифт, размер, точки на фоне. PDF для печати.',
+    icon: Box,
+    isTest: true,
   },
 ];
 
