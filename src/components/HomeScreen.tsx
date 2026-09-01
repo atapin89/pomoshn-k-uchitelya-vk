@@ -132,7 +132,6 @@ const SECTIONS: Section[] = [
     description: 'Конструктор кубиков',
     hint: 'Создавайте и печатайте игральные кубики: текст, картинки или два кубика на листе. Шрифт, размер, точки на фоне. PDF для печати.',
     icon: Box,
-    isTest: true,
   },
 ];
 
@@ -301,7 +300,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
                 <button
                   onClick={() => setActiveHelpModal(section.id)}
-                  className="absolute top-0.5 right-0.5 p-1 rounded-full bg-white/25 hover:bg-white/45 flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white z-10"
+                  className="absolute top-2 right-2 p-1 rounded-full bg-white/25 hover:bg-white/45 flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white z-10"
                   aria-label={`Подсказка: ${section.title}`}
                   title="Подсказка"
                 >
