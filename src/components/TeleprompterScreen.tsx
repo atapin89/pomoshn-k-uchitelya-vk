@@ -13,6 +13,9 @@ import {
   Download,
   Trash2,
   X,
+  RotateCcw,
+  Type,
+  Gauge,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -98,9 +101,16 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   const [showSettings, setShowSettings] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
   const [timerLeft, setTimerLeft] = useState<number | null>(null);
+  const [timerPaused, setTimerPaused] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
 
+  // Позиция камеры (для drag)
+  const [cameraPos, setCameraPos] = useState({ x: 20, y: 100 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, camX: 0, camY: 0 });
+
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const animRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
@@ -113,6 +123,18 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   const wordCount = activeScript.text.trim().split(/\s+/).filter(Boolean).length;
   const readingTime = Math.ceil(wordCount / (150 * settings.speed));
 
+  // ===== КОРРЕКТНЫЙ ПРОГРЕСС =====
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    if (!scrollRef.current || !textContainerRef.current) return;
+    const viewportH = scrollRef.current.clientHeight;
+    const contentH = textContainerRef.current.scrollHeight;
+    const maxScroll = Math.max(1, contentH - viewportH);
+    const p = Math.min(100, Math.max(0, (scrollPos / maxScroll) * 100));
+    setProgress(Math.round(p));
+  }, [scrollPos, settings.fontSize, activeScript.text]);
+
+  // ===== АНИМАЦИЯ ПРОКРУТКИ =====
   useEffect(() => {
     if (!isPlaying) {
       if (animRef.current) cancelAnimationFrame(animRef.current);
@@ -124,7 +146,9 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
       const delta = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
 
-      const pixelsPerFrame = (settings.speed * settings.fontSize * delta) / 1000;
+      // Пикселей в секунду = скорость * размер_шрифта * 1.5
+      const pixelsPerSecond = settings.speed * settings.fontSize * 1.5;
+      const pixelsPerFrame = (pixelsPerSecond * delta) / 1000;
       setScrollPos((prev) => prev + pixelsPerFrame);
 
       animRef.current = requestAnimationFrame(animate);
@@ -133,6 +157,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
     animRef.current = requestAnimationFrame(animate);
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
+      lastTimeRef.current = 0;
     };
   }, [isPlaying, settings.speed, settings.fontSize]);
 
@@ -142,12 +167,14 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
     }
   }, [scrollPos]);
 
+  // ===== ТАЙМЕР С ПАУЗОЙ =====
   useEffect(() => {
-    if (timerLeft === null || timerLeft <= 0) return;
+    if (timerLeft === null || timerLeft <= 0 || timerPaused) return;
     const timer = setTimeout(() => setTimerLeft((t) => (t !== null ? Math.max(0, t - 1) : null)), 1000);
     return () => clearTimeout(timer);
-  }, [timerLeft]);
+  }, [timerLeft, timerPaused]);
 
+  // ===== ГОРЯЧИЕ КЛАВИШИ =====
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
@@ -155,8 +182,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
       switch (e.key.toLowerCase()) {
         case ' ':
           e.preventDefault();
-          setIsPlaying((p) => !p);
-          triggerHaptic('light');
+          handlePlayPause();
           break;
         case 'arrowup':
           e.preventDefault();
@@ -170,20 +196,20 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           updateSettings({ mirrorH: !settings.mirrorH });
           break;
         case 'escape':
-          setPresentationMode(false);
+          handleExitPresentation();
           break;
         case 'f':
           updateSettings({ focusMode: settings.focusMode === 'line' ? 'word' : settings.focusMode === 'word' ? 'none' : 'line' });
           break;
         case 'r':
-          setScrollPos(0);
+          handleResetProgress();
           break;
       }
     };
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [settings]);
+  }, [settings, presentationMode, isPlaying]);
 
   const updateSettings = (patch: Partial<TeleprompterSettings>) => {
     setSettings((prev) => {
@@ -284,40 +310,96 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const handleTouchStart = () => {
+  // ===== КЛЮЧЕВЫЕ ДЕЙСТВИЯ =====
+  const handlePlayPause = () => {
+    setIsPlaying((p) => {
+      const newState = !p;
+      if (newState && !presentationMode) {
+        setPresentationMode(true);
+      }
+      return newState;
+    });
+    triggerHaptic('light');
+  };
+
+  const handleResetProgress = () => {
+    setIsPlaying(false);
+    setScrollPos(0);
+    triggerHaptic('medium');
+  };
+
+  const handleExitPresentation = () => {
+    setIsPlaying(false);
+    setPresentationMode(false);
+  };
+
+  const handleStartTimer = () => {
+    const min = prompt('Таймер выступления (минут):', '5');
+    if (min && Number(min) > 0) {
+      setTimerLeft(Number(min) * 60);
+      setTimerPaused(false);
+    }
+  };
+
+  const handleStopTimer = () => {
+    setTimerLeft(null);
+    setTimerPaused(false);
+  };
+
+  // ===== DRAG КАМЕРЫ =====
+  const handleDragStart = (clientX: number, clientY: number) => {
+    setIsDragging(true);
+    dragStart.current = { x: clientX, y: clientY, camX: cameraPos.x, camY: cameraPos.y };
+  };
+
+  const handleDragMove = (clientX: number, clientY: number) => {
+    if (!isDragging) return;
+    const dx = clientX - dragStart.current.x;
+    const dy = clientY - dragStart.current.y;
+    setCameraPos({
+      x: Math.max(0, Math.min(window.innerWidth - 140, dragStart.current.camX + dx)),
+      y: Math.max(0, Math.min(window.innerHeight - 110, dragStart.current.camY + dy)),
+    });
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+  };
+
+  // ===== СВАЙП ДЛЯ РУЧНОЙ ПЕРЕМОТКИ =====
+  const touchStartY = useRef<number>(0);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
     setIsPlaying(false);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     const touch = e.touches[0];
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight - touch.clientY;
-    }
+    const delta = touchStartY.current - touch.clientY;
+    touchStartY.current = touch.clientY;
+    setScrollPos((prev) => Math.max(0, prev + delta));
   };
 
-  const handleTouchEnd = () => {
-    setScrollPos(scrollRef.current?.scrollTop || 0);
-  };
-
+  // ===== ПРЕЗЕНТАЦИОННЫЙ РЕЖИМ =====
   if (presentationMode) {
     return (
       <div
         className="fixed inset-0 z-50 overflow-hidden"
         style={{ background: theme.bg }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onDoubleClick={() => setScrollPos(0)}
       >
+        {/* Контейнер текста с прокруткой */}
         <div
           ref={scrollRef}
           className="h-full overflow-y-auto"
           style={{
             transform: `scaleX(${settings.mirrorH ? -1 : 1}) scaleY(${settings.mirrorV ? -1 : 1})`,
           }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
         >
-          <div className="pt-[50vh] pb-[50vh]" style={{ width: `${settings.textWidth}%`, margin: '0 auto' }}>
+          <div className="pt-[40vh] pb-[60vh]" style={{ width: `${settings.textWidth}%`, margin: '0 auto' }}>
             <div
+              ref={textContainerRef}
               style={{
                 fontFamily: settings.fontFamily,
                 fontSize: `${settings.fontSize}px`,
@@ -329,16 +411,158 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setPresentationMode(false)}
-          className="fixed top-4 right-4 bg-black/50 text-white rounded-full p-3 z-50"
-        >
-          <X className="w-6 h-6" />
-        </button>
+
+        {/* ===== ПЛАВАЮЩАЯ КАМЕРА (перетаскиваемая) ===== */}
+        {showCamera && (
+          <div
+            className="fixed z-40 bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 cursor-move"
+            style={{
+              left: `${cameraPos.x}px`,
+              top: `${cameraPos.y}px`,
+              width: '140px',
+              height: '105px',
+            }}
+            onMouseDown={(e) => handleDragStart(e.clientX, e.clientY)}
+            onMouseMove={(e) => handleDragMove(e.clientX, e.clientY)}
+            onMouseUp={handleDragEnd}
+            onMouseLeave={handleDragEnd}
+            onTouchStart={(e) => handleDragStart(e.touches[0].clientX, e.touches[0].clientY)}
+            onTouchMove={(e) => handleDragMove(e.touches[0].clientX, e.touches[0].clientY)}
+            onTouchEnd={handleDragEnd}
+          >
+            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            <div className="absolute top-1 left-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+              LIVE
+            </div>
+          </div>
+        )}
+
+        {/* ===== ВЕРХНЯЯ ПАНЕЛЬ ===== */}
+        <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between gap-2">
+          <div className="bg-black/70 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+              <span className="text-white text-sm font-semibold">
+                {isPlaying ? 'В эфире' : 'Пауза'}
+              </span>
+            </div>
+            <div className="w-px h-5 bg-white/20" />
+            <span className="text-white text-sm">{progress}%</span>
+          </div>
+
+          <div className="flex gap-2">
+            {timerLeft !== null && (
+              <div className={`bg-black/70 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-2 ${timerLeft <= 30 ? 'animate-pulse bg-red-500/70' : ''}`}>
+                <Clock className="w-4 h-4 text-white" />
+                <span className="text-white text-sm font-mono">
+                  {Math.floor(timerLeft / 60)}:{String(timerLeft % 60).padStart(2, '0')}
+                </span>
+                <button
+                  onClick={() => setTimerPaused(!timerPaused)}
+                  className="ml-2 text-white hover:text-yellow-300"
+                  title={timerPaused ? 'Продолжить' : 'Пауза'}
+                >
+                  {timerPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                </button>
+              </div>
+            )}
+            <button
+              onClick={handleExitPresentation}
+              className="bg-black/70 backdrop-blur-sm text-white rounded-xl p-2 hover:bg-red-500/70"
+              title="Выход (Esc)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* ===== НИЖНЯЯ ПАНЕЛЬ УПРАВЛЕНИЯ ===== */}
+        <div className="fixed bottom-4 left-4 right-4 z-30 bg-black/80 backdrop-blur-md rounded-2xl p-3 border border-white/10">
+          {/* Ряд 1: Кнопки действий */}
+          <div className="grid grid-cols-5 gap-2 mb-3">
+            <button
+              onClick={handlePlayPause}
+              className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
+                isPlaying ? 'bg-yellow-500 text-black' : 'bg-green-500 text-white'
+              }`}
+            >
+              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              <span className="text-[10px]">{isPlaying ? 'Пауза' : 'Старт'}</span>
+            </button>
+            <button
+              onClick={handleResetProgress}
+              className="py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white font-semibold text-sm flex flex-col items-center justify-center gap-1"
+              title="Сброс (R)"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span className="text-[10px]">Сброс</span>
+            </button>
+            <button
+              onClick={() => updateSettings({ mirrorH: !settings.mirrorH })}
+              className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
+                settings.mirrorH ? 'bg-purple-500 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'
+              }`}
+              title="Зеркало (M)"
+            >
+              <FlipHorizontal className="w-4 h-4" />
+              <span className="text-[10px]">Зеркало</span>
+            </button>
+            <button
+              onClick={toggleCamera}
+              className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
+                showCamera ? 'bg-red-500 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'
+              }`}
+            >
+              <Camera className="w-4 h-4" />
+              <span className="text-[10px]">{showCamera ? 'Камера ✓' : 'Камера'}</span>
+            </button>
+            <button
+              onClick={timerLeft === null ? handleStartTimer : handleStopTimer}
+              className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
+                timerLeft !== null ? 'bg-red-600 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <span className="text-[10px]">{timerLeft !== null ? 'Стоп таймер' : 'Таймер'}</span>
+            </button>
+          </div>
+
+          {/* Ряд 2: Слайдеры */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Gauge className="w-4 h-4 text-white shrink-0" />
+              <span className="text-white text-xs w-16 shrink-0">Скорость</span>
+              <input
+                type="range"
+                min={0.5}
+                max={3}
+                step={0.05}
+                value={settings.speed}
+                onChange={(e) => updateSettings({ speed: Number(e.target.value) })}
+                className="flex-1 accent-purple-500"
+              />
+              <span className="text-white text-xs w-10 text-right font-mono">{settings.speed.toFixed(2)}×</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Type className="w-4 h-4 text-white shrink-0" />
+              <span className="text-white text-xs w-16 shrink-0">Размер</span>
+              <input
+                type="range"
+                min={12}
+                max={72}
+                value={settings.fontSize}
+                onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
+                className="flex-1 accent-purple-500"
+              />
+              <span className="text-white text-xs w-10 text-right font-mono">{settings.fontSize}px</span>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // ===== ОСНОВНОЙ ЭКРАН =====
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ background: theme.bg }}>
       <header className="bg-purple-700 shadow-md sticky top-0 z-30">
@@ -361,21 +585,16 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between gap-2">
             <button
-              onClick={() => {
-                setIsPlaying(!isPlaying);
-                triggerHaptic('light');
-              }}
+              onClick={handlePlayPause}
               className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2"
             >
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-              {isPlaying ? 'Пауза' : 'Старт'}
+              {isPlaying ? 'Пауза' : 'Старт (полный экран)'}
             </button>
             <button
-              onClick={() => {
-                setIsPlaying(false);
-                setScrollPos(0);
-              }}
+              onClick={handleResetProgress}
               className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl px-4 py-3"
+              title="Сброс в начало"
             >
               <Square className="w-5 h-5" />
             </button>
@@ -404,7 +623,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               <p className="text-gray-500">мин</p>
             </div>
             <div className="bg-purple-50 rounded-lg p-2 text-center">
-              <p className="font-bold text-purple-700">{Math.round((scrollPos / (scrollRef.current?.scrollHeight || 1)) * 100)}%</p>
+              <p className="font-bold text-purple-700">{progress}%</p>
               <p className="text-gray-500">прогресс</p>
             </div>
           </div>
@@ -473,7 +692,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               className="py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm bg-red-50 text-red-700"
             >
               <Video className="w-5 h-5" />
-              {mediaRecorderRef.current?.state === 'recording' ? 'Стоп' : 'Запись'}
+              {mediaRecorderRef.current?.state === 'recording' ? 'Стоп запись' : 'Запись'}
             </button>
             <button
               onClick={() => setPresentationMode(true)}
@@ -483,10 +702,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               Презентация
             </button>
             <button
-              onClick={() => {
-                const min = prompt('Таймер выступления (минут):', '0');
-                if (min) setTimerLeft(Number(min) * 60);
-              }}
+              onClick={handleStartTimer}
               className="py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm bg-purple-50 text-purple-700"
             >
               <Clock className="w-5 h-5" />
@@ -494,18 +710,32 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             </button>
           </div>
           {timerLeft !== null && timerLeft > 0 && (
-            <div className="text-center text-sm font-bold text-orange-600">
-              Осталось: {Math.floor(timerLeft / 60)}:{String(timerLeft % 60).padStart(2, '0')}
+            <div className="flex items-center justify-between bg-orange-50 rounded-lg p-2">
+              <span className="text-sm font-bold text-orange-600">
+                Осталось: {Math.floor(timerLeft / 60)}:{String(timerLeft % 60).padStart(2, '0')}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTimerPaused(!timerPaused)}
+                  className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded"
+                >
+                  {timerPaused ? 'Продолжить' : 'Пауза'}
+                </button>
+                <button
+                  onClick={handleStopTimer}
+                  className="text-xs bg-red-200 text-red-800 px-2 py-1 rounded"
+                >
+                  Стоп
+                </button>
+              </div>
             </div>
           )}
         </div>
-      </main>
 
-      {showCamera && (
-        <div className="fixed top-20 right-4 w-32 h-24 bg-black rounded-xl overflow-hidden shadow-lg z-20">
-          <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
+          <b>Горячие клавиши в презентации:</b> Space — старт/пауза, ↑/↓ — скорость, M — зеркало, F — фокус, R — сброс, Esc — выход
         </div>
-      )}
+      </main>
 
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
