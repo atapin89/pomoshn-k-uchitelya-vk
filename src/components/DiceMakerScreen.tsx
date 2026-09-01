@@ -20,7 +20,7 @@ interface DiceSettings {
   mode: DiceMode;
   textFaces: string[];
   category: string;
-  iconFaces: string[]; // выбранные иконки для граней (до 6)
+  iconFaces: string[];
   fontFamily: string;
   fontSize: number;
   showDots: boolean;
@@ -28,21 +28,19 @@ interface DiceSettings {
 
 const SETTINGS_KEY = 'dice-maker-settings';
 
-// ===== Категории: по 20 иконок =====
-
 const CATEGORIES: { id: string; label: string; items: string[] }[] = [
-  { id: 'animals', label: 'Животные', items: ['🐶', '🐱', '', '🐹', '🐰', '🦊', '', '', '🐨', '🐯', '', '🐮', '🐷', '', '', '🐔', '🐧', '', '', '🦆'] },
-  { id: 'food', label: 'Еда', items: ['🍎', '🍐', '', '', '🍓', '🍒', '🍑', '🍍', '', '🍅', '🥕', '', '', '🧀', '🍞', '', '🍔', '🌭', '', ''] },
-  { id: 'clothes', label: 'Одежда', items: ['👕', '', '', '👔', '👒', '', '', '🎩', '🧤', '', '', '👟', '👠', '', '🥾', '👜', '🎒', '👓', '', '💍'] },
-  { id: 'transport', label: 'Транспорт', items: ['🚗', '🚕', '', '🚒', '🚲', '️', '', '✈️', '🚁', '⛵', '🚀', '', '🛵', '🛴', '', '🚡', '🛸', '🚤', '', ''] },
-  { id: 'weather', label: 'Погода', items: ['☀️', '🌤️', '⛅', '🌥️', '☁️', '🌦️', '🌧️', '⛈️', '🌩️', '🌨️', '❄️', '💨', '️', '🌪️', '🌈', '🌙', '⭐', '⚡', '💧', '🔥'] },
-  { id: 'jobs', label: 'Профессии', items: ['👩‍⚕️', '👨‍🚒', '👮♀️', '👩‍🏫', '‍🍳', '👨‍🌾', '‍', '👨‍✈️', '👩‍🎤', '👨‍🎨', '👩💻', '👨‍🔧', '‍♀️', '🕵️', '👩‍🚀', '‍️', '👩🌾', '', '👸', ''] },
-  { id: 'emotions', label: 'Эмоции', items: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😜', '🤪', ''] },
-  { id: 'colors', label: 'Цвета', items: ['🟥', '', '', '🟩', '🟦', '🟪', '🟫', '', '', '🟣', '🟠', '', '', '🔵', '🔴', '', '', '💜', '', '💚'] },
-  { id: 'nature', label: 'Природа', items: ['🌳', '🌲', '🌴', '', '🌾', '🌿', '☘️', '🍀', '🍁', '', '🍃', '🌺', '', '🌹', '🌷', '🌸', '', '🍄', '🌊', '⛰️'] },
-  { id: 'sports', label: 'Спорт', items: ['⚽', '', '', '⚾', '🎾', '', '🏉', '🎱', '', '🏸', '🥊', '🥋', '', '️', '', '🏊', '🚴', '', '️', '🏆'] },
-  { id: 'music', label: 'Музыка', items: ['🎵', '', '🎤', '🎧', '🎼', '', '🥁', '🎷', '🎺', '', '🎻', '🪕', '📻', '', '🎭', '🎪', '🔔', '', '️', ''] },
-  { id: 'school', label: 'Школа', items: ['📚', '', '✏️', '🖊️', '🖍️', '📏', '📐', '✂️', '🧪', '', '', '💻', '', '📌', '📎', '🗂️', '🎒', '', '', '🌍'] },
+  { id: 'animals', label: 'Животные', items: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆'] },
+  { id: 'food', label: 'Еда', items: ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍒', '🍑', '🍍', '🥝', '🥑', '🥕', '🌽', '🥦', '🥔', '🍕', '🍩', '🍰'] },
+  { id: 'clothes', label: 'Одежда', items: ['👕', '👖', '👗', '👔', '👒', '👑', '🎩', '🧤', '🧣', '👠', '👢', '👟', '🥾', '👡', '👜', '🎒', '👓', '🕶', '👡', '💍'] },
+  { id: 'transport', label: 'Транспорт', items: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎', '🚓', '🚑', '🚒', '🚐', '🚚', '🚛', '🚜', '🛵', '🏍', '🚲', '🛴', '🛶', '🛸', '🚤'] },
+  { id: 'weather', label: 'Погода', items: ['☀', '🌤', '⛅', '🌥', '☁', '🌦', '🌧', '⛈', '🌩', '🌨', '❄', '💨', '🌫', '🌪', '🌈', '🌙', '⭐', '⚡', '💧', '🔥'] },
+  { id: 'jobs', label: 'Люди и роли', items: ['👮', '👷', '💂', '🕵', '👩‍⚕', '👨‍🚒', '👩‍🏫', '👨‍🍳', '🤴', '👸', '🧙', '🧜', '🧝', '🧞', '🧟', '👶', '🧒', '👦', '👧', '🧑'] },
+  { id: 'emotions', label: 'Эмоции', items: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😜', '🤪', '😎'] },
+  { id: 'colors', label: 'Цвета', items: ['🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '🟫', '⬛', '⬜', '🟣', '🟡', '🟢', '🔵', '🔴', '🟠', '🟤', '💜', '💙', '💚', '💛'] },
+  { id: 'nature', label: 'Природа', items: ['🌳', '🌲', '🌴', '🌵', '🌾', '🌿', '☘', '🍀', '🍁', '🍂', '🍃', '🌺', '🌻', '🌹', '🌷', '🌸', '💐', '🍄', '🌊', '⛰'] },
+  { id: 'sports', label: 'Спорт', items: ['⚽', '🏀', '🏈', '⚾', '🎾', '🏐', '🏉', '🎱', '🏓', '🏸', '🥊', '🥋', '🥅', '⛳', '🏌', '🏄', '🏊', '🚴', '🤸', '⛷'] },
+  { id: 'music', label: 'Музыка', items: ['🎵', '🎶', '🎼', '🎧', '🎤', '🎸', '🎹', '🥁', '🎷', '🎺', '🎻', '🪕', '📻', '🎭', '🎪', '🔔', '🎟', '🎫', '🎬', '🎨'] },
+  { id: 'school', label: 'Школа', items: ['📚', '📖', '✏', '🖊', '🖍', '📏', '📐', '✂', '🧪', '🔬', '🔭', '💻', '🖥', '📝', '📌', '📎', '🗂', '🎒', '🌍', '🗺'] },
 ];
 
 const FONTS = [
@@ -108,15 +106,13 @@ const SCENARIO_ITEMS = [
   { icon: '🌍', title: 'География и история', description: 'Кубик с вопросами + кубик иконок стран и эпох. «Когда?» + 🏛️ → событие из истории Древней Греции.' },
 ];
 
-// ===== Служебные функции =====
-
 function loadSettings(): DiceSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const p = JSON.parse(raw);
       if (p && Array.isArray(p.textFaces) && p.textFaces.length === 6) {
-        if (p.mode === 'both') p.mode = 'text'; // миграция старого режима
+        if (p.mode === 'both') p.mode = 'text';
         if (!Array.isArray(p.iconFaces)) {
           const cat = CATEGORIES.find((c) => c.id === p.category) || CATEGORIES[0];
           p.iconFaces = cat.items.slice(0, 6);
@@ -261,7 +257,6 @@ const Sheet = ({ settings, sheetRef }: { settings: DiceSettings; sheetRef: React
   const netH = 3 * S + 28;
   const x0 = (W - netW) / 2 + 14;
 
-  // Дополняем выбранные иконки до 6 пустыми гранями
   const iconValues = [...settings.iconFaces];
   while (iconValues.length < 6) iconValues.push('');
 
@@ -315,7 +310,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
     update({ category: id, iconFaces: cat.items.slice(0, 6) });
   };
 
-  // Тап по иконке: выбрать / снять выбор (максимум 6)
   const toggleIcon = (icon: string) => {
     setSettings((prev) => {
       const faces = [...prev.iconFaces];
@@ -327,7 +321,7 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
         faces.push(icon);
         triggerHaptic('light');
       } else {
-        triggerHaptic('medium'); // уже 6 — вибрация-отказ
+        triggerHaptic('medium');
         return prev;
       }
       const next = { ...prev, iconFaces: faces };
@@ -384,7 +378,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
-        {/* Режим */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <label className="text-sm font-semibold text-purple-700">Режим</label>
           <div className="grid grid-cols-2 gap-2">
@@ -411,7 +404,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           </p>
         </div>
 
-        {/* Категория и выбор иконок */}
         {withImages && (
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
@@ -430,17 +422,16 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
               ))}
             </select>
 
-            {/* Лента иконок с горизонтальной прокруткой */}
             <div
               className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1"
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
-              {currentCat.items.map((icon) => {
+              {currentCat.items.map((icon, i) => {
                 const selIdx = settings.iconFaces.indexOf(icon);
                 const selected = selIdx >= 0;
                 return (
                   <button
-                    key={icon}
+                    key={`${settings.category}-${i}`}
                     onClick={() => toggleIcon(icon)}
                     className={`relative shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-2xl border-2 transition-all active:scale-90 ${
                       selected
@@ -465,7 +456,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* Настройки текста */}
         {withText && (
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
             <label className="text-sm font-semibold text-purple-700">Текст на гранях</label>
@@ -521,7 +511,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* Предпросмотр */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <label className="text-sm font-semibold text-purple-700">Предпросмотр листа (A4)</label>
           <div className="border-2 border-gray-200 rounded-xl overflow-hidden">
@@ -536,7 +525,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           <Download className="w-5 h-5" /> Скачать PDF
         </button>
 
-        {/* Частые вопросы — аккордеон */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowFaq(!showFaq)}
@@ -575,7 +563,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
-        {/* Сценарии — аккордеон */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowScen(!showScen)}
@@ -603,7 +590,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
-        {/* Подсказка */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2 items-start">
           <Lightbulb className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-900 leading-relaxed">
