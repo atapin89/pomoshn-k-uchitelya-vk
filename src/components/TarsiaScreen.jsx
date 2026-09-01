@@ -34,6 +34,27 @@ const GRID_OPTIONS = [
   { id: 'hexGrid', label: 'Шест. бол.', Icon: Hexagon },
 ]
 
+// ===== БЕЗОПАСНОЕ ПОЛУЧЕНИЕ СЕТОК (защита от белого экрана) =====
+
+const GRID_ALIASES = {
+  'small-triangle': 'smallTriangleGrid',
+  'triangle': 'triangleGrid',
+  'small-hex': 'smallHexGrid',
+  'hex': 'hexGrid',
+}
+
+function resolveGridName(name) {
+  if (grids && grids[name]) return name
+  const alias = GRID_ALIASES[name]
+  if (alias && grids && grids[alias]) return alias
+  const keys = Object.keys(grids || {})
+  return keys[0] || ''
+}
+
+function getGrid(name) {
+  return (grids && grids[resolveGridName(name)]) || []
+}
+
 const HOW_ITEMS = [
   { q: 'Как создать пазл', a: 'Нажмите «Создать», введите пары «вопрос → ответ» (до 15 символов). Количество пар фиксировано формой: у каждой грани своё место. Пазл сохраняется автоматически при выходе из редактора.' },
   { q: 'Предпросмотр и печать', a: 'В редакторе видно живой предпросмотр фигуры. Кнопки «PDF» у блоков «Решение» и «Вырезалка» скачивают готовые листы для печати.' },
@@ -43,8 +64,9 @@ const HOW_ITEMS = [
 
 function requiredPairs(grid) {
   let max = 0
+  if (!grid) return 0
   grid.forEach((t) =>
-    t.values.forEach((v) => {
+    (t.values || []).forEach((v) => {
       if (v) {
         const n = parseInt(v, 10)
         if (n > max) max = n
@@ -81,11 +103,12 @@ function persistPuzzles(list) {
 }
 
 function createPuzzle(gridName, pairsSource, title) {
+  const resolved = resolveGridName(gridName)
   return {
     id: `tarsia-${Date.now()}`,
     title: title || 'Новый пазл',
-    gridName,
-    pairs: makePairs(requiredPairs(grids[gridName]), pairsSource),
+    gridName: resolved,
+    pairs: makePairs(requiredPairs(getGrid(resolved)), pairsSource),
     puzzleTitle: 'Соедини вопрос с ответом',
     solutionTitle: 'Решение',
     showSolution: true,
@@ -150,7 +173,7 @@ export default function TarsiaScreen({ onBack }) {
       if (data.format === 'txt') {
         puzzle = createPuzzle('smallTriangleGrid', data.pairs, 'Импортированный пазл')
       } else {
-        const gridName = grids[data.gridName] ? data.gridName : 'smallTriangleGrid'
+        const gridName = resolveGridName(data.gridName)
         puzzle = {
           ...createPuzzle(gridName, data.pairs, data.title || 'Импортированный пазл'),
           puzzleTitle: data.puzzleTitle || 'Соедини вопрос с ответом',
@@ -197,7 +220,12 @@ export default function TarsiaScreen({ onBack }) {
   }
 
   const changeGrid = (gridName) => {
-    setActive((a) => ({ ...a, gridName, pairs: makePairs(requiredPairs(grids[gridName]), a.pairs) }))
+    const resolved = resolveGridName(gridName)
+    setActive((a) => ({
+      ...a,
+      gridName: resolved,
+      pairs: makePairs(requiredPairs(getGrid(resolved)), a.pairs),
+    }))
   }
 
   const updatePair = (i, field, value) => {
@@ -215,7 +243,8 @@ export default function TarsiaScreen({ onBack }) {
 
   // ===== ЭКРАН РЕДАКТОРА =====
   if (active) {
-    const grid = grids[active.gridName]
+    const gridName = resolveGridName(active.gridName)
+    const grid = getGrid(gridName)
     const required = requiredPairs(grid)
     const valid = active.pairs.filter((p) => p.left.trim() && p.right.trim()).length
 
@@ -260,7 +289,7 @@ export default function TarsiaScreen({ onBack }) {
                     key={opt.id}
                     onClick={() => changeGrid(opt.id)}
                     className={`py-3 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm transition-colors ${
-                      active.gridName === opt.id ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
+                      gridName === opt.id ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -332,12 +361,12 @@ export default function TarsiaScreen({ onBack }) {
           </div>
 
           {/* Предпросмотр */}
-          <PreviewSvgDiv gridName={active.gridName} grid={grid} questions={active.pairs} />
+          <PreviewSvgDiv gridName={gridName} grid={grid} questions={active.pairs} />
 
           {/* Печать */}
           {active.showSolution && (
             <PrintableSvgDiv
-              gridName={active.gridName}
+              gridName={gridName}
               grid={grid}
               questions={active.pairs}
               title={active.solutionTitle}
@@ -345,7 +374,7 @@ export default function TarsiaScreen({ onBack }) {
             />
           )}
           <PrintableSvgDiv
-            gridName={active.gridName}
+            gridName={gridName}
             grid={grid}
             questions={active.pairs}
             title={active.puzzleTitle}
@@ -425,7 +454,7 @@ export default function TarsiaScreen({ onBack }) {
                 <button onClick={() => setActive(puzzle)} className="flex-1 min-w-0 text-left">
                   <h4 className="font-semibold text-gray-800 text-sm truncate">{puzzle.title}</h4>
                   <p className="text-xs text-gray-500">
-                    {GRID_OPTIONS.find((g) => g.id === puzzle.gridName)?.label} · пар:{' '}
+                    {GRID_OPTIONS.find((g) => g.id === resolveGridName(puzzle.gridName))?.label} · пар:{' '}
                     {puzzle.pairs.filter((p) => p.left.trim() && p.right.trim()).length} ·{' '}
                     {new Date(puzzle.updatedAt).toLocaleDateString('ru-RU')}
                   </p>
