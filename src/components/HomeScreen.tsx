@@ -12,7 +12,6 @@ import {
   LayoutGrid,
   Users,
   Timer,
-  Triangle,
   Settings,
   FlaskConical,
   X,
@@ -35,8 +34,7 @@ type SectionId =
   | 'bingo'
   | 'edugame'
   | 'activity'
-  | 'pomodoro'
-  | 'tarsia';
+  | 'pomodoro';
 
 interface Section {
   id: SectionId;
@@ -90,14 +88,6 @@ const SECTIONS: Section[] = [
     description: 'Изучение и запоминание',
     hint: 'Интервальное повторение: создавайте колоды, изучайте карточки, проходите тесты.',
     icon: Layers,
-  },
-  {
-    id: 'tarsia',
-    title: 'Тарсия пазлы',
-    description: 'Головоломки',
-    hint: 'Геометрические головоломки: треугольники с вопросами и ответами на гранях. Создание, PDF для печати, обмен с коллегами.',
-    icon: Triangle,
-    isTest: true,
   },
   {
     id: 'wordsearch',
