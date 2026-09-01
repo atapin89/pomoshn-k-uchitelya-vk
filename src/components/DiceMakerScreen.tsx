@@ -1,5 +1,15 @@
 import { useRef, useState } from 'react';
-import { Box, Download, Type, Sparkles, Lightbulb, HelpCircle, BookOpen } from 'lucide-react';
+import {
+  Box,
+  Download,
+  Type,
+  Sparkles,
+  Lightbulb,
+  HelpCircle,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -10,6 +20,7 @@ interface DiceSettings {
   mode: DiceMode;
   textFaces: string[];
   category: string;
+  iconFaces: string[]; // выбранные иконки для граней (до 6)
   fontFamily: string;
   fontSize: number;
   showDots: boolean;
@@ -17,19 +28,21 @@ interface DiceSettings {
 
 const SETTINGS_KEY = 'dice-maker-settings';
 
+// ===== Категории: по 20 иконок =====
+
 const CATEGORIES: { id: string; label: string; items: string[] }[] = [
-  { id: 'animals', label: 'Животные', items: ['🐶', '🐱', '🐭', '🦊', '🐻', '🐼', '🐰', '🦁', '🐸', '🐵'] },
-  { id: 'food', label: 'Еда', items: ['🍎', '🍌', '🍕', '🥕', '🍔', '🍩', '🍪', '🌽', '🧀', '🍓'] },
-  { id: 'clothes', label: 'Одежда', items: ['👕', '👖', '👗', '👔', '👒', '🧤', '👟', '👠', '🧣', '👜'] },
-  { id: 'transport', label: 'Транспорт', items: ['🚗', '🚌', '🚲', '✈️', '🚂', '🛵', '🚁', '⛵', '🛴', '🚜'] },
-  { id: 'weather', label: 'Погода', items: ['☀️', '🌧️', '❄️', '🌈', '⛈️', '🌙', '🌪️', '🌫️', '⚡', '🌤️'] },
-  { id: 'jobs', label: 'Профессии', items: ['👩‍⚕️', '👨‍🚒', '👮‍♀️', '👩‍🏫', '👨‍🍳', '👨‍🌾', '👩‍🔬', '👨‍✈️', '👩‍🎤', '👨‍🎨'] },
-  { id: 'emotions', label: 'Эмоции', items: ['😀', '😢', '😡', '😲', '😴', '🤩', '😎', '🤔', '😍', '🥳'] },
-  { id: 'colors', label: 'Цвета', items: ['🟥', '🟦', '🟩', '🟨', '🟪', '🟧', '🟫', '⬛', '⬜', '🩷'] },
-  { id: 'nature', label: 'Природа', items: ['🌳', '🌲', '🌻', '🌵', '🍄', '🌸', '🌊', '🏔️', '🌋', '🌾'] },
-  { id: 'sports', label: 'Спорт', items: ['⚽', '🏀', '🏈', '⚾', '🎾', '🏐', '🏓', '🎱', '🥊', '🏊'] },
-  { id: 'music', label: 'Музыка', items: ['🎵', '🎶', '🎸', '🎹', '🎺', '🎻', '🥁', '🎤', '🎧', '🎼'] },
-  { id: 'school', label: 'Школа', items: ['📚', '✏️', '📐', '🎒', '📏', '🔬', '🧪', '🖍️', '📝', '🏫'] },
+  { id: 'animals', label: 'Животные', items: ['🐶', '🐱', '', '🐹', '🐰', '🦊', '', '', '🐨', '🐯', '', '🐮', '🐷', '', '', '🐔', '🐧', '', '', '🦆'] },
+  { id: 'food', label: 'Еда', items: ['🍎', '🍐', '', '', '🍓', '🍒', '🍑', '🍍', '', '🍅', '🥕', '', '', '🧀', '🍞', '', '🍔', '🌭', '', ''] },
+  { id: 'clothes', label: 'Одежда', items: ['👕', '', '', '👔', '👒', '', '', '🎩', '🧤', '', '', '👟', '👠', '', '🥾', '👜', '🎒', '👓', '', '💍'] },
+  { id: 'transport', label: 'Транспорт', items: ['🚗', '🚕', '', '🚒', '🚲', '️', '', '✈️', '🚁', '⛵', '🚀', '', '🛵', '🛴', '', '🚡', '🛸', '🚤', '', ''] },
+  { id: 'weather', label: 'Погода', items: ['☀️', '🌤️', '⛅', '🌥️', '☁️', '🌦️', '🌧️', '⛈️', '🌩️', '🌨️', '❄️', '💨', '️', '🌪️', '🌈', '🌙', '⭐', '⚡', '💧', '🔥'] },
+  { id: 'jobs', label: 'Профессии', items: ['👩‍⚕️', '👨‍🚒', '👮♀️', '👩‍🏫', '‍🍳', '👨‍🌾', '‍', '👨‍✈️', '👩‍🎤', '👨‍🎨', '👩💻', '👨‍🔧', '‍♀️', '🕵️', '👩‍🚀', '‍️', '👩🌾', '', '👸', ''] },
+  { id: 'emotions', label: 'Эмоции', items: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😜', '🤪', ''] },
+  { id: 'colors', label: 'Цвета', items: ['🟥', '', '', '🟩', '🟦', '🟪', '🟫', '', '', '🟣', '🟠', '', '', '🔵', '🔴', '', '', '💜', '', '💚'] },
+  { id: 'nature', label: 'Природа', items: ['🌳', '🌲', '🌴', '', '🌾', '🌿', '☘️', '🍀', '🍁', '', '🍃', '🌺', '', '🌹', '🌷', '🌸', '', '🍄', '🌊', '⛰️'] },
+  { id: 'sports', label: 'Спорт', items: ['⚽', '', '', '⚾', '🎾', '', '🏉', '🎱', '', '🏸', '🥊', '🥋', '', '️', '', '🏊', '🚴', '', '️', '🏆'] },
+  { id: 'music', label: 'Музыка', items: ['🎵', '', '🎤', '🎧', '🎼', '', '🥁', '🎷', '🎺', '', '🎻', '🪕', '📻', '', '🎭', '🎪', '🔔', '', '️', ''] },
+  { id: 'school', label: 'Школа', items: ['📚', '', '✏️', '🖊️', '🖍️', '📏', '📐', '✂️', '🧪', '', '', '💻', '', '📌', '📎', '🗂️', '🎒', '', '', '🌍'] },
 ];
 
 const FONTS = [
@@ -44,6 +57,7 @@ const DEFAULT_SETTINGS: DiceSettings = {
   mode: 'text',
   textFaces: ['Кто?', 'Что?', 'Где?', 'Когда?', 'Почему?', 'Как?'],
   category: 'animals',
+  iconFaces: CATEGORIES[0].items.slice(0, 6),
   fontFamily: 'Verdana, sans-serif',
   fontSize: 20,
   showDots: true,
@@ -61,62 +75,40 @@ const PIPS: Record<number, [number, number][]> = {
 const FAQ_ITEMS = [
   {
     q: 'Как собрать кубик после печати?',
-    a: '1. Вырежьте шаблон по внешнему контуру.\n2. Аккуратно согните по пунктирным линиям (используйте линейку и тупой предмет для чётких сгибов).\n3. Нанесите клей на серые клапаны и приклейте их к внутренней стороне соответствующих граней.\n4. Дайте высохнуть 10-15 минут.',
+    a: '1. Вырежьте шаблон по внешнему контуру.\n2. Согните по пунктирным линиям (линейка + тупой предмет для чётких сгибов).\n3. Нанесите клей на серые клапаны и приклейте их внутри граней.\n4. Дайте высохнуть 10–15 минут.',
   },
   {
-    q: 'На какой бумаге лучше печатать?',
-    a: 'Оптимально: плотная бумага 160-200 г/м². На обычной офисной 80 г/м² кубик получится хлипким. Для долговечности можно заламинировать распечатанный лист перед вырезанием.',
+    q: 'На какой бумаге печатать?',
+    a: 'Оптимально: плотная 160–200 г/м². На офисной 80 г/м² кубик хлипкий. Для долговечности заламинируйте лист перед вырезанием.',
   },
   {
     q: 'Текст не помещается на грани — что делать?',
-    a: 'Уменьшите размер шрифта ползунком (12-16 для длинных фраз). Или сократите текст: вместо «Когда произошло это событие?» → «Когда?». Шрифт Verdana или Comic Sans читается лучше при мелких размерах.',
+    a: 'Уменьшите размер шрифта (12–16 для длинных фраз) или сократите текст: «Когда произошло событие?» → «Когда?». Verdana и Comic Sans читаются лучше при мелких размерах.',
   },
   {
     q: 'Что такое «Точки на фоне»?',
-    a: 'Это классический точечный рисунок, как на игральных костях (от 1 до 6 точек). Включается, если кубик будет использоваться в настольных играх, где нужны значения очков. Точки рисуются полупрозрачным серым за текстом.',
+    a: 'Классический точечный рисунок игральных костей (1–6). Включайте, если кубик нужен в настольной игре со значениями очков. Точки рисуются полупрозрачно за текстом.',
   },
   {
-    q: 'Как печатать на Letter (американский формат)?',
-    a: 'Откройте PDF, нажмите «Печать», в настройках выберите масштаб 90% и минимальные поля. Или используйте опцию «Подогнать по размеру страницы».',
+    q: 'Как печатать на Letter (США)?',
+    a: 'В настройках печати выберите масштаб 90% и минимальные поля, либо «Подогнать по размеру страницы».',
   },
   {
-    q: 'Можно ли распечатать несколько кубиков на одном листе?',
-    a: 'В текущей версии на лист A4 помещается один кубик. Для нескольких кубиков распечатайте несколько копий PDF или уменьшите масштаб до 70% — тогда поместятся два кубика рядом.',
+    q: 'Можно ли несколько кубиков на одном листе?',
+    a: 'По умолчанию — один кубик на A4. Уменьшите масштаб печати до 70% — поместятся два кубика рядом.',
   },
 ];
 
 const SCENARIO_ITEMS = [
-  {
-    icon: '📖',
-    title: 'Изучение языков',
-    description: 'Кубик с вопросами (Кто? Что? Где? Когда?) + кубик с иконками (предметы). Ученик бросает оба и составляет предложение на изучаемом языке: «Кто? — 🐶. Где? — 🏫» → «The dog is at school».',
-  },
-  {
-    icon: '🎭',
-    title: 'Развитие речи',
-    description: 'Два кубика с иконками. Ученик бросает обе и составляет историю, связывающую выпавшие объекты. Например: 🚗 + 🌧️ → «Однажды в дождливый день машина отправилась в путешествие…»',
-  },
-  {
-    icon: '✍️',
-    title: 'Буквосочетания и орфография',
-    description: 'Кубик с текстом: буквосочетания (ЧА, ЩА, ЖИ, ШИ, ЧУ, ЩУ). За 2 минуты ученик записывает как можно больше слов с выпавшей комбинацией. Кто больше — тот победил.',
-  },
-  {
-    icon: '🧮',
-    title: 'Математика',
-    description: 'Кубик с цифрами 1-6 и кубик с действиями (+, −, ×, ÷, >, <). Бросают оба: 4 × 3 = 12. Для старших классов: два кубика с двузначными числами.',
-  },
-  {
-    icon: '🎨',
-    title: 'Творческое письмо',
-    description: 'Кубик с эмоциями + кубик с местами + кубик с персонажами. Выпало: 😢 + 🏔️ + 👩‍🚒 → «Пожарная плакала на вершине горы, потому что…»',
-  },
-  {
-    icon: '🌍',
-    title: 'География и история',
-    description: 'Кубик с вопросами + кубик с иконками стран/эпох. Бросок: «Когда?» + 🏛️ → ученик называет историческое событие, связанное с Древней Грецией.',
-  },
+  { icon: '📖', title: 'Изучение языков', description: 'Кубик с вопросами (Кто? Что? Где?) + кубик с иконками. Ученик бросает оба и строит фразу: «Кто? — 🐶, Где? — 🏫» → «The dog is at school».' },
+  { icon: '🎭', title: 'Развитие речи', description: 'Два кубика с иконками: ученик составляет историю, связывающую выпавшие объекты. 🚗 + 🌧️ → «Однажды в дождливый день машина отправилась в путь…»' },
+  { icon: '✍️', title: 'Буквосочетания', description: 'Кубик с сочетаниями (ЧА, ЩА, ЖИ, ШИ, ЧУ, ЩУ). За 2 минуты записать как можно больше слов с выпавшей комбинацией.' },
+  { icon: '🧮', title: 'Математика', description: 'Кубик с цифрами 1–6 + кубик с действиями (+, −, ×, ÷). Бросок: 4 × 3 = 12. Для старших — двузначные числа.' },
+  { icon: '🎨', title: 'Творческое письмо', description: 'Кубики эмоций, мест и персонажей. 😢 + 🏔️ + 👩🚒 → «Пожарная плакала на вершине горы, потому что…»' },
+  { icon: '🌍', title: 'География и история', description: 'Кубик с вопросами + кубик иконок стран и эпох. «Когда?» + 🏛️ → событие из истории Древней Греции.' },
 ];
+
+// ===== Служебные функции =====
 
 function loadSettings(): DiceSettings {
   try {
@@ -124,8 +116,11 @@ function loadSettings(): DiceSettings {
     if (raw) {
       const p = JSON.parse(raw);
       if (p && Array.isArray(p.textFaces) && p.textFaces.length === 6) {
-        // Миграция: если из localStorage пришёл старый режим 'both', сбрасываем на 'text'
-        if (p.mode === 'both') p.mode = 'text';
+        if (p.mode === 'both') p.mode = 'text'; // миграция старого режима
+        if (!Array.isArray(p.iconFaces)) {
+          const cat = CATEGORIES.find((c) => c.id === p.category) || CATEGORIES[0];
+          p.iconFaces = cat.items.slice(0, 6);
+        }
         return { ...DEFAULT_SETTINGS, ...p };
       }
     }
@@ -221,6 +216,7 @@ function Net({ x0, y0, S, values, type, settings }: NetProps) {
       </g>
       {faces.map((f, i) => {
         if (type === 'image') {
+          if (!f.val) return null;
           return (
             <text key={i} x={f.x + S / 2} y={f.y + S / 2} fontSize={S * 0.55} textAnchor="middle" dominantBaseline="central">
               {f.val}
@@ -260,11 +256,14 @@ function Net({ x0, y0, S, values, type, settings }: NetProps) {
 
 const Sheet = ({ settings, sheetRef }: { settings: DiceSettings; sheetRef: React.RefObject<SVGSVGElement> }) => {
   const W = 794, H = 1123;
-  const cat = CATEGORIES.find((c) => c.id === settings.category) || CATEGORIES[0];
   const S = 170;
   const netW = 4 * S + 28;
   const netH = 3 * S + 28;
   const x0 = (W - netW) / 2 + 14;
+
+  // Дополняем выбранные иконки до 6 пустыми гранями
+  const iconValues = [...settings.iconFaces];
+  while (iconValues.length < 6) iconValues.push('');
 
   return (
     <svg
@@ -282,7 +281,7 @@ const Sheet = ({ settings, sheetRef }: { settings: DiceSettings; sheetRef: React
         x0={x0}
         y0={(H - netH) / 2 + 14}
         S={S}
-        values={settings.mode === 'text' ? settings.textFaces : cat.items.slice(0, 6)}
+        values={settings.mode === 'text' ? settings.textFaces : iconValues}
         type={settings.mode === 'text' ? 'text' : 'image'}
         settings={settings}
       />
@@ -292,7 +291,9 @@ const Sheet = ({ settings, sheetRef }: { settings: DiceSettings; sheetRef: React
 
 export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<DiceSettings>(() => loadSettings());
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [openFaqItem, setOpenFaqItem] = useState<number | null>(null);
+  const [showFaq, setShowFaq] = useState(false);
+  const [showScen, setShowScen] = useState(false);
   const sheetRef = useRef<SVGSVGElement>(null);
 
   const update = (patch: Partial<DiceSettings>) => {
@@ -307,6 +308,32 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
     const faces = [...settings.textFaces];
     faces[i] = value;
     update({ textFaces: faces });
+  };
+
+  const changeCategory = (id: string) => {
+    const cat = CATEGORIES.find((c) => c.id === id) || CATEGORIES[0];
+    update({ category: id, iconFaces: cat.items.slice(0, 6) });
+  };
+
+  // Тап по иконке: выбрать / снять выбор (максимум 6)
+  const toggleIcon = (icon: string) => {
+    setSettings((prev) => {
+      const faces = [...prev.iconFaces];
+      const idx = faces.indexOf(icon);
+      if (idx >= 0) {
+        faces.splice(idx, 1);
+        triggerHaptic('light');
+      } else if (faces.length < 6) {
+        faces.push(icon);
+        triggerHaptic('light');
+      } else {
+        triggerHaptic('medium'); // уже 6 — вибрация-отказ
+        return prev;
+      }
+      const next = { ...prev, iconFaces: faces };
+      saveSettings(next);
+      return next;
+    });
   };
 
   const handleExportPDF = async () => {
@@ -357,7 +384,7 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
-        {/* Режим: 2 кнопки вместо 3 */}
+        {/* Режим */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <label className="text-sm font-semibold text-purple-700">Режим</label>
           <div className="grid grid-cols-2 gap-2">
@@ -379,52 +406,62 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
             </button>
           </div>
           <p className="text-xs text-gray-500">
-            {settings.mode === 'text' && 'Кубик с вашим текстом на 6 гранях: вопросы, термины, цифры.'}
-            {settings.mode === 'images' && 'Кубик с иконками из выбранной категории на гранях.'}
+            {withText && 'Кубик с вашим текстом на 6 гранях: вопросы, термины, цифры.'}
+            {withImages && 'Выберите категорию и отметьте тапом до 6 иконок для граней.'}
           </p>
         </div>
 
-        {/* Категория иконок с горизонтальной прокруткой */}
+        {/* Категория и выбор иконок */}
         {withImages && (
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <label className="text-sm font-semibold text-purple-700">Категория иконок</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-semibold text-purple-700">Категория иконок</label>
+              <span className="text-xs font-bold text-purple-600 bg-purple-50 rounded-lg px-2 py-1">
+                на гранях: {settings.iconFaces.length} / 6
+              </span>
+            </div>
             <select
               value={settings.category}
-              onChange={(e) => update({ category: e.target.value })}
+              onChange={(e) => changeCategory(e.target.value)}
               className="w-full rounded-xl border border-gray-200 p-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
             >
               {CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-500">
-              На грани попадут первые 6 иконок из выбранной категории.
-            </p>
-            {/* Горизонтальная прокрутка иконок */}
-            <div className="relative">
-              <div
-                className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1"
-                style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}
-              >
-                {currentCat.items.map((icon, i) => (
-                  <div
-                    key={i}
-                    className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-3xl border-2 transition-all ${
-                      i < 6 ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-gray-200 opacity-50'
+
+            {/* Лента иконок с горизонтальной прокруткой */}
+            <div
+              className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+            >
+              {currentCat.items.map((icon) => {
+                const selIdx = settings.iconFaces.indexOf(icon);
+                const selected = selIdx >= 0;
+                return (
+                  <button
+                    key={icon}
+                    onClick={() => toggleIcon(icon)}
+                    className={`relative shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-2xl border-2 transition-all active:scale-90 ${
+                      selected
+                        ? 'bg-purple-100 border-purple-500 shadow-sm'
+                        : 'bg-gray-50 border-gray-200 hover:border-purple-300'
                     }`}
-                    title={i < 6 ? `Грань ${i + 1}` : 'Не используется'}
+                    aria-label={selected ? `Убрать иконку ${icon}` : `Выбрать иконку ${icon}`}
                   >
                     {icon}
-                  </div>
-                ))}
-              </div>
-              {/* Подсказка прокрутки */}
-              {currentCat.items.length > 5 && (
-                <p className="text-[10px] text-gray-400 text-center mt-1">
-                  ← проведите для просмотра остальных →
-                </p>
-              )}
+                    {selected && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-purple-600 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
+                        {selIdx + 1}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+            <p className="text-[10px] text-gray-400 text-center">
+              ← прокрутите ленту · тап — выбрать иконку на грань (номер в кружке), повторный тап — убрать →
+            </p>
           </div>
         )}
 
@@ -499,59 +536,79 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           <Download className="w-5 h-5" /> Скачать PDF
         </button>
 
-        {/* FAQ */}
+        {/* Частые вопросы — аккордеон */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-4 border-b border-gray-100">
-            <HelpCircle className="w-5 h-5 text-purple-600" />
-            <h3 className="font-bold text-purple-700">Частые вопросы</h3>
-            <span className="text-xs font-bold text-purple-400">{FAQ_ITEMS.length}</span>
-          </div>
-          <div className="p-2 space-y-1">
-            {FAQ_ITEMS.map((item, idx) => (
-              <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                  className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
-                >
-                  <span className="font-semibold text-sm text-gray-800">{item.q}</span>
-                  <span className="text-purple-600 text-lg leading-none">{openFaq === idx ? '−' : '+'}</span>
-                </button>
-                {openFaq === idx && (
-                  <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100 whitespace-pre-line">
-                    {item.a}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Сценарии использования */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-4 border-b border-gray-100">
-            <BookOpen className="w-5 h-5 text-purple-600" />
-            <h3 className="font-bold text-purple-700">Сценарии для занятий</h3>
-            <span className="text-xs font-bold text-purple-400">{SCENARIO_ITEMS.length}</span>
-          </div>
-          <div className="p-3 space-y-2">
-            {SCENARIO_ITEMS.map((s, idx) => (
-              <div key={idx} className="border border-purple-100 rounded-xl p-3 flex gap-3 hover:bg-purple-50/50 transition-colors">
-                <span className="text-3xl shrink-0">{s.icon}</span>
-                <div className="min-w-0">
-                  <h4 className="font-bold text-sm text-gray-800 mb-1">{s.title}</h4>
-                  <p className="text-xs text-gray-600 leading-relaxed">{s.description}</p>
+          <button
+            onClick={() => setShowFaq(!showFaq)}
+            className="w-full px-4 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Частые вопросы</h3>
+              <span className="text-xs font-bold text-purple-400">{FAQ_ITEMS.length}</span>
+            </div>
+            {showFaq ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
+          </button>
+          {showFaq && (
+            <div className="px-3 pb-3 space-y-2">
+              {FAQ_ITEMS.map((item, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenFaqItem(openFaqItem === idx ? null : idx)}
+                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                  >
+                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                    {openFaqItem === idx ? (
+                      <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                    )}
+                  </button>
+                  {openFaqItem === idx && (
+                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100 whitespace-pre-line">
+                      {item.a}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Финальная подсказка */}
+        {/* Сценарии — аккордеон */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowScen(!showScen)}
+            className="w-full px-4 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Сценарии для занятий</h3>
+              <span className="text-xs font-bold text-purple-400">{SCENARIO_ITEMS.length}</span>
+            </div>
+            {showScen ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
+          </button>
+          {showScen && (
+            <div className="px-3 pb-3 space-y-2">
+              {SCENARIO_ITEMS.map((s, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl p-3 flex gap-3">
+                  <span className="text-3xl shrink-0">{s.icon}</span>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-sm text-gray-800 mb-1">{s.title}</h4>
+                    <p className="text-xs text-gray-600 leading-relaxed">{s.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Подсказка */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex gap-2 items-start">
           <Lightbulb className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-xs text-amber-900 leading-relaxed">
             <b>Совет:</b> если текст не помещается на грани — уменьшите размер шрифта.
-            На листе Letter используйте масштаб печати 90%. Для долговечных кубиков — печатайте на бумаге 160-200 г/м².
+            На листе Letter используйте масштаб печати 90%. Для долговечных кубиков — бумага 160–200 г/м².
           </p>
         </div>
       </main>
