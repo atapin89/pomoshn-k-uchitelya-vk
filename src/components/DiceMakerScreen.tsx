@@ -235,7 +235,7 @@ function Net({ x0, y0, S, values, type, settings }: NetProps) {
   );
 }
 
-const Sheet = ({ settings, sheetRef }: { settings: DiceSettings; sheetRef: React.RefObject<SVGSVGElement> }) => {
+const Sheet = ({ settings, sheetRef, compact = false }: { settings: DiceSettings; sheetRef: React.RefObject<SVGSVGElement>; compact?: boolean }) => {
   const W = 794, H = 1123;
   const S = 170;
   const netW = 4 * S + 28;
@@ -248,10 +248,15 @@ const Sheet = ({ settings, sheetRef }: { settings: DiceSettings; sheetRef: React
   return (
     <svg
       ref={sheetRef}
-      width={W}
-      height={H}
+      width={794}
+      height={1123}
       viewBox={`0 0 ${W} ${H}`}
-      style={{ width: '100%', height: 'auto', display: 'block', background: '#ffffff' }}
+      preserveAspectRatio="xMidYMid meet"
+      style={
+        compact
+          ? { width: '100%', height: '100%', display: 'block' }
+          : { width: '100%', height: 'auto', display: 'block', background: '#ffffff' }
+      }
     >
       <rect x={0} y={0} width={W} height={H} fill="#ffffff" />
       <text x={W / 2} y={40} textAnchor="middle" fontSize={16} fill="#6b7280" fontFamily="Verdana, sans-serif">
@@ -297,9 +302,8 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
   };
 
   const resetIconFaces = () => {
-    const cat = CATEGORIES.find((c) => c.id === settings.category) || CATEGORIES[0];
-    update({ iconFaces: cat.items.slice(0, 6) });
-    triggerHaptic('light');
+    update({ iconFaces: [] });
+    triggerHaptic('medium');
   };
 
   const toggleIcon = (icon: string) => {
@@ -328,6 +332,10 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
     triggerHaptic('light');
     const clone = svg.cloneNode(true) as SVGSVGElement;
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('width', '794');
+    clone.setAttribute('height', '1123');
+    clone.style.width = '794px';
+    clone.style.height = '1123px';
     const data = new XMLSerializer().serializeToString(clone);
     const blob = new Blob([data], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -370,7 +378,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
-        {/* ===== КОМПАКТНЫЙ ВЫБОР РЕЖИМА (сегменты в одну строку) ===== */}
         <div className="bg-white rounded-2xl p-3 shadow-sm">
           <div className="inline-flex w-full bg-gray-100 rounded-xl p-1">
             <button
@@ -396,7 +403,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           </p>
         </div>
 
-        {/* Категория иконок с кнопкой сброса */}
         {withImages && (
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between gap-2">
@@ -409,7 +415,7 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
                   onClick={resetIconFaces}
                   className="p-1.5 rounded-lg text-gray-500 hover:text-purple-600 hover:bg-purple-50 transition-colors"
                   aria-label="Сбросить выбор иконок"
-                  title="Сбросить (первые 6 из категории)"
+                  title="Сбросить выбор"
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
@@ -459,7 +465,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* Настройки текста */}
         {withText && (
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
             <label className="text-sm font-semibold text-purple-700">Текст на гранях</label>
@@ -515,7 +520,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* ===== КОМПАКТНЫЙ ПРЕДПРОСМОТР (с кнопкой развернуть) ===== */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm font-semibold text-purple-700">Предпросмотр (A4)</label>
@@ -528,8 +532,8 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
               <Maximize2 className="w-4 h-4" />
             </button>
           </div>
-          <div className="relative border-2 border-gray-200 rounded-xl overflow-hidden max-h-56">
-            <Sheet settings={settings} sheetRef={sheetRef} />
+          <div className="relative border-2 border-gray-200 rounded-xl overflow-hidden bg-gray-100 h-72">
+            <Sheet settings={settings} sheetRef={sheetRef} compact />
             <button
               onClick={() => setShowPreviewFull(true)}
               className="absolute inset-0 w-full h-full bg-black/0 hover:bg-black/5 transition-colors"
@@ -538,7 +542,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* Модальное окно полного предпросмотра */}
         {showPreviewFull && (
           <div
             className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2"
@@ -580,7 +583,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           <Download className="w-5 h-5" /> Скачать PDF
         </button>
 
-        {/* FAQ — аккордеон */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowFaq(!showFaq)}
@@ -619,7 +621,6 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
-        {/* Сценарии — аккордеон */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowScen(!showScen)}
