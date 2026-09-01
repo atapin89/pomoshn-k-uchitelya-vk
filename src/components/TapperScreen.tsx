@@ -1,209 +1,225 @@
-import { useEffect, useRef, useState } from 'react';
+// src/components/TapperScreen.tsx
+
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Triangle,
-  Hexagon,
+  Users,
   Plus,
   Upload,
   Download,
-  FileText,
-  Pencil,
-  Trash2,
   Save,
-  Sparkles,
+  Trash2,
+  Pencil,
   Check,
+  X,
+  RotateCcw,
+  UserCheck,
+  UserX,
+  List,
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
   HelpCircle,
   GraduationCap,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from 'lucide-react';
-import type { TarsiaPuzzle, TarsiaShape, TarsiaCardSize } from '@/types/tarsia';
-import { generateTarsiaId, validateTarsiaPairs } from '@/types/tarsia';
+import type { TapperList, TapperStudent } from '@/types/tapper';
+import { generateTapperId, createEmptyTapperList } from '@/types/tapper';
 import {
-  loadTarsiaPuzzles,
-  upsertTarsiaPuzzle,
-  deleteTarsiaPuzzle,
-  renameTarsiaPuzzle,
-  serializeTarsiaPuzzle,
-  parseTarsiaPuzzleFile,
-  parseTarsiaTxtFile,
-} from '@/lib/tarsiaStorage';
-import { getTarsiaGridById } from '@/data/tarsiaGrids';
-import { exportTarsiaToPDF } from '@/lib/tarsiaPdf';
-import BackButton from './BackButton';
+  loadTapperLists,
+  upsertTapperList,
+  deleteTapperList,
+  renameTapperList,
+  serializeTapperList,
+  parseTapperListFile,
+  loadTapperSession,
+  saveTapperSession,
+  clearTapperSession,
+} from '@/lib/tapperStorage';
+import { downloadTextFile, sanitizeFileName } from '@/lib/eduGameStorage';
 import { triggerHaptic } from '@/lib/haptic';
+import BackButton from './BackButton';
 
-interface TarsiaScreenProps {
+interface TapperScreenProps {
   onBack: () => void;
 }
 
-const SHAPE_OPTIONS: { id: TarsiaShape; label: string; Icon: typeof Triangle }[] = [
-  { id: 'small-triangle', label: 'Треуг. мал.', Icon: Triangle },
-  { id: 'triangle', label: 'Треуг. бол.', Icon: Triangle },
-  { id: 'small-hex', label: 'Шест. мал.', Icon: Hexagon },
-  { id: 'hex', label: 'Шест. бол.', Icon: Hexagon },
+// ===== Демо-список =====
+
+const DEMO_STUDENTS = [
+  'Иванов Иван',
+  'Петрова Анна',
+  'Смирнов Пётр',
+  'Кузнецова Мария',
+  'Васильев Дмитрий',
+  'Соколова Елена',
+  'Михайлов Артём',
+  'Новикова Софья',
+  'Фёдоров Кирилл',
+  'Морозова Дарья',
+  'Волков Максим',
+  'Лебедева Виктория',
 ];
 
-const CARD_SIZES: { id: TarsiaCardSize; label: string }[] = [
-  { id: 'small', label: 'Мелкий' },
-  { id: 'medium', label: 'Средний' },
-  { id: 'large', label: 'Крупный' },
-];
-
-const DEMO_PAIRS: { left: string; right: string }[] = [
-  { left: 'Столица России', right: 'Москва' },
-  { left: 'Самая длинная река России', right: 'Обь' },
-  { left: 'Самое глубокое озеро', right: 'Байкал' },
-  { left: 'Самая высокая гора мира', right: 'Эверест' },
-  { left: 'Материк, на котором живём', right: 'Евразия' },
-  { left: 'Океан у берегов России на востоке', right: 'Тихий' },
-];
-
-function createDemoPuzzle(): TarsiaPuzzle {
+function createDemoList(): TapperList {
+  const students: TapperStudent[] = DEMO_STUDENTS.map((name) => ({
+    id: generateTapperId('student'),
+    name,
+    answerCount: 0,
+    isPresent: true,
+  }));
+  
   return {
-    id: generateTarsiaId('tarsia'),
-    title: 'Окружающий мир (демо)',
-    shape: 'triangle',
-    pairs: DEMO_PAIRS.map((p) => ({
-      id: generateTarsiaId('pair'),
-      left: p.left,
-      right: p.right,
-    })),
-    puzzleTitle: 'Соедини вопрос с ответом',
-    solutionTitle: 'Решение',
-    showSolution: true,
-    cardSize: 'medium',
+    id: generateTapperId('tapper-list'),
+    name: 'Демо-класс (5А)',
+    students,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
 }
 
+// ===== Инструкции и FAQ =====
+
 const HOW_ITEMS = [
   {
-    q: 'Как создать пазл',
-    a: 'Нажмите «Создать», введите название и выберите форму (треугольная или шестиугольная, маленькая или большая). В списке пар введите «вопрос → ответ» для каждой пары. Пазл сохраняет автоматически.',
+    q: 'Как начать работу',
+    a: '1) Создайте список класса или импортируйте готовый.\n2) Нажимайте на карточку ученика, когда он отвечает — счётчик увеличится.\n3) ПКМ (долгое нажатие) — сбросить счётчик конкретного ученика.\n4) Кнопка «Итоги» покажет сводку в конце урока.\n\nДля быстрого знакомства нажмите «Загрузить демо-список».',
   },
   {
-    q: 'Выбор формы и размера',
-    a: 'Маленький треугольник — 6 пар (15 мин урока). Большой треугольник — 18 пар (полный урок). Шестиугольники — сложнее, подходят для старших классов. Размер карточек (мелкий/средний/крупный) выбирается перед экспортом в PDF.',
+    q: 'Как добавить учеников',
+    a: 'В поле ввода добавьте имена — по одному на строку:\n\nИванов Иван\nПетрова Анна\nСмирнов Пётр\n\nНажмите «Добавить учеников». Дубликаты (без учёта регистра) автоматически отфильтруются.',
   },
   {
-    q: 'Импорт и экспорт',
-    a: '«Импорт» принимает .json (пазлы из Помощника учителя) и .txt (пары в формате «вопрос\\tответ», по одной на строку). «Экспорт JSON» скачивает файл для обмена с коллегами.',
+    q: 'Как отметить отсутствующих',
+    a: 'Нажмите ПКМ (долгое нажатие на телефоне) на карточке ученика и выберите «Отметить отсутствующим». Ученик станет серым и не будет учитываться в статистике. Повторное действие вернёт его в список присутствующих.',
   },
   {
-    q: 'Печать в PDF',
-    a: '«Скачать PDF» создаёт две страницы: решение (собранная фигура) и вырезалка (разрезанные карточки для раздачи ученикам). Печатайте двусторонне, переворот по длинному краю.',
+    q: 'Как работает счётчик',
+    a: 'Каждое нажатие на карточку ученика добавляет +1 ответ. Счётчик отображается в правом верхнем углу карточки. Зелёная карточка — ученик отвечал хотя бы раз. Белая — ещё не отвечал.',
   },
   {
-    q: 'Мои пазлы',
-    a: 'Все созданные головоломки сохраняются в «Мои пазлы». Карандаш — переименовать, PDF — скачать для печати, корзина — удалить без возможности восстановления.',
+    q: 'Сохранение и восстановление',
+    a: 'Результаты сохраняются автоматически. При возвращении в список и повторном открытии счётчики восстановятся. Кнопка сброса (↺) очищает все результаты.',
   },
 ];
 
 const FAQ_ITEMS = [
   {
-    q: 'Сценарий 1 · Разминка в начале урока',
-    a: 'Выберите «Треуг. мал.» (6 пар) по теме прошлого урока. Раздайте разрезанные карточки парам учеников, засекайте 5–7 минут. Первой паре, собравшей фигуру, — «+1 к оценке».',
+    q: 'Сценарий 1 · Устный опрос',
+    a: 'Используйте счётчик во время устного опроса. Нажимайте на ученика, когда он отвечает. В конце урока откройте «Итоги» и посмотрите, кого не спросили — их можно вызвать на следующем уроке.',
   },
   {
-    q: 'Сценарий 2 · Повторение перед контрольной',
-    a: '«Треуг. бол.» (18 пар) — все ключевые определения темы. Команды по 3–4 человека, раздать распечатки. Кто быстрее и правильнее собрал — победитель.',
+    q: 'Сценарий 2 · Дискуссия',
+    a: 'Во время классной дискуссии фиксируйте каждое выступление. Счётчик покажет самых активных участников и тех, кто отмалчивается.',
   },
   {
-    q: 'Сценарий 3 · Межпредметный урок',
-    a: 'Шестиугольная форма сложнее — используйте для терминов, где нужно соединить 3 стороны (например, «термин — определение — пример»). Хорошо работает на истории, биологии, химии.',
+    q: 'Сценарий 3 · Групповая работа',
+    a: 'При работе в группах отмечайте вклад каждого ученика. Сводка покажет, кто был лидером, а кто пассивен.',
   },
   {
-    q: 'Сценарий 4 · Обмен с коллегами',
-    a: 'Сделали хороший пазл — нажмите «Экспорт JSON», отправьте файл коллеге через чат. Он в своём «Помощнике» нажимает «Импорт» — пазл готов к использованию.',
+    q: 'Сценарий 4 · Накопление за неделю',
+    a: 'Ведите один список в течение недели. Счётчики накопят статистику по всем урокам. Экспортируйте результат в .txt для отчёта.',
   },
   {
-    q: 'Сколько пар нужно для урока?',
-    a: '6 пар — 5–10 минут (разминка). 12 пар — 15–20 минут (повторение). 18 пар — 30–40 минут (полный урок или внеклассное мероприятие). Меньше 4 пар — пазл собирается слишком быстро.',
+    q: 'Импорт списка: формат и порядок',
+    a: 'Формат: .json (из этого приложения) или .txt (простой текст).\n\nДля .txt: каждая строка — один ученик:\nИванов Иван\nПетрова Анна\n\nНажмите «Импорт» и выберите файл. Список появится в «Моих списках».',
   },
   {
-    q: '⚠️ Персональные данные',
-    a: 'Имена учеников — персональные данные (152-ФЗ). В парах вопроса-ответа имён нет, поэтому пазлы безопасны. Если добавляете ФИО в пары (например, «кто открыл…»), не публикуйте PDF в открытом доступе.',
+    q: 'Экспорт списка: как поделиться',
+    a: 'Кнопка «Экспорт» (иконка ↓) на карточке списка скачивает файл .json. Его можно отправить коллеге — он импортирует через «Импорт». Для отчёта используйте «Экспорт .txt» на экране результатов.',
   },
 ];
 
-export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
-  const [puzzles, setPuzzles] = useState<TarsiaPuzzle[]>([]);
-  const [activePuzzle, setActivePuzzle] = useState<TarsiaPuzzle | null>(null);
-
+export default function TapperScreen({ onBack }: TapperScreenProps) {
+  const [lists, setLists] = useState<TapperList[]>([]);
+  const [activeList, setActiveList] = useState<TapperList | null>(null);
   const [importMsg, setImportMsg] = useState<'ok' | 'error' | null>(null);
+  const [showResults, setShowResults] = useState(false);
   const [showHow, setShowHow] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
   const [openHow, setOpenHow] = useState<number | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [results, setResults] = useState<Record<string, number>>({});
+
   useEffect(() => {
-    setPuzzles(loadTarsiaPuzzles());
+    const loadedLists = loadTapperLists();
+    setLists(loadedLists);
+    
+    const sessionResults = loadTapperSession();
+    if (Object.keys(sessionResults).length > 0) {
+      setResults(sessionResults);
+    }
   }, []);
 
-  const refresh = () => setPuzzles(loadTarsiaPuzzles());
+  useEffect(() => {
+    if (Object.keys(results).length > 0) {
+      saveTapperSession(results);
+    }
+  }, [results]);
 
-  const handleCreate = () => {
-    const puzzle: TarsiaPuzzle = {
-      id: generateTarsiaId('tarsia'),
-      title: 'Новый пазл',
-      shape: 'triangle',
-      pairs: [],
-      puzzleTitle: 'Соедини вопрос с ответом',
-      solutionTitle: 'Решение',
-      showSolution: true,
-      cardSize: 'medium',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    upsertTarsiaPuzzle(puzzle);
-    refresh();
-    setActivePuzzle(puzzle);
-  };
+  const refreshLists = () => setLists(loadTapperLists());
 
-  const handleLoadDemo = () => {
-    const demo = createDemoPuzzle();
-    upsertTarsiaPuzzle(demo);
-    refresh();
-    setActivePuzzle(demo);
+  const handleCreateList = () => {
+    const newList = createEmptyTapperList('Новый список');
+    upsertTapperList(newList);
+    refreshLists();
+    setActiveList(newList);
+    setResults({});
+    clearTapperSession();
     triggerHaptic('light');
   };
 
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLoadDemoList = () => {
+    const demoList = createDemoList();
+    upsertTapperList(demoList);
+    refreshLists();
+    setActiveList(demoList);
+    setResults({});
+    clearTapperSession();
+    triggerHaptic('medium');
+  };
+
+  const handleImportList = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
+      // Пробуем JSON, если не получилось — парсим как TXT
       const text = String(reader.result || '');
-      let puzzle: TarsiaPuzzle | null = null;
-
-      if (file.name.endsWith('.txt')) {
-        const pairs = parseTarsiaTxtFile(text);
-        if (pairs.length > 0) {
-          puzzle = {
-            id: generateTarsiaId('tarsia'),
-            title: file.name.replace(/\.[^.]+$/, '') || 'Импортированный пазл',
-            shape: 'triangle',
-            pairs,
-            puzzleTitle: 'Соедини вопрос с ответом',
-            solutionTitle: 'Решение',
-            showSolution: true,
-            cardSize: 'medium',
+      let list: TapperList | null = parseTapperListFile(text);
+      
+      if (!list) {
+        // Пробуем как TXT
+        const names = text
+          .split('\n')
+          .map((n) => n.trim())
+          .filter((n) => n);
+        
+        if (names.length > 0) {
+          const students: TapperStudent[] = names.map((name) => ({
+            id: generateTapperId('student'),
+            name,
+            answerCount: 0,
+            isPresent: true,
+          }));
+          
+          list = {
+            id: generateTapperId('tapper-list'),
+            name: file.name.replace(/\.[^.]+$/, '') || 'Импортированный список',
+            students,
             createdAt: Date.now(),
             updatedAt: Date.now(),
           };
         }
-      } else {
-        puzzle = parseTarsiaPuzzleFile(text);
       }
-
-      if (puzzle) {
-        upsertTarsiaPuzzle(puzzle);
-        refresh();
-        setActivePuzzle(puzzle);
+      
+      if (list) {
+        upsertTapperList(list);
+        refreshLists();
+        setActiveList(list);
+        setResults({});
+        clearTapperSession();
         setImportMsg('ok');
       } else {
         setImportMsg('error');
@@ -214,276 +230,285 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
     e.target.value = '';
   };
 
-  const handleExportJSON = (puzzle: TarsiaPuzzle) => {
-    const blob = new Blob([serializeTarsiaPuzzle(puzzle)], {
-      type: 'application/json;charset=utf-8',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `тарсия_${puzzle.title}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleExportList = (list: TapperList) => {
+    downloadTextFile(
+      sanitizeFileName(`активность_${list.name}.json`),
+      serializeTapperList(list),
+      'application/json;charset=utf-8',
+    );
     triggerHaptic('light');
   };
 
-  const handleRenamePuzzle = (id: string, newName: string) => {
-    renameTarsiaPuzzle(id, newName);
-    refresh();
-    if (activePuzzle?.id === id) {
-      setActivePuzzle({ ...activePuzzle, title: newName });
+  const handleDeleteList = (id: string) => {
+    const list = lists.find((l) => l.id === id);
+    const proceed = window.confirm(`Удалить список «${list?.name}»?`);
+    if (!proceed) return;
+    deleteTapperList(id);
+    refreshLists();
+    if (activeList?.id === id) {
+      setActiveList(null);
+      setResults({});
+      clearTapperSession();
     }
   };
 
-  const handleDeletePuzzle = (id: string) => {
-    deleteTarsiaPuzzle(id);
-    refresh();
-    if (activePuzzle?.id === id) setActivePuzzle(null);
+  const handleRenameList = (id: string, newName: string) => {
+    if (!newName.trim()) return;
+    renameTapperList(id, newName.trim());
+    refreshLists();
+    if (activeList?.id === id) {
+      setActiveList({ ...activeList, name: newName.trim() });
+    }
+  };
+
+  const handleAddStudentsBulk = (text: string) => {
+    if (!activeList) return;
+    const names = text
+      .split('\n')
+      .map((n) => n.trim())
+      .filter((n) => n);
+    
+    if (names.length === 0) return;
+    
+    const existingNames = new Set(activeList.students.map((s) => s.name.toLowerCase()));
+    const newStudents: TapperStudent[] = names
+      .filter((name) => !existingNames.has(name.toLowerCase()))
+      .map((name) => ({
+        id: generateTapperId('student'),
+        name,
+        answerCount: 0,
+        isPresent: true,
+      }));
+    
+    if (newStudents.length === 0) {
+      alert('Все имена уже есть в списке');
+      return;
+    }
+    
+    const updated: TapperList = {
+      ...activeList,
+      students: [...activeList.students, ...newStudents],
+      updatedAt: Date.now(),
+    };
+    setActiveList(updated);
+    upsertTapperList(updated);
+    refreshLists();
+    triggerHaptic('medium');
+  };
+
+  const handleRemoveStudent = (studentId: string) => {
+    if (!activeList) return;
+    const student = activeList.students.find((s) => s.id === studentId);
+    const proceed = window.confirm(`Удалить ученика «${student?.name}»?`);
+    if (!proceed) return;
+    
+    const updated: TapperList = {
+      ...activeList,
+      students: activeList.students.filter((s) => s.id !== studentId),
+      updatedAt: Date.now(),
+    };
+    setActiveList(updated);
+    upsertTapperList(updated);
+    refreshLists();
+    
+    const newResults = { ...results };
+    delete newResults[studentId];
+    setResults(newResults);
+  };
+
+  const handleTapStudent = (studentId: string) => {
+    const currentCount = results[studentId] || 0;
+    const newCount = currentCount + 1;
+    setResults((prev) => ({ ...prev, [studentId]: newCount }));
     triggerHaptic('light');
   };
 
-  const handleSavePuzzle = () => {
-    if (!activePuzzle) return;
-    upsertTarsiaPuzzle(activePuzzle);
-    refresh();
-    triggerHaptic('light');
-  };
-
-  const handleAddPair = () => {
-    if (!activePuzzle) return;
-    setActivePuzzle({
-      ...activePuzzle,
-      pairs: [
-        ...activePuzzle.pairs,
-        { id: generateTarsiaId('pair'), left: '', right: '' },
-      ],
+  const handleResetStudent = (studentId: string) => {
+    setResults((prev) => {
+      const next = { ...prev };
+      delete next[studentId];
+      return next;
     });
+    triggerHaptic('medium');
   };
 
-  const handleUpdatePair = (pairId: string, field: 'left' | 'right', value: string) => {
-    if (!activePuzzle) return;
-    setActivePuzzle({
-      ...activePuzzle,
-      pairs: activePuzzle.pairs.map((p) =>
-        p.id === pairId ? { ...p, [field]: value } : p,
+  const handleResetAll = () => {
+    const proceed = window.confirm('Сбросить все результаты?');
+    if (!proceed) return;
+    setResults({});
+    clearTapperSession();
+    triggerHaptic('heavy');
+  };
+
+  const handleTogglePresent = (studentId: string) => {
+    if (!activeList) return;
+    const updated: TapperList = {
+      ...activeList,
+      students: activeList.students.map((s) =>
+        s.id === studentId ? { ...s, isPresent: !s.isPresent } : s,
       ),
-    });
-  };
-
-  const handleRemovePair = (pairId: string) => {
-    if (!activePuzzle) return;
-    setActivePuzzle({
-      ...activePuzzle,
-      pairs: activePuzzle.pairs.filter((p) => p.id !== pairId),
-    });
-  };
-
-  const handleShufflePairs = () => {
-    if (!activePuzzle || activePuzzle.pairs.length === 0) return;
-    const shuffled = [...activePuzzle.pairs].sort(() => Math.random() - 0.5);
-    setActivePuzzle({
-      ...activePuzzle,
-      pairs: shuffled.map((p) => ({ ...p, id: generateTarsiaId('pair') })),
-    });
+      updatedAt: Date.now(),
+    };
+    setActiveList(updated);
+    upsertTapperList(updated);
+    refreshLists();
     triggerHaptic('light');
   };
 
-  const validPairsCount = activePuzzle
-    ? validateTarsiaPairs(activePuzzle.pairs).length
-    : 0;
+  const stats = useMemo(() => {
+    if (!activeList) return null;
+    
+    const total = activeList.students.length;
+    const present = activeList.students.filter((s) => s.isPresent).length;
+    const absent = total - present;
+    const answered = activeList.students.filter((s) => (results[s.id] || 0) > 0).length;
+    const notAnswered = present - answered;
+    const totalAnswers = Object.values(results).reduce((a, b) => a + b, 0);
+    
+    return { total, present, absent, answered, notAnswered, totalAnswers };
+  }, [activeList, results]);
 
-  const gridInfo = activePuzzle ? getTarsiaGridById(activePuzzle.shape) : null;
+  const getResultsText = (): string => {
+    if (!activeList || !stats) return '';
+    
+    const lines: string[] = [];
+    lines.push(`📊 Счётчик активности: ${activeList.name}`);
+    lines.push(`Дата: ${new Date().toLocaleDateString('ru-RU')}`);
+    lines.push('');
+    lines.push(`Всего учеников: ${stats.total}`);
+    lines.push(`Присутствовали: ${stats.present}`);
+    lines.push(`Отсутствовали: ${stats.absent}`);
+    lines.push(`Ответили: ${stats.answered}`);
+    lines.push(`Не ответили: ${stats.notAnswered}`);
+    lines.push(`Всего ответов: ${stats.totalAnswers}`);
+    lines.push('');
+    lines.push('=== Ответившие ===');
+    
+    activeList.students
+      .filter((s) => (results[s.id] || 0) > 0)
+      .sort((a, b) => (results[b.id] || 0) - (results[a.id] || 0))
+      .forEach((s) => {
+        lines.push(`${s.name} — ${results[s.id] || 0} отв.`);
+      });
+    
+    lines.push('');
+    lines.push('=== Не ответившие ===');
+    
+    activeList.students
+      .filter((s) => s.isPresent && (results[s.id] || 0) === 0)
+      .forEach((s) => {
+        lines.push(s.name);
+      });
+    
+    if (stats.absent > 0) {
+      lines.push('');
+      lines.push('=== Отсутствовали ===');
+      activeList.students
+        .filter((s) => !s.isPresent)
+        .forEach((s) => {
+          lines.push(s.name);
+        });
+    }
+    
+    return lines.join('\n');
+  };
 
-  // ===== ЭКРАН РЕДАКТОРА =====
-  if (activePuzzle) {
+  // ===== ЭКРАН РЕЗУЛЬТАТОВ =====
+  if (showResults && activeList && stats) {
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
         <header className="bg-purple-700 shadow-md sticky top-0 z-10">
           <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-            <BackButton onClick={() => { handleSavePuzzle(); setActivePuzzle(null); }} variant="light" />
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-bold text-white truncate">
-                {activePuzzle.title}
-              </h1>
-              <p className="text-xs text-purple-200">
-                пар: {validPairsCount} · {SHAPE_OPTIONS.find((s) => s.id === activePuzzle.shape)?.label}
-              </p>
+            <BackButton onClick={() => setShowResults(false)} variant="light" />
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-white">Результаты</h1>
+              <p className="text-xs text-purple-200">{activeList.name}</p>
             </div>
-            <button
-              onClick={handleSavePuzzle}
-              className="bg-white/20 hover:bg-white/30 text-white rounded-xl px-3 py-2 text-sm font-semibold flex items-center gap-1.5"
-            >
-              <Save className="w-4 h-4" /> Сохранить
-            </button>
           </div>
         </header>
 
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
-          {/* Название */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <label className="text-sm font-semibold text-purple-700">Название головоломки</label>
-            <input
-              type="text"
-              value={activePuzzle.title}
-              onChange={(e) => setActivePuzzle({ ...activePuzzle, title: e.target.value })}
-              className="w-full rounded-xl border border-gray-200 p-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
-            />
+        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-white rounded-2xl p-3 text-center shadow-sm">
+              <UserCheck className="w-5 h-5 text-green-600 mx-auto mb-1" />
+              <p className="text-xl font-bold text-gray-800">{stats.answered}</p>
+              <p className="text-xs text-gray-500">ответили</p>
+            </div>
+            <div className="bg-white rounded-2xl p-3 text-center shadow-sm">
+              <UserX className="w-5 h-5 text-orange-600 mx-auto mb-1" />
+              <p className="text-xl font-bold text-gray-800">{stats.notAnswered}</p>
+              <p className="text-xs text-gray-500">не ответили</p>
+            </div>
+            <div className="bg-white rounded-2xl p-3 text-center shadow-sm">
+              <Users className="w-5 h-5 text-purple-600 mx-auto mb-1" />
+              <p className="text-xl font-bold text-gray-800">{stats.totalAnswers}</p>
+              <p className="text-xs text-gray-500">всего ответов</p>
+            </div>
           </div>
 
-          {/* Форма */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <label className="text-sm font-semibold text-purple-700">Форма головоломки</label>
-            <div className="grid grid-cols-2 gap-2">
-              {SHAPE_OPTIONS.map((opt) => {
-                const Icon = opt.Icon;
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => setActivePuzzle({ ...activePuzzle, shape: opt.id })}
-                    className={`py-3 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm transition-colors ${
-                      activePuzzle.shape === opt.id
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-purple-50 text-purple-700'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-            {gridInfo && (
-              <p className="text-xs text-gray-500">
-                {gridInfo.description} — оптимально пар: {gridInfo.questionCount}
-              </p>
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <h3 className="font-bold text-green-700 mb-3">✅ Ответившие ({stats.answered})</h3>
+            {activeList.students
+              .filter((s) => (results[s.id] || 0) > 0)
+              .sort((a, b) => (results[b.id] || 0) - (results[a.id] || 0))
+              .map((s, i) => (
+                <div key={s.id} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
+                  <span className="text-gray-400 text-sm w-6">{i + 1}</span>
+                  <span className="flex-1 text-gray-800 font-medium">{s.name}</span>
+                  <span className="text-green-600 font-bold">{results[s.id] || 0} отв.</span>
+                </div>
+              ))}
+            {stats.answered === 0 && (
+              <p className="text-gray-400 text-sm text-center py-2">Никто не ответил</p>
             )}
           </div>
 
-          {/* Заголовки */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <label className="text-sm font-semibold text-purple-700">Заголовки для печати</label>
-            <div>
-              <label className="text-xs text-gray-500">Задание</label>
-              <input
-                type="text"
-                value={activePuzzle.puzzleTitle}
-                onChange={(e) => setActivePuzzle({ ...activePuzzle, puzzleTitle: e.target.value })}
-                className="w-full rounded-xl border border-gray-200 p-2.5 text-sm mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Решение</label>
-              <input
-                type="text"
-                value={activePuzzle.solutionTitle}
-                onChange={(e) => setActivePuzzle({ ...activePuzzle, solutionTitle: e.target.value })}
-                className="w-full rounded-xl border border-gray-200 p-2.5 text-sm mt-1"
-              />
-            </div>
-            <label className="flex items-center justify-between gap-2">
-              <span className="text-sm text-gray-700">Показывать решение в PDF</span>
-              <button
-                onClick={() => setActivePuzzle({ ...activePuzzle, showSolution: !activePuzzle.showSolution })}
-                className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${activePuzzle.showSolution ? 'bg-purple-600' : 'bg-gray-300'}`}
-              >
-                <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform ${activePuzzle.showSolution ? 'translate-x-5' : ''}`} />
-              </button>
-            </label>
-          </div>
-
-          {/* Размер карточек */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <label className="text-sm font-semibold text-purple-700">Размер карточек</label>
-            <div className="grid grid-cols-3 gap-2">
-              {CARD_SIZES.map((size) => (
-                <button
-                  key={size.id}
-                  onClick={() => setActivePuzzle({ ...activePuzzle, cardSize: size.id })}
-                  className={`py-2.5 rounded-xl font-semibold text-sm transition-colors ${
-                    activePuzzle.cardSize === size.id
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-purple-50 text-purple-700'
-                  }`}
-                >
-                  {size.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Пары */}
           <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-semibold text-purple-700">
-                Пары «Вопрос — Ответ» ({validPairsCount})
-              </label>
-              <button
-                onClick={handleShufflePairs}
-                className="p-2 text-gray-400 hover:text-purple-600 transition-colors"
-                aria-label="Перемешать пары"
-                title="Перемешать пары"
-              >
-                ↻
-              </button>
-            </div>
-
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {activePuzzle.pairs.map((pair, index) => (
-                <div key={pair.id} className="flex gap-2 items-start">
-                  <span className="text-xs font-bold text-purple-400 pt-3 w-6 shrink-0">
-                    {index + 1}
-                  </span>
-                  <input
-                    type="text"
-                    value={pair.left}
-                    onChange={(e) => handleUpdatePair(pair.id, 'left', e.target.value)}
-                    placeholder="Вопрос"
-                    className="flex-1 rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  />
-                  <span className="text-gray-400 pt-3">→</span>
-                  <input
-                    type="text"
-                    value={pair.right}
-                    onChange={(e) => handleUpdatePair(pair.id, 'right', e.target.value)}
-                    placeholder="Ответ"
-                    className="flex-1 rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  />
-                  <button
-                    onClick={() => handleRemovePair(pair.id)}
-                    className="p-2 text-gray-300 hover:text-red-500 transition-colors mt-1"
-                    aria-label="Удалить пару"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+            <h3 className="font-bold text-orange-700 mb-3">❌ Не ответившие ({stats.notAnswered})</h3>
+            {activeList.students
+              .filter((s) => s.isPresent && (results[s.id] || 0) === 0)
+              .map((s, i) => (
+                <div key={s.id} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
+                  <span className="text-gray-400 text-sm w-6">{i + 1}</span>
+                  <span className="flex-1 text-gray-800 font-medium">{s.name}</span>
                 </div>
               ))}
-            </div>
-
-            <button
-              onClick={handleAddPair}
-              className="w-full mt-3 py-2.5 rounded-xl border-2 border-dashed border-purple-300 text-purple-600 font-semibold text-sm flex items-center justify-center gap-1.5 hover:bg-purple-50 transition-colors"
-            >
-              <Plus className="w-4 h-4" /> Добавить пару
-            </button>
+            {stats.notAnswered === 0 && (
+              <p className="text-gray-400 text-sm text-center py-2">Все ответили!</p>
+            )}
           </div>
 
-          {/* Экспорт */}
-          <div className="grid grid-cols-2 gap-2">
+          {stats.absent > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <h3 className="font-bold text-gray-500 mb-3">🏠 Отсутствовали ({stats.absent})</h3>
+              {activeList.students
+                .filter((s) => !s.isPresent)
+                .map((s, i) => (
+                  <div key={s.id} className="flex items-center gap-2 py-1.5 border-b border-gray-100 last:border-0">
+                    <span className="text-gray-400 text-sm w-6">{i + 1}</span>
+                    <span className="flex-1 text-gray-400 font-medium line-through">{s.name}</span>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
             <button
-              onClick={() => exportTarsiaToPDF(activePuzzle)}
-              disabled={validPairsCount === 0}
-              className="bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+              onClick={() => downloadTextFile(
+                sanitizeFileName(`результаты_активность_${activeList.name}.txt`),
+                getResultsText(),
+              )}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
             >
-              <FileText className="w-5 h-5" /> Скачать PDF
+              <Download className="w-5 h-5" /> Экспорт .txt
             </button>
             <button
-              onClick={() => handleExportJSON(activePuzzle)}
-              disabled={validPairsCount === 0}
-              className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+              onClick={handleResetAll}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl px-4 py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+              aria-label="Сбросить все"
+              title="Сбросить все результаты"
             >
-              <Download className="w-5 h-5" /> Экспорт JSON
+              <RotateCcw className="w-5 h-5" />
             </button>
           </div>
         </main>
@@ -491,185 +516,321 @@ export default function TarsiaScreen({ onBack }: TarsiaScreenProps) {
     );
   }
 
-  // ===== ЭКРАН СПИСКА =====
+  // ===== ЭКРАН СПИСКОВ =====
+  if (!activeList) {
+    return (
+      <div className="min-h-[100dvh] notebook-bg flex flex-col">
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
+          <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+            <BackButton onClick={onBack} variant="light" />
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-white">Счётчик активности</h1>
+              <p className="text-xs text-purple-200">Отслеживание опросов</p>
+            </div>
+            <Users className="w-6 h-6 text-white/70" />
+          </div>
+        </header>
+
+        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4">
+          {/* Кнопки */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={handleCreateList}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            >
+              <Plus className="w-5 h-5" /> Создать список
+            </button>
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            >
+              <Upload className="w-5 h-5" /> Импорт
+            </button>
+          </div>
+
+          {/* Демо-список */}
+          <button
+            onClick={handleLoadDemoList}
+            className="w-full bg-gradient-to-r from-violet-100 to-purple-100 border-2 border-purple-300 text-purple-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <Sparkles className="w-5 h-5" /> Загрузить демо-список
+          </button>
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".json,application/json,.txt,text/plain"
+            className="hidden"
+            onChange={handleImportList}
+          />
+          {importMsg === 'ok' && (
+            <p className="text-sm font-semibold text-green-600 flex items-center gap-1.5" role="alert">
+              <Check className="w-4 h-4" /> Список импортирован
+            </p>
+          )}
+          {importMsg === 'error' && (
+            <p className="text-sm font-semibold text-red-600 flex items-center gap-1.5" role="alert">
+              <AlertTriangle className="w-4 h-4" /> Не удалось прочитать файл
+            </p>
+          )}
+
+          {/* Мои списки */}
+          {lists.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-400 text-sm">Пока нет списков. Создайте первый или загрузите демо!</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <h3 className="font-semibold text-purple-700 text-sm">Мои списки ({lists.length})</h3>
+              {lists.map((list) => (
+                <div key={list.id} className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-white">
+                  <button
+                    onClick={() => {
+                      setActiveList(list);
+                      setResults(loadTapperSession());
+                    }}
+                    className="flex-1 min-w-0 text-left"
+                  >
+                    <h4 className="font-semibold text-gray-800 text-sm truncate">{list.name}</h4>
+                    <p className="text-xs text-gray-500">
+                      учеников: {list.students.length} ·{' '}
+                      {new Date(list.updatedAt).toLocaleDateString('ru-RU')}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => handleExportList(list)}
+                    className="p-2 text-gray-300 hover:text-green-600 transition-colors"
+                    aria-label="Экспорт списка"
+                    title="Экспорт .json"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newName = window.prompt('Новое название:', list.name);
+                      if (newName && newName.trim()) handleRenameList(list.id, newName);
+                    }}
+                    className="p-2 text-gray-300 hover:text-purple-600 transition-colors"
+                    aria-label="Переименовать"
+                    title="Переименовать"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteList(list.id)}
+                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                    aria-label="Удалить"
+                    title="Удалить"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Инструкции */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowHow(!showHow)}
+              className="w-full px-5 py-4 flex items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-purple-600" />
+                <h3 className="font-bold text-purple-700">Как пользоваться</h3>
+                <span className="text-xs font-bold text-purple-400">{HOW_ITEMS.length}</span>
+              </div>
+              {showHow ? (
+                <ChevronUp className="w-5 h-5 text-purple-600" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-purple-600" />
+              )}
+            </button>
+            {showHow && (
+              <div className="px-5 pb-5 space-y-2">
+                {HOW_ITEMS.map((item, idx) => (
+                  <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setOpenHow(openHow === idx ? null : idx)}
+                      className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                    >
+                      <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                      {openHow === idx ? (
+                        <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                      )}
+                    </button>
+                    {openHow === idx && (
+                      <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100 whitespace-pre-line">
+                        {item.a}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Вопросы и сценарии */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowFaq(!showFaq)}
+              className="w-full px-5 py-4 flex items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-purple-600" />
+                <h3 className="font-bold text-purple-700">Вопросы и сценарии</h3>
+                <span className="text-xs font-bold text-purple-400">{FAQ_ITEMS.length}</span>
+              </div>
+              {showFaq ? (
+                <ChevronUp className="w-5 h-5 text-purple-600" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-purple-600" />
+              )}
+            </button>
+            {showFaq && (
+              <div className="px-5 pb-5 space-y-2">
+                {FAQ_ITEMS.map((item, idx) => (
+                  <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                      className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50 transition-colors"
+                    >
+                      <span className="font-semibold text-sm text-gray-800">{item.q}</span>
+                      {openFaq === idx ? (
+                        <ChevronUp className="w-4 h-4 text-purple-600 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-purple-600 shrink-0" />
+                      )}
+                    </button>
+                    {openFaq === idx && (
+                      <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100 whitespace-pre-line">
+                        {item.a}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ===== ОСНОВНОЙ ЭКРАН =====
   return (
-    <div className="min-h-[100dvh] notebook-bg flex flex-col">
+    <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          <BackButton onClick={onBack} variant="light" />
+          <BackButton onClick={() => {
+            setActiveList(null);
+            setShowResults(false);
+          }} variant="light" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-white truncate">Тарсия пазлы</h1>
-            <p className="text-xs text-purple-200">Геометрические головоломки</p>
+            <h1 className="text-lg font-bold text-white truncate">{activeList.name}</h1>
+            <p className="text-xs text-purple-200">
+              {activeList.students.length} учеников
+              {stats && ` · ответили: ${stats.answered}/${stats.present}`}
+            </p>
           </div>
-          <Triangle className="w-6 h-6 text-white/70" />
+          <button
+            onClick={() => setShowResults(true)}
+            className="bg-white/20 hover:bg-white/30 text-white rounded-xl px-3 py-2 text-sm font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            <List className="w-4 h-4" /> Итоги
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
-        {/* Кнопки */}
-        <div className="grid grid-cols-2 gap-2">
+      <main className="flex-1 max-w-md mx-auto w-full px-4 py-4 pb-8">
+        <div className="bg-white rounded-2xl p-3 shadow-sm mb-4">
+          <textarea
+            placeholder={'Добавьте учеников (по одному на строку):\nИван\nАня\nПетр'}
+            className="w-full min-h-[60px] rounded-xl border border-gray-200 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y"
+            id="tapper-add-students"
+          />
           <button
-            onClick={handleCreate}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            onClick={() => {
+              const textarea = document.getElementById('tapper-add-students') as HTMLTextAreaElement;
+              if (textarea) {
+                handleAddStudentsBulk(textarea.value);
+                textarea.value = '';
+              }
+            }}
+            className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 font-semibold rounded-xl py-2 text-sm flex items-center justify-center gap-1.5 transition-colors mt-2"
           >
-            <Plus className="w-5 h-5" /> Создать
-          </button>
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-          >
-            <Upload className="w-5 h-5" /> Импорт
+            <Plus className="w-4 h-4" /> Добавить учеников
           </button>
         </div>
 
-        <button
-          onClick={handleLoadDemo}
-          className="w-full bg-gradient-to-r from-amber-100 to-orange-100 border-2 border-orange-300 text-orange-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-        >
-          <Sparkles className="w-5 h-5" /> Загрузить демо: «Окружающий мир»
-        </button>
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json,application/json,.txt,text/plain"
-          className="hidden"
-          onChange={handleImportFile}
-        />
-
-        {importMsg === 'ok' && (
-          <p className="text-sm font-semibold text-green-600 flex items-center gap-1.5">
-            <Check className="w-4 h-4" /> Головоломка импортирована
-          </p>
-        )}
-        {importMsg === 'error' && (
-          <p className="text-sm font-semibold text-red-600 flex items-center gap-1.5">
-            <AlertTriangle className="w-4 h-4" /> Не удалось прочитать файл
-          </p>
-        )}
-
-        {/* Мои пазлы */}
-        {puzzles.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-400 text-sm">
-              Пока нет головоломок. Создайте свою или загрузите демо!
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <h3 className="font-semibold text-purple-700 text-sm">Мои пазлы ({puzzles.length})</h3>
-            {puzzles.map((puzzle) => (
-              <div key={puzzle.id} className="border-2 border-purple-100 rounded-xl p-3 flex items-center gap-2 bg-white">
-                <button
-                  onClick={() => setActivePuzzle(puzzle)}
-                  className="flex-1 min-w-0 text-left"
-                >
-                  <h4 className="font-semibold text-gray-800 text-sm truncate">{puzzle.title}</h4>
-                  <p className="text-xs text-gray-500">
-                    {SHAPE_OPTIONS.find((s) => s.id === puzzle.shape)?.label} · пар: {validateTarsiaPairs(puzzle.pairs).length} ·{' '}
-                    {new Date(puzzle.updatedAt).toLocaleDateString('ru-RU')}
-                  </p>
-                </button>
-                <button
-                  onClick={() => handleExportJSON(puzzle)}
-                  className="p-2 text-gray-300 hover:text-green-600 transition-colors"
-                  aria-label="Экспорт JSON"
-                  title="Экспорт JSON"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    const newName = window.prompt('Новое название:', puzzle.title);
-                    if (newName && newName.trim()) handleRenamePuzzle(puzzle.id, newName);
-                  }}
-                  className="p-2 text-gray-300 hover:text-purple-600 transition-colors"
-                  aria-label="Переименовать"
-                  title="Переименовать"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDeletePuzzle(puzzle.id)}
-                  className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                  aria-label="Удалить"
-                  title="Удалить"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+        <div className="grid grid-cols-3 gap-2">
+          {activeList.students.map((student) => {
+            const count = results[student.id] || 0;
+            const hasAnswered = count > 0;
+            
+            return (
+              <div
+                key={student.id}
+                className={`relative rounded-xl p-2 min-h-16 flex flex-col items-center justify-center text-center transition-all cursor-pointer select-none ${
+                  !student.isPresent
+                    ? 'bg-gray-200 opacity-60'
+                    : hasAnswered
+                      ? 'bg-green-100 border-2 border-green-400'
+                      : 'bg-white border-2 border-purple-200'
+                }`}
+                onClick={() => {
+                  if (!student.isPresent) return;
+                  handleTapStudent(student.id);
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  handleResetStudent(student.id);
+                }}
+                title={`${student.name}: ${count} ответ(ов). ПКМ — сбросить`}
+              >
+                <span className={`text-xs font-semibold truncate w-full ${!student.isPresent ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                  {student.name}
+                </span>
+                {hasAnswered && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-green-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow">
+                    {count}
+                  </span>
+                )}
+                {!student.isPresent && (
+                  <span className="text-[10px] text-gray-400 mt-0.5">отсутствует</span>
+                )}
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Инструкции */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <button
-            onClick={() => setShowHow(!showHow)}
-            className="w-full px-5 py-4 flex items-center justify-between gap-2"
-          >
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-purple-600" />
-              <h3 className="font-bold text-purple-700">Как пользоваться</h3>
-              <span className="text-xs font-bold text-purple-400">{HOW_ITEMS.length}</span>
-            </div>
-            {showHow ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
-          </button>
-          {showHow && (
-            <div className="px-5 pb-5 space-y-2">
-              {HOW_ITEMS.map((item, idx) => (
-                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => setOpenHow(openHow === idx ? null : idx)}
-                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50"
-                  >
-                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
-                    {openHow === idx ? <ChevronUp className="w-4 h-4 text-purple-600" /> : <ChevronDown className="w-4 h-4 text-purple-600" />}
-                  </button>
-                  {openHow === idx && (
-                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 whitespace-pre-line">
-                      {item.a}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+            );
+          })}
         </div>
 
-        {/* Вопросы и сценарии */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        {activeList.students.length === 0 && (
+          <p className="text-center text-gray-400 text-sm py-8">
+            Добавьте учеников в список
+          </p>
+        )}
+
+        <p className="text-xs text-gray-400 text-center mt-4">
+          Нажмите на ученика — добавить ответ. ПКМ (долгое нажатие) — сбросить.
+        </p>
+
+        <div className="flex gap-2 mt-4">
           <button
-            onClick={() => setShowFaq(!showFaq)}
-            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+            onClick={() => setShowResults(true)}
+            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
           >
-            <div className="flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-purple-600" />
-              <h3 className="font-bold text-purple-700">Вопросы и сценарии</h3>
-              <span className="text-xs font-bold text-purple-400">{FAQ_ITEMS.length}</span>
-            </div>
-            {showFaq ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
+            <List className="w-5 h-5" /> Сводка
           </button>
-          {showFaq && (
-            <div className="px-5 pb-5 space-y-2">
-              {FAQ_ITEMS.map((item, idx) => (
-                <div key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                    className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left hover:bg-purple-50"
-                  >
-                    <span className="font-semibold text-sm text-gray-800">{item.q}</span>
-                    {openFaq === idx ? <ChevronUp className="w-4 h-4 text-purple-600" /> : <ChevronDown className="w-4 h-4 text-purple-600" />}
-                  </button>
-                  {openFaq === idx && (
-                    <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 whitespace-pre-line">
-                      {item.a}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <button
+            onClick={handleResetAll}
+            className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl px-4 py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+            aria-label="Сбросить все"
+            title="Сбросить все результаты"
+          >
+            <RotateCcw className="w-5 h-5" />
+          </button>
         </div>
       </main>
     </div>
