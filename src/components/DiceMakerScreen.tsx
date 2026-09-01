@@ -9,6 +9,9 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  RotateCcw,
+  Maximize2,
+  X,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import BackButton from './BackButton';
@@ -31,7 +34,7 @@ const SETTINGS_KEY = 'dice-maker-settings';
 const CATEGORIES: { id: string; label: string; items: string[] }[] = [
   { id: 'animals', label: 'Животные', items: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆'] },
   { id: 'food', label: 'Еда', items: ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍒', '🍑', '🍍', '🥝', '🥑', '🥕', '🌽', '🥦', '🥔', '🍕', '🍩', '🍰'] },
-  { id: 'clothes', label: 'Одежда', items: ['👕', '👖', '👗', '👔', '👒', '👑', '🎩', '🧤', '🧣', '👠', '👢', '👟', '🥾', '👡', '👜', '🎒', '👓', '🕶', '👡', '💍'] },
+  { id: 'clothes', label: 'Одежда', items: ['👕', '👖', '👗', '👔', '👒', '👑', '🎩', '🧤', '🧣', '👠', '👢', '👟', '🥾', '👡', '👜', '🎒', '👓', '🕶', '🧦', '💍'] },
   { id: 'transport', label: 'Транспорт', items: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎', '🚓', '🚑', '🚒', '🚐', '🚚', '🚛', '🚜', '🛵', '🏍', '🚲', '🛴', '🛶', '🛸', '🚤'] },
   { id: 'weather', label: 'Погода', items: ['☀', '🌤', '⛅', '🌥', '☁', '🌦', '🌧', '⛈', '🌩', '🌨', '❄', '💨', '🌫', '🌪', '🌈', '🌙', '⭐', '⚡', '💧', '🔥'] },
   { id: 'jobs', label: 'Люди и роли', items: ['👮', '👷', '💂', '🕵', '👩‍⚕', '👨‍🚒', '👩‍🏫', '👨‍🍳', '🤴', '👸', '🧙', '🧜', '🧝', '🧞', '🧟', '👶', '🧒', '👦', '👧', '🧑'] },
@@ -71,30 +74,12 @@ const PIPS: Record<number, [number, number][]> = {
 };
 
 const FAQ_ITEMS = [
-  {
-    q: 'Как собрать кубик после печати?',
-    a: '1. Вырежьте шаблон по внешнему контуру.\n2. Согните по пунктирным линиям (линейка + тупой предмет для чётких сгибов).\n3. Нанесите клей на серые клапаны и приклейте их внутри граней.\n4. Дайте высохнуть 10–15 минут.',
-  },
-  {
-    q: 'На какой бумаге печатать?',
-    a: 'Оптимально: плотная 160–200 г/м². На офисной 80 г/м² кубик хлипкий. Для долговечности заламинируйте лист перед вырезанием.',
-  },
-  {
-    q: 'Текст не помещается на грани — что делать?',
-    a: 'Уменьшите размер шрифта (12–16 для длинных фраз) или сократите текст: «Когда произошло событие?» → «Когда?». Verdana и Comic Sans читаются лучше при мелких размерах.',
-  },
-  {
-    q: 'Что такое «Точки на фоне»?',
-    a: 'Классический точечный рисунок игральных костей (1–6). Включайте, если кубик нужен в настольной игре со значениями очков. Точки рисуются полупрозрачно за текстом.',
-  },
-  {
-    q: 'Как печатать на Letter (США)?',
-    a: 'В настройках печати выберите масштаб 90% и минимальные поля, либо «Подогнать по размеру страницы».',
-  },
-  {
-    q: 'Можно ли несколько кубиков на одном листе?',
-    a: 'По умолчанию — один кубик на A4. Уменьшите масштаб печати до 70% — поместятся два кубика рядом.',
-  },
+  { q: 'Как собрать кубик после печати?', a: '1. Вырежьте шаблон по внешнему контуру.\n2. Согните по пунктирным линиям (линейка + тупой предмет для чётких сгибов).\n3. Нанесите клей на серые клапаны и приклейте их внутри граней.\n4. Дайте высохнуть 10–15 минут.' },
+  { q: 'На какой бумаге печатать?', a: 'Оптимально: плотная 160–200 г/м². На офисной 80 г/м² кубик хлипкий. Для долговечности заламинируйте лист перед вырезанием.' },
+  { q: 'Текст не помещается на грани — что делать?', a: 'Уменьшите размер шрифта (12–16 для длинных фраз) или сократите текст: «Когда произошло событие?» → «Когда?». Verdana и Comic Sans читаются лучше при мелких размерах.' },
+  { q: 'Что такое «Точки на фоне»?', a: 'Классический точечный рисунок игральных костей (1–6). Включайте, если кубик нужен в настольной игре со значениями очков. Точки рисуются полупрозрачно за текстом.' },
+  { q: 'Как печатать на Letter (США)?', a: 'В настройках печати выберите масштаб 90% и минимальные поля, либо «Подогнать по размеру страницы».' },
+  { q: 'Можно ли несколько кубиков на одном листе?', a: 'По умолчанию — один кубик на A4. Уменьшите масштаб печати до 70% — поместятся два кубика рядом.' },
 ];
 
 const SCENARIO_ITEMS = [
@@ -289,6 +274,7 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
   const [openFaqItem, setOpenFaqItem] = useState<number | null>(null);
   const [showFaq, setShowFaq] = useState(false);
   const [showScen, setShowScen] = useState(false);
+  const [showPreviewFull, setShowPreviewFull] = useState(false);
   const sheetRef = useRef<SVGSVGElement>(null);
 
   const update = (patch: Partial<DiceSettings>) => {
@@ -308,6 +294,12 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
   const changeCategory = (id: string) => {
     const cat = CATEGORIES.find((c) => c.id === id) || CATEGORIES[0];
     update({ category: id, iconFaces: cat.items.slice(0, 6) });
+  };
+
+  const resetIconFaces = () => {
+    const cat = CATEGORIES.find((c) => c.id === settings.category) || CATEGORIES[0];
+    update({ iconFaces: cat.items.slice(0, 6) });
+    triggerHaptic('light');
   };
 
   const toggleIcon = (icon: string) => {
@@ -378,39 +370,50 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-          <label className="text-sm font-semibold text-purple-700">Режим</label>
-          <div className="grid grid-cols-2 gap-2">
+        {/* ===== КОМПАКТНЫЙ ВЫБОР РЕЖИМА (сегменты в одну строку) ===== */}
+        <div className="bg-white rounded-2xl p-3 shadow-sm">
+          <div className="inline-flex w-full bg-gray-100 rounded-xl p-1">
             <button
               onClick={() => update({ mode: 'text' })}
-              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm transition-colors ${
-                settings.mode === 'text' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
+              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 font-semibold text-sm transition-colors ${
+                settings.mode === 'text' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600'
               }`}
             >
-              <Type className="w-5 h-5" /> Текст
+              <Type className="w-4 h-4" /> Текст
             </button>
             <button
               onClick={() => update({ mode: 'images' })}
-              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm transition-colors ${
-                settings.mode === 'images' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
+              className={`flex-1 py-2 rounded-lg flex items-center justify-center gap-1.5 font-semibold text-sm transition-colors ${
+                settings.mode === 'images' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600'
               }`}
             >
-              <Sparkles className="w-5 h-5" /> Иконки
+              <Sparkles className="w-4 h-4" /> Иконки
             </button>
           </div>
-          <p className="text-xs text-gray-500">
-            {withText && 'Кубик с вашим текстом на 6 гранях: вопросы, термины, цифры.'}
-            {withImages && 'Выберите категорию и отметьте тапом до 6 иконок для граней.'}
+          <p className="text-[11px] text-gray-500 text-center mt-2">
+            {withText && 'Свой текст на 6 гранях: вопросы, термины, цифры.'}
+            {withImages && 'Выберите категорию и отметьте тапом до 6 иконок.'}
           </p>
         </div>
 
+        {/* Категория иконок с кнопкой сброса */}
         {withImages && (
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <label className="text-sm font-semibold text-purple-700">Категория иконок</label>
-              <span className="text-xs font-bold text-purple-600 bg-purple-50 rounded-lg px-2 py-1">
-                на гранях: {settings.iconFaces.length} / 6
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-purple-600 bg-purple-50 rounded-lg px-2 py-1">
+                  {settings.iconFaces.length} / 6
+                </span>
+                <button
+                  onClick={resetIconFaces}
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-purple-600 hover:bg-purple-50 transition-colors"
+                  aria-label="Сбросить выбор иконок"
+                  title="Сбросить (первые 6 из категории)"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <select
               value={settings.category}
@@ -451,11 +454,12 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
               })}
             </div>
             <p className="text-[10px] text-gray-400 text-center">
-              ← прокрутите ленту · тап — выбрать иконку на грань (номер в кружке), повторный тап — убрать →
+              ← прокрутите ленту · тап — выбрать, повторный — убрать · ↺ сброс →
             </p>
           </div>
         )}
 
+        {/* Настройки текста */}
         {withText && (
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
             <label className="text-sm font-semibold text-purple-700">Текст на гранях</label>
@@ -511,12 +515,63 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-          <label className="text-sm font-semibold text-purple-700">Предпросмотр листа (A4)</label>
-          <div className="border-2 border-gray-200 rounded-xl overflow-hidden">
+        {/* ===== КОМПАКТНЫЙ ПРЕДПРОСМОТР (с кнопкой развернуть) ===== */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-semibold text-purple-700">Предпросмотр (A4)</label>
+            <button
+              onClick={() => setShowPreviewFull(true)}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-purple-600 hover:bg-purple-50 transition-colors"
+              aria-label="Развернуть предпросмотр"
+              title="На весь экран"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="relative border-2 border-gray-200 rounded-xl overflow-hidden max-h-56">
             <Sheet settings={settings} sheetRef={sheetRef} />
+            <button
+              onClick={() => setShowPreviewFull(true)}
+              className="absolute inset-0 w-full h-full bg-black/0 hover:bg-black/5 transition-colors"
+              aria-label="Открыть полный предпросмотр"
+            />
           </div>
         </div>
+
+        {/* Модальное окно полного предпросмотра */}
+        {showPreviewFull && (
+          <div
+            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2"
+            onClick={() => setShowPreviewFull(false)}
+          >
+            <div
+              className="relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-3 border-b border-gray-200">
+                <h3 className="font-semibold text-purple-700">Предпросмотр листа (A4)</h3>
+                <button
+                  onClick={() => setShowPreviewFull(false)}
+                  className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                  aria-label="Закрыть"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto p-2 bg-gray-50">
+                <svg
+                  width={794}
+                  height={1123}
+                  viewBox="0 0 794 1123"
+                  style={{ width: '100%', height: 'auto', display: 'block', background: '#ffffff' }}
+                  dangerouslySetInnerHTML={{
+                    __html: sheetRef.current?.innerHTML || '',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         <button
           onClick={handleExportPDF}
@@ -525,6 +580,7 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           <Download className="w-5 h-5" /> Скачать PDF
         </button>
 
+        {/* FAQ — аккордеон */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowFaq(!showFaq)}
@@ -563,6 +619,7 @@ export default function DiceMakerScreen({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
+        {/* Сценарии — аккордеон */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowScen(!showScen)}
