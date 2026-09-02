@@ -23,6 +23,7 @@ import PomodoroScreen from '@/components/PomodoroScreen';
 import DiceMakerScreen from '@/components/DiceMakerScreen';
 import EquipmentScreen from '@/components/EquipmentScreen';
 import TeleprompterScreen from '@/components/TeleprompterScreen';
+import WordCloudScreen from '@/components/WordCloudScreen';
 
 type Route = 
   | 'home' 
@@ -41,7 +42,8 @@ type Route =
   | 'pomodoro'
   | 'dice'
   | 'equipment'
-  | 'teleprompter';
+  | 'teleprompter'
+  | 'wordcloud';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -141,6 +143,7 @@ export default function App() {
     dice: <DiceMakerScreen onBack={navigateHome} />,
     equipment: <EquipmentScreen onBack={navigateHome} />,
     teleprompter: <TeleprompterScreen onBack={navigateHome} />,
+    wordcloud: <WordCloudScreen onBack={navigateHome} />,
     timer: null,
   };
 
