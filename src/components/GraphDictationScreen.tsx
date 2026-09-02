@@ -8,11 +8,18 @@ import {
   EyeOff,
   Plus,
   Trash2,
-  Download,
   BookOpen,
   HelpCircle,
   ChevronDown,
   ChevronUp,
+  Edit3,
+  Printer,
+  X,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Save,
 } from 'lucide-react';
 import BackButton from './BackButton';
 
@@ -132,6 +139,13 @@ const DIRECTION_LABELS: Record<Direction, string> = {
   right: '→ вправо',
 };
 
+const DIRECTION_ICONS: Record<Direction, React.ReactNode> = {
+  up: <ArrowUp className="w-4 h-4" />,
+  down: <ArrowDown className="w-4 h-4" />,
+  left: <ArrowLeft className="w-4 h-4" />,
+  right: <ArrowRight className="w-4 h-4" />,
+};
+
 const DIFFICULTY_LABELS: Record<string, string> = {
   easy: 'Легко',
   medium: 'Средне',
@@ -163,6 +177,14 @@ const FAQ_ITEMS = [
     q: 'Как проверить результат?',
     a: 'Нажмите кнопку "Показать ответ" — появится готовый рисунок. Сравните с тем, что нарисовал ребёнок. Если есть ошибки — найдите шаг, где линия пошла не туда.',
   },
+  {
+    q: 'Как создать свой диктант?',
+    a: 'Нажмите кнопку "Создать" в режиме редактора. Задайте название, начальную точку и добавляйте шаги, выбирая направление и количество клеток. Предпросмотр обновляется в реальном времени.',
+  },
+  {
+    q: 'Как распечатать несколько диктантов?',
+    a: 'Нажмите кнопку "Печать", отметьте галочками нужные диктанты, настройте параметры (имя ученика, класс, дата) и нажмите "Печать". Все выбранные диктанты будут на отдельных страницах.',
+  },
 ];
 
 function formatStep(step: Step): string {
@@ -186,8 +208,22 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   const [openFaqItem, setOpenFaqItem] = useState<number | null>(null);
   const [autoPlaySpeed, setAutoPlaySpeed] = useState(2000);
 
+  // Режим редактора
+  const [editorMode, setEditorMode] = useState(false);
+  const [editingDictation, setEditingDictation] = useState<Dictation | null>(null);
+  const [newStepDirection, setNewStepDirection] = useState<Direction>('right');
+  const [newStepCells, setNewStepCells] = useState(1);
+
+  // Пакетная печать
+  const [showBatchPrint, setShowBatchPrint] = useState(false);
+  const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
+  const [printStudentName, setPrintStudentName] = useState('');
+  const [printClass, setPrintClass] = useState('');
+  const [printDate, setPrintDate] = useState('');
+
   const selectedDictation = dictations.find((d) => d.id === selectedId) || dictations[0];
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const editorCanvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -209,7 +245,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
 
     ctx.clearRect(0, 0, width, height);
 
-    // Рисуем сетку
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
     for (let x = 0; x <= GRID_WIDTH; x++) {
@@ -225,7 +260,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
       ctx.stroke();
     }
 
-    // Начальная точка
     const startX = selectedDictation.startOffset.x * CELL_SIZE;
     const startY = selectedDictation.startOffset.y * CELL_SIZE;
     ctx.fillStyle = '#ef4444';
@@ -233,7 +267,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     ctx.arc(startX, startY, 4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Рисуем линии по шагам
     ctx.strokeStyle = showAnswer ? '#10b981' : '#3b82f6';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
@@ -273,7 +306,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
       currentY = newY;
     }
 
-    // Конечная точка (если все шаги выполнены)
     if (currentStep === selectedDictation.steps.length || showAnswer) {
       ctx.fillStyle = '#10b981';
       ctx.beginPath();
@@ -281,6 +313,84 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
       ctx.fill();
     }
   }, [selectedDictation, currentStep, showAnswer]);
+
+  useEffect(() => {
+    if (!editorMode || !editingDictation) return;
+    const canvas = editorCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = GRID_WIDTH * CELL_SIZE;
+    const height = GRID_HEIGHT * CELL_SIZE;
+    canvas.width = width;
+    canvas.height = height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= GRID_WIDTH; x++) {
+      ctx.beginPath();
+      ctx.moveTo(x * CELL_SIZE, 0);
+      ctx.lineTo(x * CELL_SIZE, height);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= GRID_HEIGHT; y++) {
+      ctx.beginPath();
+      ctx.moveTo(0, y * CELL_SIZE);
+      ctx.lineTo(width, y * CELL_SIZE);
+      ctx.stroke();
+    }
+
+    const startX = editingDictation.startOffset.x * CELL_SIZE;
+    const startY = editingDictation.startOffset.y * CELL_SIZE;
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(startX, startY, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    let currentX = startX;
+    let currentY = startY;
+
+    for (const step of editingDictation.steps) {
+      let newX = currentX;
+      let newY = currentY;
+
+      switch (step.direction) {
+        case 'up':
+          newY -= step.cells * CELL_SIZE;
+          break;
+        case 'down':
+          newY += step.cells * CELL_SIZE;
+          break;
+        case 'left':
+          newX -= step.cells * CELL_SIZE;
+          break;
+        case 'right':
+          newX += step.cells * CELL_SIZE;
+          break;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(currentX, currentY);
+      ctx.lineTo(newX, newY);
+      ctx.stroke();
+
+      currentX = newX;
+      currentY = newY;
+    }
+
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.arc(currentX, currentY, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }, [editorMode, editingDictation]);
 
   useEffect(() => {
     if (isPlaying && currentStep < selectedDictation.steps.length) {
@@ -334,49 +444,363 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     }
   };
 
-  const handleExportPDF = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const handleStartEditor = (dictation?: Dictation) => {
+    if (dictation) {
+      setEditingDictation({ ...dictation });
+    } else {
+      setEditingDictation({
+        id: `custom-${Date.now()}`,
+        name: 'Новый диктант',
+        difficulty: 'easy',
+        startOffset: { x: 10, y: 10 },
+        steps: [],
+      });
+    }
+    setEditorMode(true);
+    setNewStepDirection('right');
+    setNewStepCells(1);
+  };
+
+  const handleAddStep = () => {
+    if (!editingDictation) return;
+    setEditingDictation({
+      ...editingDictation,
+      steps: [...editingDictation.steps, { direction: newStepDirection, cells: newStepCells }],
+    });
+  };
+
+  const handleRemoveStep = (index: number) => {
+    if (!editingDictation) return;
+    setEditingDictation({
+      ...editingDictation,
+      steps: editingDictation.steps.filter((_, i) => i !== index),
+    });
+  };
+
+  const handleSaveDictation = () => {
+    if (!editingDictation || !editingDictation.name.trim()) {
+      alert('Введите название диктанта');
+      return;
+    }
+
+    setDictations((prev) => {
+      const existing = prev.find((d) => d.id === editingDictation.id);
+      if (existing) {
+        return prev.map((d) => (d.id === editingDictation.id ? editingDictation : d));
+      }
+      return [...prev, editingDictation];
+    });
+
+    setEditorMode(false);
+    setEditingDictation(null);
+  };
+
+  const handleCancelEditor = () => {
+    setEditorMode(false);
+    setEditingDictation(null);
+  };
+
+  const handleTogglePrintSelection = (id: string) => {
+    setSelectedForPrint((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleBatchPrint = () => {
+    const selected = dictations.filter((d) => selectedForPrint.has(d.id));
+    if (selected.length === 0) {
+      alert('Выберите хотя бы один диктант для печати');
+      return;
+    }
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const dictationBlocks = selected.map((d) => {
+      const stepsHtml = d.steps.map((step, i) => `<div class="step">${i + 1}. ${formatStep(step)}</div>`).join('');
+      
+      return `
+        <div class="dictation-block">
+          <h2>${d.name}</h2>
+          <p class="meta">
+            <strong>Сложность:</strong> ${DIFFICULTY_LABELS[d.difficulty]} · 
+            <strong>Шагов:</strong> ${d.steps.length}
+          </p>
+          <p class="meta">
+            <strong>Начало:</strong> отступить ${d.startOffset.x} клеток слева, ${d.startOffset.y} клеток сверху
+          </p>
+          ${printStudentName ? `<p class="meta"><strong>Ученик:</strong> ${printStudentName}</p>` : ''}
+          ${printClass ? `<p class="meta"><strong>Класс:</strong> ${printClass}</p>` : ''}
+          ${printDate ? `<p class="meta"><strong>Дата:</strong> ${printDate}</p>` : ''}
+          
+          <div class="grid-container">
+            <svg width="${GRID_WIDTH * CELL_SIZE}" height="${GRID_HEIGHT * CELL_SIZE}" viewBox="0 0 ${GRID_WIDTH * CELL_SIZE} ${GRID_HEIGHT * CELL_SIZE}">
+              ${Array.from({ length: GRID_WIDTH + 1 }, (_, i) => `<line x1="${i * CELL_SIZE}" y1="0" x2="${i * CELL_SIZE}" y2="${GRID_HEIGHT * CELL_SIZE}" stroke="#e5e7eb" stroke-width="1"/>`).join('')}
+              ${Array.from({ length: GRID_HEIGHT + 1 }, (_, i) => `<line x1="0" y1="${i * CELL_SIZE}" x2="${GRID_WIDTH * CELL_SIZE}" y2="${i * CELL_SIZE}" stroke="#e5e7eb" stroke-width="1"/>`).join('')}
+              <circle cx="${d.startOffset.x * CELL_SIZE}" cy="${d.startOffset.y * CELL_SIZE}" r="4" fill="#ef4444"/>
+            </svg>
+          </div>
+          
+          <div class="instructions">
+            <h3>Инструкция:</h3>
+            ${stepsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+
     printWindow.document.write(`
       <html>
         <head>
-          <title>Графический диктант: ${selectedDictation.name}</title>
+          <title>Графические диктанты (${selected.length})</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            h1 { color: #7c3aed; }
-            .instructions { margin: 20px 0; }
-            .step { margin: 5px 0; }
-            canvas { border: 2px solid #e5e7eb; margin-top: 20px; }
+            @page { size: A4; margin: 1.5cm; }
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 0; 
+              padding: 0;
+            }
+            .dictation-block {
+              page-break-after: always;
+              margin-bottom: 2cm;
+            }
+            .dictation-block:last-child {
+              page-break-after: auto;
+            }
+            h1 {
+              color: #7c3aed;
+              text-align: center;
+              margin-bottom: 1cm;
+            }
+            h2 {
+              color: #10b981;
+              margin-top: 0;
+            }
+            h3 {
+              margin-top: 0.5cm;
+              margin-bottom: 0.3cm;
+            }
+            .meta {
+              font-size: 12px;
+              color: #6b7280;
+              margin: 0.2cm 0;
+            }
+            .grid-container {
+              margin: 0.5cm 0;
+              text-align: center;
+            }
+            .instructions {
+              background: #f9fafb;
+              padding: 0.5cm;
+              border-radius: 8px;
+              margin-top: 0.5cm;
+            }
+            .step {
+              margin: 3px 0;
+              font-size: 13px;
+            }
+            @media print {
+              .no-print { display: none; }
+            }
           </style>
         </head>
         <body>
-          <h1>Графический диктант: ${selectedDictation.name}</h1>
-          <p><strong>Сложность:</strong> ${DIFFICULTY_LABELS[selectedDictation.difficulty]}</p>
-          <p><strong>Начало:</strong> отступить ${selectedDictation.startOffset.x} клеток слева, ${selectedDictation.startOffset.y} клеток сверху</p>
-          <div class="instructions">
-            <h2>Инструкция:</h2>
-            ${selectedDictation.steps.map((step, i) => `<div class="step">${i + 1}. ${formatStep(step)}</div>`).join('')}
+          <div class="no-print" style="text-align: center; margin-bottom: 1cm;">
+            <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">
+              🖨️ Печать
+            </button>
+            <button onclick="window.close()" style="padding: 10px 20px; font-size: 16px; cursor: pointer; margin-left: 10px;">
+              Закрыть
+            </button>
           </div>
-          <canvas id="canvas" width="${canvas.width}" height="${canvas.height}"></canvas>
-          <script>
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.getElementById('canvas');
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0);
-              setTimeout(() => window.print(), 100);
-            };
-            img.src = '${canvas.toDataURL()}';
-          </script>
+          <h1>Графические диктанты</h1>
+          ${dictationBlocks}
         </body>
       </html>
     `);
     printWindow.document.close();
+
+    setShowBatchPrint(false);
+    setSelectedForPrint(new Set());
   };
+
+  if (editorMode && editingDictation) {
+    return (
+      <div className="min-h-[100dvh] bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
+        <header className="bg-gradient-to-r from-blue-700 to-purple-600 shadow-md sticky top-0 z-10">
+          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+            <BackButton onClick={handleCancelEditor} variant="light" />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">Редактор диктанта</h1>
+              <p className="text-xs text-blue-200">Создание и редактирование</p>
+            </div>
+            <Edit3 className="w-6 h-6 text-white/70" />
+          </div>
+        </header>
+
+        <main className="flex-1 max-w-4xl mx-auto w-full p-3 space-y-3 pb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3">
+            <div className="space-y-3">
+              <div className="bg-white rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-bold text-gray-800">Предпросмотр</h2>
+                </div>
+                <div className="flex justify-center">
+                  <canvas
+                    ref={editorCanvasRef}
+                    className="border-2 border-gray-300 rounded-lg"
+                    style={{ maxWidth: '100%', height: 'auto' }}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+                <h3 className="text-sm font-bold text-gray-800">Инструкция ({editingDictation.steps.length} шагов)</h3>
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {editingDictation.steps.map((step, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs p-2 bg-gray-50 rounded">
+                      <span className="w-6 text-right font-bold">{i + 1}.</span>
+                      <span className="flex-1">{formatStep(step)}</span>
+                      <button
+                        onClick={() => handleRemoveStep(i)}
+                        className="p-1 text-red-500 hover:bg-red-50 rounded"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {editingDictation.steps.length === 0 && (
+                    <p className="text-xs text-gray-400 text-center py-4">Добавьте первый шаг</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
+                <label className="text-sm font-bold text-gray-800">Название</label>
+                <input
+                  type="text"
+                  value={editingDictation.name}
+                  onChange={(e) => setEditingDictation({ ...editingDictation, name: e.target.value })}
+                  placeholder="Название диктанта"
+                  className="w-full rounded-lg border border-gray-200 p-2 text-sm"
+                />
+              </div>
+
+              <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
+                <label className="text-sm font-bold text-gray-800">Сложность</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {(['easy', 'medium', 'hard'] as const).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setEditingDictation({ ...editingDictation, difficulty: d })}
+                      className={`py-1.5 rounded-lg text-xs font-semibold border ${
+                        editingDictation.difficulty === d ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      }`}
+                    >
+                      {DIFFICULTY_LABELS[d]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
+                <label className="text-sm font-bold text-gray-800">Начальная точка</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-gray-500">X (слева)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={GRID_WIDTH}
+                      value={editingDictation.startOffset.x}
+                      onChange={(e) => setEditingDictation({ ...editingDictation, startOffset: { ...editingDictation.startOffset, x: Number(e.target.value) } })}
+                      className="w-full rounded-lg border border-gray-200 p-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500">Y (сверху)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={GRID_HEIGHT}
+                      value={editingDictation.startOffset.y}
+                      onChange={(e) => setEditingDictation({ ...editingDictation, startOffset: { ...editingDictation.startOffset, y: Number(e.target.value) } })}
+                      className="w-full rounded-lg border border-gray-200 p-1.5 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
+                <label className="text-sm font-bold text-gray-800">Добавить шаг</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-gray-500">Направление</label>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      {(['up', 'down', 'left', 'right'] as const).map((d) => (
+                        <button
+                          key={d}
+                          onClick={() => setNewStepDirection(d)}
+                          className={`py-2 rounded-lg border-2 flex items-center justify-center ${
+                            newStepDirection === d ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                          }`}
+                          title={DIRECTION_LABELS[d]}
+                        >
+                          {DIRECTION_ICONS[d]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500">Клеток</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={newStepCells}
+                      onChange={(e) => setNewStepCells(Math.max(1, Number(e.target.value)))}
+                      className="w-full rounded-lg border border-gray-200 p-2 text-sm mt-1"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleAddStep}
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Добавить шаг
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleCancelEditor}
+                  className="py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleSaveDictation}
+                  className="py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1"
+                >
+                  <Save className="w-4 h-4" />
+                  Сохранить
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-green-50 to-blue-50 flex flex-col">
@@ -393,7 +817,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
 
       <main className="flex-1 max-w-4xl mx-auto w-full p-3 space-y-3 pb-8">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3">
-          {/* ЛЕВАЯ КОЛОНКА: Сетка и управление */}
           <div className="space-y-3">
             <div className="bg-white rounded-2xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
@@ -477,7 +900,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
               </div>
             </div>
 
-            {/* Инструкция */}
             <div className="bg-white rounded-2xl p-4 shadow-sm">
               <h3 className="text-sm font-bold text-gray-800 mb-2">Полная инструкция</h3>
               <div className="space-y-1 max-h-48 overflow-y-auto">
@@ -501,17 +923,26 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
             </div>
           </div>
 
-          {/* ПРАВАЯ КОЛОНКА: Выбор диктанта */}
           <div className="space-y-3">
             <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-bold text-gray-800">Выбор диктанта</label>
-                <button
-                  onClick={handleExportPDF}
-                  className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-semibold flex items-center gap-1"
-                >
-                  <Download className="w-3 h-3" /> PDF
-                </button>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-bold text-gray-800">Диктанты</label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleStartEditor()}
+                    className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg font-semibold flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Создать
+                  </button>
+                  <button
+                    onClick={() => setShowBatchPrint(true)}
+                    className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-semibold flex items-center gap-1"
+                  >
+                    <Printer className="w-3 h-3" />
+                    Печать
+                  </button>
+                </div>
               </div>
               <div className="space-y-1.5 max-h-96 overflow-y-auto">
                 {dictations.map((d) => (
@@ -533,10 +964,18 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
                         {DIFFICULTY_LABELS[d.difficulty]} · {d.steps.length} шагов
                       </p>
                     </button>
+                    <button
+                      onClick={() => handleStartEditor(d)}
+                      className="p-1 text-blue-500 hover:bg-blue-50 rounded"
+                      title="Редактировать"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
                     {!PRESET_DICTATIONS.find((p) => p.id === d.id) && (
                       <button
                         onClick={() => handleDeleteDictation(d.id)}
                         className="p-1 text-red-500 hover:bg-red-50 rounded"
+                        title="Удалить"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -552,7 +991,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
           </div>
         </div>
 
-        {/* FAQ */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowFaq(!showFaq)}
@@ -591,6 +1029,98 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
           )}
         </div>
       </main>
+
+      {showBatchPrint && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-purple-700">Пакетная печать</h2>
+              <button onClick={() => setShowBatchPrint(false)} className="p-2 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500">Имя ученика</label>
+                  <input
+                    type="text"
+                    value={printStudentName}
+                    onChange={(e) => setPrintStudentName(e.target.value)}
+                    placeholder="Иванов Иван"
+                    className="w-full rounded-lg border border-gray-200 p-2 text-sm mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Класс</label>
+                  <input
+                    type="text"
+                    value={printClass}
+                    onChange={(e) => setPrintClass(e.target.value)}
+                    placeholder="1-А"
+                    className="w-full rounded-lg border border-gray-200 p-2 text-sm mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Дата</label>
+                  <input
+                    type="text"
+                    value={printDate}
+                    onChange={(e) => setPrintDate(e.target.value)}
+                    placeholder="01.09.2026"
+                    className="w-full rounded-lg border border-gray-200 p-2 text-sm mt-1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-gray-800 mb-2 block">Выберите диктанты ({selectedForPrint.size} выбрано)</label>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {dictations.map((d) => (
+                    <label
+                      key={d.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                        selectedForPrint.has(d.id) ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedForPrint.has(d.id)}
+                        onChange={() => handleTogglePrintSelection(d.id)}
+                        className="w-5 h-5 accent-purple-600"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-800">{d.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {DIFFICULTY_LABELS[d.difficulty]} · {d.steps.length} шагов
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 flex gap-2">
+              <button
+                onClick={() => setShowBatchPrint(false)}
+                className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleBatchPrint}
+                disabled={selectedForPrint.size === 0}
+                className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Печать ({selectedForPrint.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
