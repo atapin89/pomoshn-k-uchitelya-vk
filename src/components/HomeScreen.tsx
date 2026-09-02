@@ -359,12 +359,12 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </button>
           </div>
 
-          {/* Логотип — строго по центру */}
+          {/* Логотип — строго по центру (УВЕЛИЧЕН) */}
           <h1 className="sr-only">Помощник учителя</h1>
           <img
             src={`${import.meta.env.BASE_URL}logo.png`}
             alt="Помощник учителя"
-            className="h-12 sm:h-14 w-auto object-contain drop-shadow-sm select-none"
+            className="h-16 sm:h-20 w-auto object-contain drop-shadow-md select-none"
             draggable={false}
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = 'none';
