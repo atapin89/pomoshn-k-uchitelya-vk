@@ -96,6 +96,58 @@ const FAQ_ITEMS = [
     q: 'Что развивает это упражнение?',
     a: 'Мелкую моторику, пространственное восприятие (право-лево, верх-низ), слуховое внимание, память, навык работы по инструкции и самоконтроль.',
   },
+  {
+    q: 'Где использовать графический диктант?',
+    a: 'Универсальное упражнение для любого предмета:\n• Математика — счёт, геометрия, координаты\n• Русский — подготовка руки к письму\n• Окружающий мир — образы природы\n• Разминка и физкультминутка\n• Итог урока — визуальный конспект\n• Диагностика пространственного восприятия\n\nПодробные сценарии — в разделе ниже «Сценарии использования на занятиях».',
+  },
+];
+
+const SCENARIO_ITEMS = [
+  {
+    icon: '🌅',
+    title: 'Разминка перед уроком (3–5 минут)',
+    description: 'Начните урок с короткого диктанта на 5–7 шагов. Это быстро включает внимание, настраивает детей на рабочую волну и помогает перейти от перемены к учёбе. Подходит для любого предмета.',
+  },
+  {
+    icon: '✍️',
+    title: 'Подготовка руки к письму (1 класс)',
+    description: 'Используйте простые диктанты как упражнение в прописях. Дети тренируют нажим, ровные линии, чувство клетки. Особенно полезно в период обучения грамоте.',
+  },
+  {
+    icon: '🧮',
+    title: 'На уроке математики',
+    description: 'Повторяйте счёт («три клетки вправо, две вниз»), направления, знакомство с координатами. Для 2–3 класса — рисуйте геометрические фигуры, симметричные узоры, прямоугольники по заданным сторонам.',
+  },
+  {
+    icon: '🌿',
+    title: 'Окружающий мир',
+    description: 'Создайте диктанты с образами природы: лист, гриб, дерево, цветок, рыбка. После рисования обсудите тему урока. Дети запоминают материал через действие.',
+  },
+  {
+    icon: '🎯',
+    title: 'Физкультминутка с рисованием',
+    description: 'В середине урока дайте диктант как смену деятельности. Дети встают из-за парт, подходят к доске или рисуют в тетрадях. Снимает утомление и восстанавливает концентрацию.',
+  },
+  {
+    icon: '👥',
+    title: 'Парная работа',
+    description: 'Раздайте пары: один ученик диктует, другой рисует, затем меняются. Развивает речь, умение давать чёткие инструкции, слушать и понимать партнёра.',
+  },
+  {
+    icon: '📚',
+    title: 'Итог урока — что запомнилось',
+    description: 'В конце занятия попросите детей нарисовать диктант по теме урока (в редакторе или в тетради). Получится визуальный конспект: что каждый вынес из занятия.',
+  },
+  {
+    icon: '🔍',
+    title: 'Диагностика пространственного восприятия',
+    description: 'Дайте всем один и тот же диктант. Сравните результаты: у кого линии не сошлись — у того сложности с ориентацией «право-лево» или счётом. Полезно для школьного психолога.',
+  },
+  {
+    icon: '🏠',
+    title: 'Домашнее задание',
+    description: 'Попросите детей нарисовать диктант дома для родителей или младших братьев и сестёр. Закрепление через обучение других — один из самых эффективных приёмов.',
+  },
 ];
 
 function formatStep(step: Step): string {
@@ -192,6 +244,7 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
+  const [showScen, setShowScen] = useState(false);
   const [openFaqItem, setOpenFaqItem] = useState<number | null>(null);
   const [autoPlaySpeed, setAutoPlaySpeed] = useState(2000);
 
@@ -214,7 +267,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
 
   const selectedDictation = dictations.find((d) => d.id === selectedId) || null;
 
-  // Автовыход из режима просмотра, если выбранного диктанта больше нет
   useEffect(() => {
     if (selectedId && !dictations.find((d) => d.id === selectedId)) {
       setSelectedId('');
@@ -227,7 +279,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     } catch {}
   }, [dictations]);
 
-  // ===== ОСНОВНОЙ ПРОСМОТР =====
   useEffect(() => {
     if (!selectedDictation) return;
     const canvas = canvasRef.current;
@@ -248,7 +299,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     }
   }, [selectedDictation, currentStep, showAnswer]);
 
-  // ===== РЕДАКТОР =====
   useEffect(() => {
     if (!editorMode || !editingDictation) return;
     const canvas = editorCanvasRef.current;
@@ -602,7 +652,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     });
   };
 
-  // ===== ЭКРАН РЕДАКТОРА =====
   if (editorMode && editingDictation) {
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
@@ -788,7 +837,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     );
   }
 
-  // ===== ОСНОВНОЙ ЭКРАН =====
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
       <header className="bg-purple-700 shadow-md sticky top-0 z-10">
@@ -803,7 +851,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full p-3 space-y-3 pb-8">
-        {/* ===== ЗАГЛУШКА ДЛЯ ПУСТОГО СПИСКА ===== */}
         {dictations.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 shadow-sm text-center space-y-4">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full">
@@ -1030,6 +1077,30 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
                   {openFaqItem === idx && (
                     <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100 whitespace-pre-line">{item.a}</div>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <button onClick={() => setShowScen(!showScen)} className="w-full px-4 py-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Сценарии использования на занятиях</h3>
+              <span className="text-xs font-bold text-purple-400">{SCENARIO_ITEMS.length}</span>
+            </div>
+            {showScen ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
+          </button>
+          {showScen && (
+            <div className="px-3 pb-3 space-y-2">
+              {SCENARIO_ITEMS.map((s, idx) => (
+                <div key={idx} className="border border-purple-100 rounded-xl p-3 flex gap-3 hover:bg-purple-50/30 transition-colors">
+                  <span className="text-3xl shrink-0">{s.icon}</span>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-sm text-gray-800 mb-1">{s.title}</h4>
+                    <p className="text-xs text-gray-600 leading-relaxed">{s.description}</p>
+                  </div>
                 </div>
               ))}
             </div>
