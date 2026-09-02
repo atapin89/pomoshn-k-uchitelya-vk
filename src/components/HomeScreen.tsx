@@ -331,10 +331,47 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-8 sm:pt-6 pb-3">
-        {/* Шестерёнка слева, логотип по центру, проект справа — в одну строку */}
-        <div className="relative flex items-center justify-center mb-1.5">
-          {/* Шестерёнка — слева (absolute) */}
-          <div className="absolute left-0">
+        {/* Логотип слева, шестерёнка справа */}
+        <div className="relative flex items-start justify-between mb-1.5">
+          {/* Логотип + подпись — слева, по левому краю */}
+          <div className="flex flex-col items-start">
+            <h1 className="sr-only">Помощник учителя</h1>
+            {/* Логотип = ссылка на сообщество */}
+            <a
+              href="https://vk.ru/topteach"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block transition-all duration-200 ease-out hover:scale-[1.03] hover:brightness-110 hover:drop-shadow-[0_0_12px_rgba(168,85,247,0.55)] active:scale-[0.98] rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2"
+              aria-label="Сообщество «Помощник учителя» ВКонтакте"
+              title="Перейти в сообщество ВКонтакте"
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}logo.png`}
+                alt="Помощник учителя"
+                className="h-20 sm:h-24 w-auto object-contain select-none"
+                draggable={false}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </a>
+
+            {/* Подпись под логотипом */}
+            <p className="mt-1.5 text-[11px] text-gray-500 leading-tight">
+              Проект{' '}
+              <a
+                href="https://vk.ru/aaatapin"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-purple-600 hover:text-purple-800 font-semibold underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
+              >
+                Алексея Атапина
+              </a>
+            </p>
+          </div>
+
+          {/* Шестерёнка — справа вверху */}
+          <div className="shrink-0">
             <button
               onClick={handleGearClick}
               onMouseEnter={() => setGearActive(true)}
@@ -358,31 +395,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               />
             </button>
           </div>
-
-          {/* Логотип — строго по центру (УВЕЛИЧЕН) */}
-          <h1 className="sr-only">Помощник учителя</h1>
-          <img
-            src={`${import.meta.env.BASE_URL}logo.png`}
-            alt="Помощник учителя"
-            className="h-16 sm:h-20 w-auto object-contain drop-shadow-md select-none"
-            draggable={false}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-            }}
-          />
-
-          {/* Проект — справа (absolute) */}
-          <p className="absolute right-0 text-[11px] text-gray-500 text-right leading-tight">
-            Проект{' '}
-            <a
-              href="https://vk.ru/aaatapin"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-purple-600 hover:text-purple-800 font-semibold underline transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
-            >
-              Алексея Атапина
-            </a>
-          </p>
         </div>
 
         {/* Подзаголовок с иконкой руководства */}
