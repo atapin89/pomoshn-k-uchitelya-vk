@@ -21,8 +21,8 @@ import {
   FlaskConical,
   X,
   Check,
-  ChevronLeft,
-  ChevronRight,
+  ChevronUp,
+  ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -330,34 +330,43 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="max-w-md mx-auto w-full px-5 pt-8 sm:pt-6 pb-4">
-        {/* Верхняя строка: шестерёнка слева, проект справа */}
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="relative shrink-0">
-            <button
-              onClick={handleGearClick}
-              onMouseEnter={() => setGearActive(true)}
-              onMouseLeave={() => setGearActive(false)}
-              onFocus={() => setGearActive(true)}
-              onBlur={() => setGearActive(false)}
-              className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-              aria-label="Настройки внешнего вида"
-              title="Настроить разделы"
-            >
-              {!gearSeen && (
-                <>
-                  <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
-                  <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
-                </>
-              )}
-              <Settings
-                className={`relative z-10 w-5 h-5 transition-transform duration-700 ease-in-out ${
-                  gearActive ? 'rotate-[360deg] text-purple-600' : 'rotate-0'
-                }`}
-              />
-            </button>
+      <header className="max-w-md mx-auto w-full px-5 pt-8 sm:pt-6 pb-3">
+        {/* Шестерёнка + Помощник учителя + Проект — в одну строку */}
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Шестерёнка с пульсацией */}
+            <div className="relative shrink-0">
+              <button
+                onClick={handleGearClick}
+                onMouseEnter={() => setGearActive(true)}
+                onMouseLeave={() => setGearActive(false)}
+                onFocus={() => setGearActive(true)}
+                onBlur={() => setGearActive(false)}
+                className="relative text-gray-400 hover:text-purple-600 transition-colors p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                aria-label="Настройки внешнего вида"
+                title="Настроить разделы"
+              >
+                {!gearSeen && (
+                  <>
+                    <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
+                    <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
+                  </>
+                )}
+                <Settings
+                  className={`relative z-10 w-5 h-5 transition-transform duration-700 ease-in-out ${
+                    gearActive ? 'rotate-[360deg] text-purple-600' : 'rotate-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Заголовок на одной линии с шестерёнкой */}
+            <h1 className="text-xl sm:text-2xl font-extrabold text-purple-700 truncate whitespace-nowrap">
+              Помощник учителя
+            </h1>
           </div>
 
+          {/* Проект Алексея Атапина */}
           <p className="text-[11px] text-gray-500 text-right shrink-0 leading-tight">
             Проект{' '}
             <a
@@ -371,12 +380,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           </p>
         </div>
 
-        {/* Заголовок — крупный, по центру */}
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-purple-700 text-center whitespace-nowrap">
-          Помощник учителя
-        </h1>
-
-        {/* Подзаголовок с малым отступом и иконкой руководства */}
+        {/* Подзаголовок с иконкой руководства */}
         <div className="flex items-center justify-center gap-2 mt-1.5">
           <p className="text-xs sm:text-sm text-gray-500 text-center whitespace-nowrap">
             Простые инструменты для сложных задач
@@ -468,7 +472,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         </div>
       </main>
 
-      {/* ===== МОДАЛКА НАСТРОЕК: ПЛИТОЧНЫЙ РЕДАКТОР ===== */}
+      {/* ===== МОДАЛКА НАСТРОЕК: список с иконкой / названием / переключателем ===== */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
@@ -485,11 +489,11 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
               <p className="text-sm text-gray-500 mb-3 px-1">
-                Тапните по плитке, чтобы скрыть/показать. Стрелки ← → меняют порядок.
+                Включите разделы и меняйте их порядок стрелками.
               </p>
 
-              {/* Сетка плиток с возможностью перестановки */}
-              <div className="grid grid-cols-3 gap-2">
+              {/* Список: иконка слева | название по центру (1-2 строки) | стрелки | переключатель справа */}
+              <div className="space-y-1.5">
                 {sectionOrder.map((id, idx) => {
                   const section = SECTIONS.find(s => s.id === id);
                   if (!section) return null;
@@ -501,60 +505,68 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                   return (
                     <div
                       key={section.id}
-                      className={`relative rounded-2xl p-2 flex flex-col items-center gap-1 border-2 transition-all ${
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border-2 transition-all ${
                         isVisible
-                          ? 'border-purple-400 bg-gradient-to-br from-purple-50 to-violet-50 shadow-sm'
+                          ? 'border-purple-300 bg-purple-50'
                           : 'border-gray-200 bg-gray-50 opacity-60'
                       }`}
                     >
-                      {/* Иконка + название (тап = toggle) */}
+                      {/* Иконка слева */}
+                      <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${
+                        isVisible ? 'bg-purple-100' : 'bg-gray-200'
+                      }`}>
+                        <Icon className={`w-5 h-5 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
+                      </div>
+
+                      {/* Название: 1-2 строки, центрируется по вертикали, растягивается */}
                       <button
                         onClick={() => toggleSectionVisibility(section.id)}
-                        className="flex flex-col items-center gap-1 w-full"
+                        className="flex-1 min-w-0 text-left flex items-center"
                         aria-label={isVisible ? `Скрыть: ${section.title}` : `Показать: ${section.title}`}
                         aria-pressed={isVisible}
                       >
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                          isVisible ? 'bg-purple-100' : 'bg-gray-200'
-                        }`}>
-                          <Icon className={`w-5 h-5 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
-                        </div>
-                        <span className={`text-[10px] font-semibold text-center leading-tight line-clamp-2 min-h-[28px] flex items-center ${
+                        <span className={`text-sm font-semibold leading-tight line-clamp-2 ${
                           isVisible ? 'text-gray-800' : 'text-gray-500'
                         }`}>
                           {section.title}
                         </span>
                       </button>
 
-                      {/* Строка управления: ← индикатор → */}
-                      <div className="flex items-center justify-between w-full gap-0.5">
+                      {/* Стрелки сортировки */}
+                      <div className="shrink-0 flex flex-col gap-0.5">
                         <button
                           onClick={() => moveSection(section.id, 'up')}
                           disabled={isFirst}
-                          className="p-1 rounded-lg hover:bg-purple-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors active:scale-90"
-                          aria-label="Переместить левее"
-                          title="Левее"
+                          className="p-0.5 rounded hover:bg-purple-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors active:scale-90"
+                          aria-label="Переместить выше"
+                          title="Выше"
                         >
-                          <ChevronLeft className="w-3.5 h-3.5 text-purple-700" />
+                          <ChevronUp className="w-4 h-4 text-purple-700" />
                         </button>
-
-                        {/* Индикатор видимости */}
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
-                          isVisible ? 'bg-purple-600' : 'bg-gray-300'
-                        }`}>
-                          {isVisible && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                        </div>
-
                         <button
                           onClick={() => moveSection(section.id, 'down')}
                           disabled={isLast}
-                          className="p-1 rounded-lg hover:bg-purple-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors active:scale-90"
-                          aria-label="Переместить правее"
-                          title="Правее"
+                          className="p-0.5 rounded hover:bg-purple-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors active:scale-90"
+                          aria-label="Переместить ниже"
+                          title="Ниже"
                         >
-                          <ChevronRight className="w-3.5 h-3.5 text-purple-700" />
+                          <ChevronDown className="w-4 h-4 text-purple-700" />
                         </button>
                       </div>
+
+                      {/* Переключатель справа */}
+                      <button
+                        onClick={() => toggleSectionVisibility(section.id)}
+                        className={`relative shrink-0 w-10 h-5 rounded-full transition-colors ${
+                          isVisible ? 'bg-purple-600' : 'bg-gray-300'
+                        }`}
+                        aria-label="Переключить видимость"
+                        tabIndex={-1}
+                      >
+                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                          isVisible ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                      </button>
                     </div>
                   );
                 })}
