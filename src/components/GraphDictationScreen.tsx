@@ -23,6 +23,7 @@ import {
   Undo2,
   Eraser,
   Pencil,
+  Image as ImageIcon,
 } from 'lucide-react';
 import BackButton from './BackButton';
 
@@ -174,7 +175,11 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Как распечатать несколько диктантов?',
-    a: 'Нажмите «Печать», отметьте галочками нужные диктанты, укажите имя ученика, класс и дату — каждый диктант распечатается на отдельной странице с пустой сеткой и инструкцией.',
+    a: 'Нажмите «Печать», отметьте галочками нужные диктанты, укажите имя ученика, класс и дату — каждый диктант распечатается на отдельной странице с пустой сеткой и инструкцией в 3 столбца.',
+  },
+  {
+    q: 'Как сохранить диктант картинкой?',
+    a: 'Нажмите «Картинка» и выберите вариант: пустое поле (сетка + точка), с ответом (сетка + фигура) или фигура без поля (только линии). Скачается PNG в высоком разрешении.',
   },
   {
     q: 'Что развивает это упражнение?',
@@ -283,6 +288,7 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   const [newStepCells, setNewStepCells] = useState(1);
 
   const [showBatchPrint, setShowBatchPrint] = useState(false);
+  const [showImageExport, setShowImageExport] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState<Set<string>>(new Set());
   const [printStudentName, setPrintStudentName] = useState('');
   const [printClass, setPrintClass] = useState('');
@@ -500,11 +506,17 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
       alert('Нарисуйте фигуру на поле или добавьте шаги');
       return;
     }
+    // Сложность определяется автоматически по количеству шагов
+    const stepsCount = editingDictation.steps.length;
+    const finalDictation: Dictation = {
+      ...editingDictation,
+      difficulty: stepsCount <= 10 ? 'easy' : stepsCount <= 20 ? 'medium' : 'hard',
+    };
     setDictations((prev) => {
-      const exists = prev.find((d) => d.id === editingDictation.id);
-      return exists ? prev.map((d) => (d.id === editingDictation.id ? editingDictation : d)) : [...prev, editingDictation];
+      const exists = prev.find((d) => d.id === finalDictation.id);
+      return exists ? prev.map((d) => (d.id === finalDictation.id ? finalDictation : d)) : [...prev, finalDictation];
     });
-    setSelectedId(editingDictation.id);
+    setSelectedId(finalDictation.id);
     setEditorMode(false);
     setEditingDictation(null);
   };
@@ -555,7 +567,7 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
           </div>
           <div class="instructions">
             <h3>Инструкция:</h3>
-            ${stepsHtml}
+            <div class="steps-grid">${stepsHtml}</div>
           </div>
         </div>`;
       })
@@ -576,7 +588,8 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
             .meta { font-size: 12px; color: #6b7280; margin: 0.2cm 0; }
             .grid-container { margin: 0.5cm 0; text-align: center; }
             .instructions { background: #f5f3ff; padding: 0.5cm; border-radius: 8px; margin-top: 0.5cm; }
-            .step { margin: 3px 0; font-size: 13px; }
+            .steps-grid { columns: 3; column-gap: 0.8cm; }
+            .step { margin: 3px 0; font-size: 13px; break-inside: avoid; }
             @media print { .no-print { display: none; } }
           </style>
         </head>
@@ -594,6 +607,80 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
 
     setShowBatchPrint(false);
     setSelectedForPrint(new Set());
+  };
+
+  // ===== СОХРАНЕНИЕ В PNG =====
+  const renderDictationImage = (d: Dictation, mode: 'blank' | 'answer' | 'lines') => {
+    const scale = 2;
+    const W = GRID_WIDTH * CELL_SIZE;
+    const H = GRID_HEIGHT * CELL_SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = W * scale;
+    canvas.height = H * scale;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    if (mode !== 'lines') {
+      ctx.strokeStyle = '#e9d5ff';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= GRID_WIDTH; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * CELL_SIZE, 0);
+        ctx.lineTo(x * CELL_SIZE, H);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= GRID_HEIGHT; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * CELL_SIZE);
+        ctx.lineTo(W, y * CELL_SIZE);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(d.startOffset.x * CELL_SIZE, d.startOffset.y * CELL_SIZE, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (mode !== 'blank') {
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      let cx = d.startOffset.x * CELL_SIZE;
+      let cy = d.startOffset.y * CELL_SIZE;
+      for (const step of d.steps) {
+        let nx = cx;
+        let ny = cy;
+        if (step.direction === 'up') ny -= step.cells * CELL_SIZE;
+        if (step.direction === 'down') ny += step.cells * CELL_SIZE;
+        if (step.direction === 'left') nx -= step.cells * CELL_SIZE;
+        if (step.direction === 'right') nx += step.cells * CELL_SIZE;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(nx, ny);
+        ctx.stroke();
+        cx = nx;
+        cy = ny;
+      }
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    canvas.toBlob((b) => {
+      if (!b) return;
+      const u = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.href = u;
+      const suffix = mode === 'blank' ? 'пустое-поле' : mode === 'answer' ? 'с-ответом' : 'фигура-без-поля';
+      a.download = `${d.name}-${suffix}.png`;
+      a.click();
+      URL.revokeObjectURL(u);
+    });
   };
 
   // ===== ЭКРАН РЕДАКТОРА =====
@@ -683,23 +770,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
                   placeholder="Название диктанта"
                   className="w-full rounded-lg border border-purple-200 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
-              </div>
-
-              <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
-                <label className="text-sm font-bold text-purple-700">Сложность</label>
-                <div className="grid grid-cols-3 gap-1">
-                  {(['easy', 'medium', 'hard'] as const).map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setEditingDictation({ ...editingDictation, difficulty: d })}
-                      className={`py-1.5 rounded-lg text-xs font-semibold border ${
-                        editingDictation.difficulty === d ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-600'
-                      }`}
-                    >
-                      {DIFFICULTY_LABELS[d]}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
@@ -919,6 +989,13 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
                     Создать
                   </button>
                   <button
+                    onClick={() => setShowImageExport(true)}
+                    className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-semibold flex items-center gap-1"
+                  >
+                    <ImageIcon className="w-3 h-3" />
+                    Картинка
+                  </button>
+                  <button
                     onClick={() => setShowBatchPrint(true)}
                     className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-semibold flex items-center gap-1"
                   >
@@ -1000,6 +1077,42 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
         </div>
       </main>
 
+      {/* МОДАЛКА СОХРАНЕНИЯ В PNG */}
+      {showImageExport && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-purple-700">Сохранить картинку</h2>
+              <button onClick={() => setShowImageExport(false)} className="p-2 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="p-4 space-y-2">
+              <p className="text-xs text-gray-500">«{selectedDictation.name}» — выберите вариант:</p>
+              <button
+                onClick={() => { renderDictationImage(selectedDictation, 'blank'); setShowImageExport(false); }}
+                className="w-full py-2.5 bg-purple-50 text-purple-700 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <ImageIcon className="w-4 h-4" /> Пустое поле
+              </button>
+              <button
+                onClick={() => { renderDictationImage(selectedDictation, 'answer'); setShowImageExport(false); }}
+                className="w-full py-2.5 bg-purple-600 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <ImageIcon className="w-4 h-4" /> С ответом
+              </button>
+              <button
+                onClick={() => { renderDictationImage(selectedDictation, 'lines'); setShowImageExport(false); }}
+                className="w-full py-2.5 bg-purple-100 text-purple-700 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <ImageIcon className="w-4 h-4" /> Фигура без поля
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* МОДАЛКА ПАКЕТНОЙ ПЕЧАТИ */}
       {showBatchPrint && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col">
