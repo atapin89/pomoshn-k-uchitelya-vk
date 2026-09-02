@@ -19,6 +19,10 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  ZoomIn,
+  ZoomOut,
+  Move,
+  RotateCcw as ResetIcon,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -42,6 +46,8 @@ interface CloudSettings {
   maxAngle: number;
   density: number;
   maxWords: number;
+  minFont: number;
+  maxFont: number;
   seed: number;
 }
 
@@ -53,8 +59,8 @@ interface ProjectData {
 }
 
 const PROJECT_KEY = 'wordcloud-project';
-const CLOUD_WIDTH = 600;
-const CLOUD_HEIGHT = 450;
+const CLOUD_WIDTH = 500;
+const CLOUD_HEIGHT = 375;
 
 const FONTS = [
   'Arial, sans-serif',
@@ -90,7 +96,55 @@ const PALETTES: Record<string, string[]> = {
 
 const DEFAULT_STOP_WORDS = 'и в во не что он на я с со как а то все она так его но да ты к у же вы за бы по только ее мне было вот от меня еще нет о из ему теперь даже ну вдруг ли если уже или ни быть был него до вас нибудь опять уж вам ведь там потом себя ничего ей может они тут где есть надо ней для мы тебя их чем была сам чтоб без будто человек чего разве';
 
-const DEMO_TEXT = `Педагогика это искусство воспитания и обучения. Современная школа использует интерактивные методы. Ученики изучают математику, русский язык, литературу, историю, географию, биологию, физику, химию. Важны критическое мышление, творчество, коммуникация, сотрудничество. Учитель помогает раскрывать потенциал каждого ребёнка. Образование формирует личность будущего гражданина. Наука и технологии меняют мир.`;
+const DEMO_TEXT = `Волк и семеро козлят
+Жила-была коза с козлятами. Уходила коза в лес есть траву шелковую, пить воду студеную. Как только уйдет — козлятки запрут избушку и сами никуда не выходят. Воротится коза, постучится в дверь и запоет:
+— Козлятушки, ребятушки!
+Отопритеся, отворитеся!
+Ваша мать пришла — молока принесла;
+Бежит молоко по вымечку,
+Из вымечка по копытечку,
+Из копытечка во сыру землю!
+Козлятки отопрут дверь и впустят мать. Она их покормит, напоит и опять уйдет в лес, а козлята запрутся крепко-накрепко.
+Волк подслушал, как поет коза. Вот раз коза ушла, волк побежал к избушке и закричал толстым голосом:
+— Вы, детушки!
+Вы, козлятушки!
+Отопритеся,
+Отворитеся,
+Ваша мать пришла,
+Молока принесла.
+Полны копытцы водицы!
+Козлята ему отвечают:
+— Слышим, слышим — да не матушкин это голосок! Наша матушка поет тонюсеньким голосом и не так причитает.
+Волку делать нечего. Пошел он в кузницу и велел себе горло перековать, чтоб петь тонюсеньким голосом. Кузнец ему горло перековал. Волк опять побежал к избушке и спрятался за куст.
+Вот приходит коза и стучится:
+— Козлятушки, ребятушки!
+Отопритеся, отворитеся!
+Ваша мать пришла — молока принесла;
+Бежит молоко по вымечку,
+Из вымечка по копытечку,
+Из копытечка во сыру землю!
+Козлята впустили мать и давай рассказывать, как приходил волк, хотел их съесть.
+Коза накормила, напоила козлят и строго-настрого наказала:
+— Кто придет к избушечке, станет проситься толстым голосом да не переберет всего, что я вам причитываю, — дверь не отворяйте, никого не впускайте.
+Только ушла коза, волк опять шасть к избушке, постучался и начал причитывать тонюсеньким голосом:
+— Козлятушки, ребятушки!
+Отопритеся, отворитеся!
+Ваша мать пришла — молока принесла;
+Бежит молоко по вымечку,
+Из вымечка по копытечку,
+Из копытечка во сыру землю!
+Козлята отворили дверь, волк кинулся в избу и всех козлят съел. Только один козленочек схоронился в печке.
+Приходит коза; сколько ни звала, ни причитывала — никто ей не отвечает. Видит — дверь отворена, вбежала в избушку — там нет никого. Заглянула в печь и нашла одного козленочка.
+Как узнала коза о своей беде, как села она на лавку — начала горевать, горько плакать:
+— Ох вы, детушки мои, козлятушки!
+На что отпиралися-отворялися,
+Злому волку доставалися?
+Услыхал это волк, входит в избушку и говорит козе:
+— Что ты на меня грешишь, кума? Не я твоих козлят съел. Полно горевать, пойдем лучше в лес, погуляем.
+Пошли они в лес, а в лесу была яма, а в яме костер горел. Коза и говорит волку:
+— Давай, волк, попробуем, кто перепрыгнет через яму?
+Стали они прыгать. Коза перепрыгнула, а волк прыгнул, да и ввалился в горячую яму.
+Брюхо у него от огня лопнуло, козлята оттуда выскочили, все живые, да — прыг к матери! И стали они жить-поживать по-прежнему.`;
 
 const DEFAULT_SETTINGS: CloudSettings = {
   shape: 'circle',
@@ -101,6 +155,8 @@ const DEFAULT_SETTINGS: CloudSettings = {
   maxAngle: 0,
   density: 1.0,
   maxWords: 80,
+  minFont: 14,
+  maxFont: 96,
   seed: 42,
 };
 
@@ -111,23 +167,23 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Можно ли загрузить свою форму облака?',
-    a: 'В текущей версии доступны 5 встроенных форм: круг, сердце, звезда, ромб, прямоугольник. Этого достаточно для большинства образовательных задач. Загрузка произвольной маски (чёрно-белое изображение) — в планах развития.',
+    a: 'В текущей версии доступны 5 встроенных форм: круг, сердце, звезда, ромб, прямоугольник. Этого достаточно для большинства образовательных задач.',
   },
   {
     q: 'Как использовать облако на уроке?',
-    a: 'Проекция на доску — отличное начало урока: ученики угадывают тему по ключевым словам. Или наоборот — после изучения темы попросите детей составить своё облако из того, что запомнилось. Сравнение облаков разных групп показывает, что каждый усвоил по-своему.',
+    a: 'Проекция на доску — отличное начало урока: ученики угадывают тему по ключевым словам. Или наоборот — после изучения темы попросите детей составить своё облако из того, что запомнилось.',
   },
   {
     q: 'Чем отличается «Построчный режим» от обычного?',
-    a: 'Обычный режим: текст разбивается на отдельные слова, подсчитывается их частота. Подходит для анализа статей, эссе, стихов.\nПострочный режим: каждая строка = отдельное слово или фраза. Идеально для списков терминов, имён, дат, когда нужно показать именно эти элементы.',
+    a: 'Обычный режим: текст разбивается на отдельные слова, подсчитывается их частота. Подходит для анализа статей, эссе.\nПострочный режим: каждая строка = отдельное слово или фраза. Идеально для списков терминов, имён, дат.',
   },
   {
     q: 'Что такое «Демо-текст»?',
-    a: 'Готовый пример текста на тему педагогики для быстрого знакомства с инструментом. Нажмите кнопку, чтобы увидеть, как работает генератор, а затем замените текст на свой.',
+    a: 'Готовый пример текста (сказка «Волк и семеро козлят») для быстрого знакомства с инструментом. Нажмите кнопку и замените текст на свой.',
   },
   {
-    q: 'Почему кнопка «Ещё раз» перерисовывает облако?',
-    a: 'Алгоритм размещения слов использует случайность (seed). Кнопка меняет seed, и слова расставляются заново в новом порядке — удобно, если текущая композиция не нравится.',
+    q: 'Как перемещать и масштабировать предпросмотр?',
+    a: 'Зажмите и перетаскивайте мышью для перемещения. Используйте колесо мыши для масштабирования. Кнопки + / − / ↺ тоже работают.',
   },
 ];
 
@@ -140,34 +196,40 @@ const SCENARIO_ITEMS = [
   {
     icon: '✍️',
     title: 'Анализ прочитанного текста',
-    description: 'Вставьте отрывок из литературного произведения. Облако покажет самые частые слова — это отправная точка для обсуждения: почему автор использует именно их? Какие темы доминируют?',
+    description: 'Вставьте отрывок из литературного произведения. Облако покажет самые частые слова — отправная точка для обсуждения: почему автор использует именно их?',
   },
   {
     icon: '🎯',
     title: 'Повторение перед контрольной',
-    description: 'Каждый ученик пишет 5-10 ключевых терминов по теме. Соберите всё в одно облако. Ученики видят, какие понятия класс считает самыми важными, и могут дополнить свои списки.',
+    description: 'Каждый ученик пишет 5-10 ключевых терминов по теме. Соберите всё в одно облако. Ученики видят, какие понятия класс считает самыми важными.',
   },
   {
     icon: '🌍',
     title: 'Исследовательский проект',
-    description: 'При анализе исторических документов или новостных статей облако выявляет доминирующие понятия. Сравните облака из разных источников — заметна разница в акцентах.',
+    description: 'При анализе исторических документов или новостных статей облако выявляет доминирующие понятия. Сравните облака из разных источников.',
   },
   {
     icon: '🎨',
     title: 'Творческое задание',
-    description: 'Пусть ученики напишут эссе «Мой мир» или «Моя мечта». Объедините тексты в облако — получится коллективный портрет класса. Можно сравнивать облака разных классов или групп.',
+    description: 'Пусть ученики напишут эссе «Мой мир». Объедините тексты в облако — получится коллективный портрет класса.',
   },
   {
     icon: '🔬',
     title: 'Научные термины',
-    description: 'Построчный режим + список терминов по биологии, физике, химии. Получится наглядная «карта понятий» для кабинета. Распечатайте в PNG 4K — плакат готов.',
+    description: 'Построчный режим + список терминов по биологии, физике, химии. Получится наглядная «карта понятий» для кабинета.',
   },
 ];
 
 function loadProject(): ProjectData {
   try {
     const raw = localStorage.getItem(PROJECT_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const p = JSON.parse(raw);
+      // миграция старых настроек без minFont/maxFont
+      if (!p.settings?.minFont) p.settings.minFont = DEFAULT_SETTINGS.minFont;
+      if (!p.settings?.maxFont) p.settings.maxFont = DEFAULT_SETTINGS.maxFont;
+      return p;
+    }
   } catch {}
   return {
     text: '',
@@ -234,7 +296,6 @@ function parseText(text: string, lineMode: boolean, stopWords: Set<string>, maxW
     .slice(0, maxWords);
 }
 
-// Детерминированный ГПСЧ на основе seed
 function createRng(seed: number) {
   let s = seed;
   return () => {
@@ -295,8 +356,6 @@ function layoutWords(
 
   const rng = createRng(settings.seed);
   const maxCount = Math.max(...words.map((w) => w.count));
-  const minFont = 12;
-  const maxFont = Math.min(width, height) * 0.18;
   const palette = PALETTES[settings.palette] || PALETTES.rainbow;
 
   const maskW = Math.ceil(width / 4);
@@ -310,7 +369,7 @@ function layoutWords(
 
   for (const w of words) {
     const t = w.count / maxCount;
-    const fontSize = Math.round(minFont + t * (maxFont - minFont));
+    const fontSize = Math.round(settings.minFont + t * (settings.maxFont - settings.minFont));
     const charWidth = fontSize * 0.55;
     const wordW = w.word.length * charWidth;
     const wordH = fontSize * 1.2;
@@ -381,7 +440,6 @@ function layoutWords(
   return items;
 }
 
-// Универсальный SVG рендер (используется и в превью, и в модалке, и при экспорте)
 const CloudSVG = ({ items, settings, fontFamily, id, width, height }: {
   items: WordItem[];
   settings: CloudSettings;
@@ -392,7 +450,7 @@ const CloudSVG = ({ items, settings, fontFamily, id, width, height }: {
 }) => {
   const bgFill = settings.backgroundColor === 'transparent' ? 'none' : settings.backgroundColor;
   return (
-    <svg id={id} width={width} height={height} viewBox={`0 0 ${width} ${height}`} xmlns="http://www.w3.org/2000/svg" style={{ background: bgFill }}>
+    <svg id={id} width={width} height={height} viewBox={`0 0 ${width} ${height}`} xmlns="http://www.w3.org/2000/svg" style={{ background: bgFill, display: 'block' }}>
       {items.length === 0 ? (
         <text x={width / 2} y={height / 2} textAnchor="middle" fontSize={16} fill="#9ca3af" fontFamily="Arial, sans-serif">
           Введите текст или загрузите файл
@@ -426,8 +484,16 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
   const [showFaq, setShowFaq] = useState(false);
   const [showScen, setShowScen] = useState(false);
   const [openFaqItem, setOpenFaqItem] = useState<number | null>(null);
+
+  // Зум и панорамирование предпросмотра
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jsonInputRef = useRef<HTMLInputElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const settings = project.settings;
   const stopWordsSet = useMemo(() => new Set(project.stopWords.toLowerCase().split(/\s+/).filter(Boolean)), [project.stopWords]);
@@ -442,7 +508,6 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
     return { unique: wordsData.length, total };
   }, [wordsData, project.text]);
 
-  // Ключевое исправление: rng создаётся ВНУТРИ useMemo, seed — часть settings
   const cloudItems = useMemo(
     () => layoutWords(wordsData, CLOUD_WIDTH, CLOUD_HEIGHT, settings),
     [wordsData, settings],
@@ -488,6 +553,48 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
   const handleClear = () => {
     update({ text: '' });
   };
+
+  const resetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom((z) => Math.max(0.3, Math.min(3, z + delta)));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsPanning(true);
+    panStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isPanning) return;
+    setPan({
+      x: panStartRef.current.panX + (e.clientX - panStartRef.current.x),
+      y: panStartRef.current.panY + (e.clientY - panStartRef.current.y),
+    });
+  };
+
+  const handleMouseUp = () => setIsPanning(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    setIsPanning(true);
+    panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, panX: pan.x, panY: pan.y };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPanning || e.touches.length !== 1) return;
+    setPan({
+      x: panStartRef.current.panX + (e.touches[0].clientX - panStartRef.current.x),
+      y: panStartRef.current.panY + (e.touches[0].clientY - panStartRef.current.y),
+    });
+  };
+
+  const handleTouchEnd = () => setIsPanning(false);
 
   const handleExportPNG = (resolution: 1 | 2 | 4) => {
     const svgEl = document.getElementById('wordcloud-svg');
@@ -563,6 +670,44 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
     if (jsonInputRef.current) jsonInputRef.current.value = '';
   };
 
+  const renderPreview = (zoomable: boolean) => (
+    <div
+      ref={zoomable ? previewContainerRef : undefined}
+      onWheel={zoomable ? handleWheel : undefined}
+      onMouseDown={zoomable ? handleMouseDown : undefined}
+      onMouseMove={zoomable ? handleMouseMove : undefined}
+      onMouseUp={zoomable ? handleMouseUp : undefined}
+      onMouseLeave={zoomable ? handleMouseUp : undefined}
+      onTouchStart={zoomable ? handleTouchStart : undefined}
+      onTouchMove={zoomable ? handleTouchMove : undefined}
+      onTouchEnd={zoomable ? handleTouchEnd : undefined}
+      className={`w-full h-full flex items-center justify-center overflow-hidden ${zoomable ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
+      style={{
+        background:
+          settings.backgroundColor === 'transparent'
+            ? 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 50% / 20px 20px'
+            : settings.backgroundColor,
+      }}
+    >
+      <div
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: 'center center',
+          transition: isPanning ? 'none' : 'transform 0.2s',
+        }}
+      >
+        <CloudSVG
+          id="wordcloud-svg"
+          items={cloudItems}
+          settings={settings}
+          fontFamily={settings.fontFamily}
+          width={CLOUD_WIDTH}
+          height={CLOUD_HEIGHT}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-blue-50 flex flex-col">
       <header className="bg-gradient-to-r from-purple-700 to-violet-600 shadow-md sticky top-0 z-10">
@@ -582,7 +727,7 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3">
           {/* ЛЕВАЯ КОЛОНКА */}
           <div className="space-y-3">
-            {/* Компактное превью */}
+            {/* Компактное превью с зумом и панорамой */}
             <div className="bg-white rounded-2xl p-3 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-semibold text-purple-700">Облако слов</label>
@@ -590,43 +735,40 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
                   <button
                     onClick={handleRedraw}
                     className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-semibold flex items-center gap-1 active:scale-95"
-                    title="Перерисовать"
+                    title="Перерисовать (новый случайный порядок)"
                   >
                     <RefreshCw className="w-3 h-3" /> Ещё раз
                   </button>
                   <button
-                    onClick={() => setShowPreviewFull(true)}
-                    className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg font-semibold flex items-center gap-1"
-                    title="Полный экран"
+                    onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
+                    className="p-1 text-xs bg-gray-100 text-gray-700 rounded-lg"
+                    title="Приблизить"
                   >
-                    <Maximize2 className="w-3 h-3" />
+                    <ZoomIn className="w-3.5 h-3.5" />
                   </button>
+                  <button
+                    onClick={() => setZoom((z) => Math.max(0.3, z - 0.2))}
+                    className="p-1 text-xs bg-gray-100 text-gray-700 rounded-lg"
+                    title="Отдалить"
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={resetView}
+                    className="p-1 text-xs bg-gray-100 text-gray-700 rounded-lg"
+                    title="Сбросить вид"
+                  >
+                    <ResetIcon className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[10px] font-mono text-gray-500 w-10 text-right">{(zoom * 100).toFixed(0)}%</span>
                 </div>
               </div>
-              <div
-                className="border-2 border-gray-200 rounded-xl overflow-hidden cursor-pointer relative group"
-                onClick={() => setShowPreviewFull(true)}
-                style={{
-                  background:
-                    settings.backgroundColor === 'transparent'
-                      ? 'repeating-conic-gradient(#e5e7eb 0% 25%, #fff 0% 50%) 50% / 20px 20px'
-                      : settings.backgroundColor,
-                }}
-              >
-                <CloudSVG
-                  id="wordcloud-svg"
-                  items={cloudItems}
-                  settings={settings}
-                  fontFamily={settings.fontFamily}
-                  width={CLOUD_WIDTH}
-                  height={CLOUD_HEIGHT}
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1">
-                    <Maximize2 className="w-3 h-3" /> Полный экран
-                  </div>
-                </div>
+              <div className="border-2 border-gray-200 rounded-xl overflow-hidden" style={{ height: '320px' }}>
+                {renderPreview(true)}
               </div>
+              <p className="text-[10px] text-gray-400 text-center mt-1.5">
+                🖱️ Перетаскивайте для перемещения · колесо мыши для масштаба
+              </p>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <button onClick={handleDemo} className="py-1.5 text-xs bg-purple-50 text-purple-700 rounded-lg font-semibold flex items-center justify-center gap-1">
                   <Sparkles className="w-3 h-3" /> Демо-текст
@@ -695,7 +837,7 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
 
           {/* ПРАВАЯ КОЛОНКА: компактные вертикальные модули */}
           <div className="space-y-2">
-            {/* Форма + углы (объединены) */}
+            {/* Форма + углы */}
             <div className="bg-white rounded-2xl p-2.5 shadow-sm space-y-2">
               <div className="flex items-center gap-1">
                 <Settings2 className="w-3.5 h-3.5 text-purple-600" />
@@ -735,11 +877,11 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
               </div>
             </div>
 
-            {/* Шрифт + фон (объединены) */}
+            {/* Шрифт + размер + фон */}
             <div className="bg-white rounded-2xl p-2.5 shadow-sm space-y-2">
               <div className="flex items-center gap-1">
                 <Type className="w-3.5 h-3.5 text-purple-600" />
-                <label className="text-xs font-bold text-purple-700">Шрифт и фон</label>
+                <label className="text-xs font-bold text-purple-700">Шрифт и размер</label>
               </div>
               <select
                 value={settings.fontFamily}
@@ -757,6 +899,41 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
                   ))}
                 </optgroup>
               </select>
+              <div>
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] text-gray-500">Мин. размер</label>
+                  <span className="text-[10px] font-mono text-purple-700">{settings.minFont}px</span>
+                </div>
+                <input
+                  type="range"
+                  min={8}
+                  max={48}
+                  step={1}
+                  value={settings.minFont}
+                  onChange={(e) => updateSettings({ minFont: Math.min(Number(e.target.value), settings.maxFont - 4) })}
+                  className="w-full accent-purple-600"
+                />
+              </div>
+              <div>
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] text-gray-500">Макс. размер</label>
+                  <span className="text-[10px] font-mono text-purple-700">{settings.maxFont}px</span>
+                </div>
+                <input
+                  type="range"
+                  min={24}
+                  max={180}
+                  step={2}
+                  value={settings.maxFont}
+                  onChange={(e) => updateSettings({ maxFont: Math.max(Number(e.target.value), settings.minFont + 4) })}
+                  className="w-full accent-purple-600"
+                />
+              </div>
+            </div>
+
+            {/* Фон */}
+            <div className="bg-white rounded-2xl p-2.5 shadow-sm space-y-2">
+              <label className="text-xs font-bold text-purple-700">Фон</label>
               <div className="grid grid-cols-4 gap-1">
                 {['#ffffff', '#000000', '#f3f4f6', 'transparent'].map((c) => (
                   <button
@@ -945,47 +1122,6 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
           <b>Приватность:</b> весь текст и настройки хранятся локально в браузере, данные никуда не отправляются.
         </div>
       </main>
-
-      {/* МОДАЛКА ПОЛНОЭКРАННОГО ПРОСМОТРА */}
-      {showPreviewFull && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2"
-          onClick={() => setShowPreviewFull(false)}
-        >
-          <div
-            className="relative bg-white rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-3 border-b border-gray-200">
-              <h3 className="font-semibold text-purple-700">Облако слов</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleRedraw}
-                  className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm font-semibold flex items-center gap-1"
-                >
-                  <RefreshCw className="w-4 h-4" /> Ещё раз
-                </button>
-                <button
-                  onClick={() => setShowPreviewFull(false)}
-                  className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-                  aria-label="Закрыть"
-                >
-                  <X className="w-5 h-5 text-gray-600" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-auto p-2 bg-gray-50">
-              <CloudSVG
-                items={cloudItems}
-                settings={settings}
-                fontFamily={settings.fontFamily}
-                width={CLOUD_WIDTH}
-                height={CLOUD_HEIGHT}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
