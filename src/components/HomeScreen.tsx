@@ -11,6 +11,7 @@ import {
   Package,
   MonitorPlay,
   Cloud,
+  PenTool,
   Calculator,
   Trophy,
   LayoutGrid,
@@ -42,7 +43,8 @@ type SectionId =
   | 'dice'
   | 'equipment'
   | 'teleprompter'
-  | 'wordcloud';
+  | 'wordcloud'
+  | 'graphdictation';
 
 interface Section {
   id: SectionId;
@@ -159,6 +161,13 @@ const SECTIONS: Section[] = [
     description: 'Генератор облаков',
     hint: 'Мощный генератор облаков слов с 5 формами (круг, сердце, звезда, ромб, прямоугольник), 6 палитрами, 9 шрифтами + Google Fonts. Ввод текста, загрузка .txt/.csv, построчный режим, настраиваемые стоп-слова, простая нормализация. Экспорт PNG (до 4K), SVG, JSON. Кнопка «Перерисовать», плотность, углы наклона, масштабирование.',
     icon: Cloud,
+  },
+  {
+    id: 'graphdictation',
+    title: 'Графический диктант',
+    description: 'Рисование по клеткам',
+    hint: 'Развивающее упражнение для детей 5-9 лет. Рисование линий по клеткам по устным инструкциям. Развивает мелкую моторику, пространственное мышление и внимание.',
+    icon: PenTool,
   },
 ];
 
