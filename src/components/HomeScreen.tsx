@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Clock,
   Dices,
@@ -21,6 +21,8 @@ import {
   FlaskConical,
   X,
   Check,
+  ChevronUp,
+  ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -60,6 +62,9 @@ interface HomeScreenProps {
 }
 
 const VISIBILITY_KEY = 'home-visible-sections';
+const ORDER_KEY = 'home-section-order';
+const GEAR_SEEN_KEY = 'home-gear-seen';
+const MANUAL_SEEN_KEY = 'home-manual-seen';
 
 // ===== Данные =====
 
@@ -178,6 +183,22 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [gearActive, setGearActive] = useState(false);
 
+  const [gearSeen, setGearSeen] = useState(() => {
+    try {
+      return localStorage.getItem(GEAR_SEEN_KEY) === 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const [manualSeen, setManualSeen] = useState(() => {
+    try {
+      return localStorage.getItem(MANUAL_SEEN_KEY) === 'true';
+    } catch {
+      return true;
+    }
+  });
+
   const [visibleSections, setVisibleSections] = useState<Set<SectionId>>(() => {
     try {
       const raw = localStorage.getItem(VISIBILITY_KEY);
@@ -193,6 +214,25 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     return new Set(SECTIONS.map(s => s.id));
   });
 
+  // Порядок разделов (массив id в нужной последовательности)
+  const [sectionOrder, setSectionOrder] = useState<SectionId[]>(() => {
+    try {
+      const raw = localStorage.getItem(ORDER_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw) as SectionId[];
+        if (Array.isArray(arr) && arr.length > 0) {
+          // Дополняем новыми разделами, которых нет в сохранённом порядке
+          const existing = new Set(arr);
+          const missing = SECTIONS.map(s => s.id).filter(id => !existing.has(id));
+          return [...arr, ...missing];
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return SECTIONS.map(s => s.id);
+  });
+
   useEffect(() => {
     try {
       localStorage.setItem(VISIBILITY_KEY, JSON.stringify([...visibleSections]));
@@ -200,6 +240,38 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       // ignore
     }
   }, [visibleSections]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ORDER_KEY, JSON.stringify(sectionOrder));
+    } catch {
+      // ignore
+    }
+  }, [sectionOrder]);
+
+  const handleGearClick = () => {
+    setShowSettings(true);
+    if (!gearSeen) {
+      setGearSeen(true);
+      try {
+        localStorage.setItem(GEAR_SEEN_KEY, 'true');
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const handleManualClick = () => {
+    if (!manualSeen) {
+      setManualSeen(true);
+      try {
+        localStorage.setItem(MANUAL_SEEN_KEY, 'true');
+      } catch {
+        // ignore
+      }
+    }
+    onNavigate('manual');
+  };
 
   const toggleSectionVisibility = (id: SectionId) => {
     setVisibleSections(prev => {
@@ -213,12 +285,28 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     });
   };
 
+  const moveSection = (id: SectionId, direction: 'up' | 'down') => {
+    setSectionOrder(prev => {
+      const idx = prev.indexOf(id);
+      if (idx < 0) return prev;
+      const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (newIdx < 0 || newIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+      return next;
+    });
+  };
+
   const showAll = () => {
     setVisibleSections(new Set(SECTIONS.map(s => s.id)));
   };
 
   const hideAll = () => {
     setVisibleSections(new Set());
+  };
+
+  const resetOrder = () => {
+    setSectionOrder(SECTIONS.map(s => s.id));
   };
 
   const activeSection = SECTIONS.find((s) => s.id === activeHelpModal);
@@ -235,41 +323,54 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     return activeSection?.hint || 'Описание скоро появится';
   };
 
-  const visibleSectionsList = SECTIONS.filter(s => visibleSections.has(s.id));
+  // Список видимых разделов в сохранённом порядке
+  const visibleSectionsList = useMemo(() => {
+    const sectionMap = new Map(SECTIONS.map(s => [s.id, s]));
+    return sectionOrder
+      .map(id => sectionMap.get(id))
+      .filter((s): s is Section => !!s && visibleSections.has(s.id));
+  }, [sectionOrder, visibleSections]);
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="max-w-md mx-auto w-full px-5 pt-12 sm:pt-10 pb-4">
-        {/* Верхняя строка: анимированная шестерёнка слева, проект справа */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="relative flex items-center">
-            <button
-              onClick={() => setShowSettings(true)}
-              onMouseEnter={() => setGearActive(true)}
-              onMouseLeave={() => setGearActive(false)}
-              onFocus={() => setGearActive(true)}
-              onBlur={() => setGearActive(false)}
-              className="text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-              aria-label="Настройки внешнего вида"
-              title="Настроить разделы"
-            >
-              <Settings
-                className={`w-5 h-5 transition-transform duration-700 ease-in-out ${
-                  gearActive ? 'rotate-[360deg] text-purple-600' : 'rotate-0'
-                }`}
-              />
-            </button>
-            {/* Раскрывающееся пояснение */}
-            <span
-              className={`absolute left-11 top-1/2 -translate-y-1/2 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-2 py-1 whitespace-nowrap origin-left transition-all duration-300 pointer-events-none z-20 ${
-                gearActive ? 'opacity-100 scale-100' : 'opacity-0 scale-x-0'
-              }`}
-            >
-              Настройки внешнего вида
-            </span>
+      <header className="max-w-md mx-auto w-full px-5 pt-10 sm:pt-8 pb-4">
+        {/* Верхняя строка: шестерёнка + заголовок слева, проект справа */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            {/* Шестерёнка с пульсацией для новых пользователей */}
+            <div className="relative shrink-0">
+              <button
+                onClick={handleGearClick}
+                onMouseEnter={() => setGearActive(true)}
+                onMouseLeave={() => setGearActive(false)}
+                onFocus={() => setGearActive(true)}
+                onBlur={() => setGearActive(false)}
+                className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                aria-label="Настройки внешнего вида"
+                title="Настроить разделы"
+              >
+                {!gearSeen && (
+                  <>
+                    <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
+                    <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
+                  </>
+                )}
+                <Settings
+                  className={`relative z-10 w-5 h-5 transition-transform duration-700 ease-in-out ${
+                    gearActive ? 'rotate-[360deg] text-purple-600' : 'rotate-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Заголовок на одном уровне с шестерёнкой */}
+            <h1 className="text-lg sm:text-xl font-extrabold text-purple-700 truncate whitespace-nowrap">
+              Помощник учителя
+            </h1>
           </div>
 
-          <p className="text-sm text-gray-500 text-right">
+          {/* Проект Алексея Атапина — уменьшенный шрифт */}
+          <p className="text-[11px] text-gray-500 text-right shrink-0 leading-tight">
             Проект{' '}
             <a
               href="https://vk.ru/aaatapin"
@@ -282,24 +383,27 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           </p>
         </div>
 
-        {/* Заголовок */}
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-purple-700 text-center whitespace-nowrap mt-6">
-          Помощник учителя
-        </h1>
-
         {/* Подзаголовок с иконкой руководства */}
-        <div className="flex items-center justify-center gap-2 mt-1">
-          <p className="text-sm sm:text-base text-gray-500 text-center whitespace-nowrap">
+        <div className="flex items-center justify-center gap-2 mt-3">
+          <p className="text-xs sm:text-sm text-gray-500 text-center whitespace-nowrap">
             Простые инструменты для сложных задач
           </p>
-          <button
-            onClick={() => onNavigate('manual')}
-            className="text-gray-400 hover:text-purple-600 transition-colors p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-            aria-label="Руководство по использованию"
-            title="Руководство"
-          >
-            <BookOpen className="w-4 h-4" />
-          </button>
+          <div className="relative shrink-0">
+            <button
+              onClick={handleManualClick}
+              className="relative text-gray-400 hover:text-purple-600 transition-colors p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              aria-label="Руководство по использованию"
+              title="Руководство"
+            >
+              {!manualSeen && (
+                <>
+                  <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
+                  <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
+                </>
+              )}
+              <BookOpen className="relative z-10 w-4 h-4" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -351,7 +455,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           <div className="text-center py-10">
             <p className="text-gray-400 text-sm mb-3">Все разделы скрыты.</p>
             <button
-              onClick={() => setShowSettings(true)}
+              onClick={handleGearClick}
               className="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl px-4 py-2.5 text-sm"
             >
               Настроить отображение
@@ -371,7 +475,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         </div>
       </main>
 
-      {/* ===== МОДАЛКА НАСТРОЕК: сетка 3 столбца, карточка = иконка + текст + переключатель в одну линию ===== */}
+      {/* ===== МОДАЛКА НАСТРОЕК: сетка 3 столбца + сортировка ===== */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
@@ -388,66 +492,105 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
               <p className="text-sm text-gray-500 mb-3 px-1">
-                Включите разделы, которые хотите видеть на главном экране.
+                Включите разделы и меняйте их порядок стрелками.
               </p>
 
-              {/* Сетка из 3 столбцов */}
-              <div className="grid grid-cols-3 gap-2">
-                {SECTIONS.map(section => {
+              {/* Список с переключателями и стрелками сортировки */}
+              <div className="space-y-1.5">
+                {sectionOrder.map((id, idx) => {
+                  const section = SECTIONS.find(s => s.id === id);
+                  if (!section) return null;
                   const Icon = section.icon;
                   const isVisible = visibleSections.has(section.id);
+                  const isFirst = idx === 0;
+                  const isLast = idx === sectionOrder.length - 1;
+
                   return (
-                    <button
+                    <div
                       key={section.id}
-                      onClick={() => toggleSectionVisibility(section.id)}
-                      className={`flex items-center gap-1.5 p-1.5 rounded-xl border-2 transition-all active:scale-95 ${
+                      className={`flex items-center gap-2 p-2 rounded-xl border-2 transition-all ${
                         isVisible
                           ? 'border-purple-300 bg-purple-50'
                           : 'border-gray-200 bg-gray-50 opacity-60'
                       }`}
-                      aria-label={isVisible ? `Скрыть: ${section.title}` : `Показать: ${section.title}`}
-                      aria-pressed={isVisible}
                     >
-                      {/* Иконка */}
-                      <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${
-                        isVisible ? 'bg-purple-100' : 'bg-gray-200'
-                      }`}>
-                        <Icon className={`w-4 h-4 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
-                      </div>
+                      {/* Иконка + название (кнопка-переключатель) */}
+                      <button
+                        onClick={() => toggleSectionVisibility(section.id)}
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                        aria-label={isVisible ? `Скрыть: ${section.title}` : `Показать: ${section.title}`}
+                        aria-pressed={isVisible}
+                      >
+                        <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+                          isVisible ? 'bg-purple-100' : 'bg-gray-200'
+                        }`}>
+                          <Icon className={`w-4 h-4 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
+                        </div>
+                        <span className={`flex-1 min-w-0 text-sm font-semibold leading-tight truncate ${
+                          isVisible ? 'text-gray-800' : 'text-gray-500'
+                        }`}>
+                          {section.title}
+                        </span>
+                      </button>
 
-                      {/* Название: 1–2 строки, центрируется по вертикали */}
-                      <span className={`flex-1 min-w-0 text-left text-[10px] font-semibold leading-tight line-clamp-2 ${
-                        isVisible ? 'text-gray-800' : 'text-gray-500'
-                      }`}>
-                        {section.title}
-                      </span>
+                      {/* Стрелки сортировки */}
+                      <div className="flex flex-col shrink-0 gap-0.5">
+                        <button
+                          onClick={() => moveSection(section.id, 'up')}
+                          disabled={isFirst}
+                          className="p-1 rounded hover:bg-purple-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          aria-label="Переместить выше"
+                          title="Выше"
+                        >
+                          <ChevronUp className="w-4 h-4 text-purple-700" />
+                        </button>
+                        <button
+                          onClick={() => moveSection(section.id, 'down')}
+                          disabled={isLast}
+                          className="p-1 rounded hover:bg-purple-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          aria-label="Переместить ниже"
+                          title="Ниже"
+                        >
+                          <ChevronDown className="w-4 h-4 text-purple-700" />
+                        </button>
+                      </div>
 
                       {/* Переключатель */}
-                      <div className={`relative shrink-0 w-8 h-4 rounded-full transition-colors ${
-                        isVisible ? 'bg-purple-600' : 'bg-gray-300'
-                      }`}>
-                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${
+                      <button
+                        onClick={() => toggleSectionVisibility(section.id)}
+                        className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${
+                          isVisible ? 'bg-purple-600' : 'bg-gray-300'
+                        }`}
+                        aria-label="Переключить видимость"
+                      >
+                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
                           isVisible ? 'translate-x-4' : 'translate-x-0'
                         }`} />
-                      </div>
-                    </button>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
 
               {/* Кнопки массовых действий */}
-              <div className="flex gap-2 mt-4">
+              <div className="grid grid-cols-3 gap-2 mt-4">
                 <button
                   onClick={showAll}
-                  className="flex-1 py-2 rounded-xl border-2 border-purple-300 text-purple-700 font-semibold text-xs hover:bg-purple-50 transition-colors"
+                  className="py-2 rounded-xl border-2 border-purple-300 text-purple-700 font-semibold text-xs hover:bg-purple-50 transition-colors"
                 >
                   Показать все
                 </button>
                 <button
                   onClick={hideAll}
-                  className="flex-1 py-2 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold text-xs hover:bg-gray-50 transition-colors"
+                  className="py-2 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold text-xs hover:bg-gray-50 transition-colors"
                 >
                   Скрыть все
+                </button>
+                <button
+                  onClick={resetOrder}
+                  className="py-2 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold text-xs hover:bg-gray-50 transition-colors"
+                >
+                  Сброс порядка
                 </button>
               </div>
             </div>
