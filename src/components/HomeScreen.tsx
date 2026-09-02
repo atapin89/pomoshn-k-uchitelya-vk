@@ -21,8 +21,8 @@ import {
   FlaskConical,
   X,
   Check,
-  ChevronUp,
-  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -214,14 +214,12 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     return new Set(SECTIONS.map(s => s.id));
   });
 
-  // Порядок разделов (массив id в нужной последовательности)
   const [sectionOrder, setSectionOrder] = useState<SectionId[]>(() => {
     try {
       const raw = localStorage.getItem(ORDER_KEY);
       if (raw) {
         const arr = JSON.parse(raw) as SectionId[];
         if (Array.isArray(arr) && arr.length > 0) {
-          // Дополняем новыми разделами, которых нет в сохранённом порядке
           const existing = new Set(arr);
           const missing = SECTIONS.map(s => s.id).filter(id => !existing.has(id));
           return [...arr, ...missing];
@@ -323,7 +321,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     return activeSection?.hint || 'Описание скоро появится';
   };
 
-  // Список видимых разделов в сохранённом порядке
   const visibleSectionsList = useMemo(() => {
     const sectionMap = new Map(SECTIONS.map(s => [s.id, s]));
     return sectionOrder
@@ -333,43 +330,34 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="max-w-md mx-auto w-full px-5 pt-10 sm:pt-8 pb-4">
-        {/* Верхняя строка: шестерёнка + заголовок слева, проект справа */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {/* Шестерёнка с пульсацией для новых пользователей */}
-            <div className="relative shrink-0">
-              <button
-                onClick={handleGearClick}
-                onMouseEnter={() => setGearActive(true)}
-                onMouseLeave={() => setGearActive(false)}
-                onFocus={() => setGearActive(true)}
-                onBlur={() => setGearActive(false)}
-                className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-                aria-label="Настройки внешнего вида"
-                title="Настроить разделы"
-              >
-                {!gearSeen && (
-                  <>
-                    <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
-                    <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
-                  </>
-                )}
-                <Settings
-                  className={`relative z-10 w-5 h-5 transition-transform duration-700 ease-in-out ${
-                    gearActive ? 'rotate-[360deg] text-purple-600' : 'rotate-0'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Заголовок на одном уровне с шестерёнкой */}
-            <h1 className="text-lg sm:text-xl font-extrabold text-purple-700 truncate whitespace-nowrap">
-              Помощник учителя
-            </h1>
+      <header className="max-w-md mx-auto w-full px-5 pt-8 sm:pt-6 pb-4">
+        {/* Верхняя строка: шестерёнка слева, проект справа */}
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="relative shrink-0">
+            <button
+              onClick={handleGearClick}
+              onMouseEnter={() => setGearActive(true)}
+              onMouseLeave={() => setGearActive(false)}
+              onFocus={() => setGearActive(true)}
+              onBlur={() => setGearActive(false)}
+              className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              aria-label="Настройки внешнего вида"
+              title="Настроить разделы"
+            >
+              {!gearSeen && (
+                <>
+                  <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
+                  <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
+                </>
+              )}
+              <Settings
+                className={`relative z-10 w-5 h-5 transition-transform duration-700 ease-in-out ${
+                  gearActive ? 'rotate-[360deg] text-purple-600' : 'rotate-0'
+                }`}
+              />
+            </button>
           </div>
 
-          {/* Проект Алексея Атапина — уменьшенный шрифт */}
           <p className="text-[11px] text-gray-500 text-right shrink-0 leading-tight">
             Проект{' '}
             <a
@@ -383,8 +371,13 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           </p>
         </div>
 
-        {/* Подзаголовок с иконкой руководства */}
-        <div className="flex items-center justify-center gap-2 mt-3">
+        {/* Заголовок — крупный, по центру */}
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-purple-700 text-center whitespace-nowrap">
+          Помощник учителя
+        </h1>
+
+        {/* Подзаголовок с малым отступом и иконкой руководства */}
+        <div className="flex items-center justify-center gap-2 mt-1.5">
           <p className="text-xs sm:text-sm text-gray-500 text-center whitespace-nowrap">
             Простые инструменты для сложных задач
           </p>
@@ -475,7 +468,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         </div>
       </main>
 
-      {/* ===== МОДАЛКА НАСТРОЕК: сетка 3 столбца + сортировка ===== */}
+      {/* ===== МОДАЛКА НАСТРОЕК: ПЛИТОЧНЫЙ РЕДАКТОР ===== */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
@@ -492,11 +485,11 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
               <p className="text-sm text-gray-500 mb-3 px-1">
-                Включите разделы и меняйте их порядок стрелками.
+                Тапните по плитке, чтобы скрыть/показать. Стрелки ← → меняют порядок.
               </p>
 
-              {/* Список с переключателями и стрелками сортировки */}
-              <div className="space-y-1.5">
+              {/* Сетка плиток с возможностью перестановки */}
+              <div className="grid grid-cols-3 gap-2">
                 {sectionOrder.map((id, idx) => {
                   const section = SECTIONS.find(s => s.id === id);
                   if (!section) return null;
@@ -508,65 +501,60 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                   return (
                     <div
                       key={section.id}
-                      className={`flex items-center gap-2 p-2 rounded-xl border-2 transition-all ${
+                      className={`relative rounded-2xl p-2 flex flex-col items-center gap-1 border-2 transition-all ${
                         isVisible
-                          ? 'border-purple-300 bg-purple-50'
+                          ? 'border-purple-400 bg-gradient-to-br from-purple-50 to-violet-50 shadow-sm'
                           : 'border-gray-200 bg-gray-50 opacity-60'
                       }`}
                     >
-                      {/* Иконка + название (кнопка-переключатель) */}
+                      {/* Иконка + название (тап = toggle) */}
                       <button
                         onClick={() => toggleSectionVisibility(section.id)}
-                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                        className="flex flex-col items-center gap-1 w-full"
                         aria-label={isVisible ? `Скрыть: ${section.title}` : `Показать: ${section.title}`}
                         aria-pressed={isVisible}
                       >
-                        <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
                           isVisible ? 'bg-purple-100' : 'bg-gray-200'
                         }`}>
-                          <Icon className={`w-4 h-4 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
+                          <Icon className={`w-5 h-5 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
                         </div>
-                        <span className={`flex-1 min-w-0 text-sm font-semibold leading-tight truncate ${
+                        <span className={`text-[10px] font-semibold text-center leading-tight line-clamp-2 min-h-[28px] flex items-center ${
                           isVisible ? 'text-gray-800' : 'text-gray-500'
                         }`}>
                           {section.title}
                         </span>
                       </button>
 
-                      {/* Стрелки сортировки */}
-                      <div className="flex flex-col shrink-0 gap-0.5">
+                      {/* Строка управления: ← индикатор → */}
+                      <div className="flex items-center justify-between w-full gap-0.5">
                         <button
                           onClick={() => moveSection(section.id, 'up')}
                           disabled={isFirst}
-                          className="p-1 rounded hover:bg-purple-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                          aria-label="Переместить выше"
-                          title="Выше"
+                          className="p-1 rounded-lg hover:bg-purple-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors active:scale-90"
+                          aria-label="Переместить левее"
+                          title="Левее"
                         >
-                          <ChevronUp className="w-4 h-4 text-purple-700" />
+                          <ChevronLeft className="w-3.5 h-3.5 text-purple-700" />
                         </button>
+
+                        {/* Индикатор видимости */}
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors ${
+                          isVisible ? 'bg-purple-600' : 'bg-gray-300'
+                        }`}>
+                          {isVisible && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                        </div>
+
                         <button
                           onClick={() => moveSection(section.id, 'down')}
                           disabled={isLast}
-                          className="p-1 rounded hover:bg-purple-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                          aria-label="Переместить ниже"
-                          title="Ниже"
+                          className="p-1 rounded-lg hover:bg-purple-100 disabled:opacity-20 disabled:cursor-not-allowed transition-colors active:scale-90"
+                          aria-label="Переместить правее"
+                          title="Правее"
                         >
-                          <ChevronDown className="w-4 h-4 text-purple-700" />
+                          <ChevronRight className="w-3.5 h-3.5 text-purple-700" />
                         </button>
                       </div>
-
-                      {/* Переключатель */}
-                      <button
-                        onClick={() => toggleSectionVisibility(section.id)}
-                        className={`relative shrink-0 w-9 h-5 rounded-full transition-colors ${
-                          isVisible ? 'bg-purple-600' : 'bg-gray-300'
-                        }`}
-                        aria-label="Переключить видимость"
-                      >
-                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                          isVisible ? 'translate-x-4' : 'translate-x-0'
-                        }`} />
-                      </button>
                     </div>
                   );
                 })}
