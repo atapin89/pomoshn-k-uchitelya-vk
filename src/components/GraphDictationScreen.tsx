@@ -24,6 +24,7 @@ import {
   Eraser,
   Pencil,
   Image as ImageIcon,
+  Inbox,
 } from 'lucide-react';
 import BackButton from './BackButton';
 
@@ -45,96 +46,6 @@ interface Dictation {
 const CELL_SIZE = 20;
 const GRID_WIDTH = 20;
 const GRID_HEIGHT = 20;
-
-const PRESET_DICTATIONS: Dictation[] = [
-  {
-    id: 'flower',
-    name: 'Цветочек',
-    difficulty: 'easy',
-    startOffset: { x: 8, y: 8 },
-    steps: [
-      { direction: 'right', cells: 2 },
-      { direction: 'down', cells: 1 },
-      { direction: 'right', cells: 1 },
-      { direction: 'up', cells: 1 },
-      { direction: 'right', cells: 1 },
-      { direction: 'up', cells: 2 },
-      { direction: 'left', cells: 1 },
-      { direction: 'up', cells: 1 },
-      { direction: 'left', cells: 1 },
-      { direction: 'down', cells: 1 },
-      { direction: 'left', cells: 2 },
-      { direction: 'down', cells: 1 },
-      { direction: 'left', cells: 1 },
-      { direction: 'up', cells: 1 },
-      { direction: 'left', cells: 1 },
-      { direction: 'down', cells: 2 },
-      { direction: 'right', cells: 1 },
-      { direction: 'down', cells: 1 },
-    ],
-  },
-  {
-    id: 'house',
-    name: 'Домик',
-    difficulty: 'easy',
-    startOffset: { x: 6, y: 10 },
-    steps: [
-      { direction: 'right', cells: 6 },
-      { direction: 'up', cells: 4 },
-      { direction: 'left', cells: 3 },
-      { direction: 'up', cells: 2 },
-      { direction: 'left', cells: 3 },
-      { direction: 'down', cells: 2 },
-      { direction: 'down', cells: 4 },
-    ],
-  },
-  {
-    id: 'cat',
-    name: 'Котик',
-    difficulty: 'medium',
-    startOffset: { x: 7, y: 8 },
-    steps: [
-      { direction: 'right', cells: 1 },
-      { direction: 'up', cells: 1 },
-      { direction: 'right', cells: 1 },
-      { direction: 'up', cells: 2 },
-      { direction: 'right', cells: 2 },
-      { direction: 'down', cells: 1 },
-      { direction: 'right', cells: 1 },
-      { direction: 'down', cells: 1 },
-      { direction: 'right', cells: 1 },
-      { direction: 'down', cells: 2 },
-      { direction: 'left', cells: 1 },
-      { direction: 'down', cells: 1 },
-      { direction: 'left', cells: 2 },
-      { direction: 'up', cells: 1 },
-      { direction: 'left', cells: 1 },
-      { direction: 'down', cells: 1 },
-      { direction: 'left', cells: 2 },
-      { direction: 'up', cells: 2 },
-    ],
-  },
-  {
-    id: 'star',
-    name: 'Звезда',
-    difficulty: 'hard',
-    startOffset: { x: 10, y: 6 },
-    steps: [
-      { direction: 'down', cells: 2 },
-      { direction: 'right', cells: 2 },
-      { direction: 'down', cells: 1 },
-      { direction: 'left', cells: 2 },
-      { direction: 'down', cells: 2 },
-      { direction: 'left', cells: 1 },
-      { direction: 'up', cells: 2 },
-      { direction: 'left', cells: 2 },
-      { direction: 'up', cells: 1 },
-      { direction: 'right', cells: 2 },
-      { direction: 'up', cells: 2 },
-      { direction: 'right', cells: 1 },
-    ],
-  },
-];
 
 const DIRECTION_LABELS: Record<Direction, string> = {
   up: '↑ вверх',
@@ -166,8 +77,8 @@ const FAQ_ITEMS = [
     a: 'Оптимально для детей 5–9 лет. Простые диктанты (5–8 шагов) — для 5–6 лет, средние (10–15 шагов) — для 6–7 лет, сложные (20+ шагов) — для 8–9 лет.',
   },
   {
-    q: 'Как нарисовать свой диктант?',
-    a: 'Нажмите «Создать» и рисуйте прямо на поле: зажмите мышку (или палец) и ведите линию по клеткам. Программа сама запишет последовательность шагов («2 вправо, 1 вниз…»). Первый клик задаёт начальную точку.',
+    q: 'Как создать свой диктант?',
+    a: 'Нажмите «Создать» и рисуйте прямо на поле: зажмите мышку (или палец) и ведите линию по клеткам. Программа сама запишет последовательность шагов. Первый клик задаёт начальную точку.',
   },
   {
     q: 'Можно ли исправить нарисованное?',
@@ -268,12 +179,15 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   const [dictations, setDictations] = useState<Dictation[]>(() => {
     try {
       const raw = localStorage.getItem('graph-dictations');
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {}
-    return PRESET_DICTATIONS;
+    return [];
   });
 
-  const [selectedId, setSelectedId] = useState<string>(PRESET_DICTATIONS[0].id);
+  const [selectedId, setSelectedId] = useState<string>('');
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -294,10 +208,18 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   const [printClass, setPrintClass] = useState('');
   const [printDate, setPrintDate] = useState('');
 
-  const selectedDictation = dictations.find((d) => d.id === selectedId) || dictations[0];
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const editorCanvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const selectedDictation = dictations.find((d) => d.id === selectedId) || null;
+
+  // Автовыход из режима просмотра, если выбранного диктанта больше нет
+  useEffect(() => {
+    if (selectedId && !dictations.find((d) => d.id === selectedId)) {
+      setSelectedId('');
+    }
+  }, [selectedId, dictations]);
 
   useEffect(() => {
     try {
@@ -307,6 +229,7 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
 
   // ===== ОСНОВНОЙ ПРОСМОТР =====
   useEffect(() => {
+    if (!selectedDictation) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -325,7 +248,7 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     }
   }, [selectedDictation, currentStep, showAnswer]);
 
-  // ===== РЕДАКТОР: РИСОВАНИЕ =====
+  // ===== РЕДАКТОР =====
   useEffect(() => {
     if (!editorMode || !editingDictation) return;
     const canvas = editorCanvasRef.current;
@@ -347,9 +270,11 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   }, [editorMode, editingDictation]);
 
   useEffect(() => {
+    if (!selectedDictation) return;
     if (isPlaying && currentStep < selectedDictation.steps.length) {
       intervalRef.current = setInterval(() => {
         setCurrentStep((prev) => {
+          if (!selectedDictation) return prev;
           if (prev >= selectedDictation.steps.length - 1) {
             setIsPlaying(false);
             return prev;
@@ -364,10 +289,10 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isPlaying, currentStep, selectedDictation.steps.length, autoPlaySpeed]);
+  }, [isPlaying, currentStep, selectedDictation, autoPlaySpeed]);
 
   const handleNextStep = () => {
-    if (currentStep < selectedDictation.steps.length) setCurrentStep((p) => p + 1);
+    if (selectedDictation && currentStep < selectedDictation.steps.length) setCurrentStep((p) => p + 1);
   };
 
   const handleReset = () => {
@@ -377,20 +302,17 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   };
 
   const handlePlayPause = () => {
+    if (!selectedDictation) return;
     if (currentStep === selectedDictation.steps.length) handleReset();
     setIsPlaying(!isPlaying);
   };
 
   const handleDeleteDictation = (id: string) => {
     if (!confirm('Удалить этот диктант?')) return;
-    setDictations((prev) => {
-      const next = prev.filter((d) => d.id !== id);
-      if (selectedId === id && next.length > 0) setSelectedId(next[0].id);
-      return next;
-    });
+    setDictations((prev) => prev.filter((d) => d.id !== id));
+    if (selectedId === id) setSelectedId('');
   };
 
-  // ===== РЕДАКТОР =====
   const handleStartEditor = (dictation?: Dictation) => {
     if (dictation) {
       setEditingDictation({ ...dictation, steps: [...dictation.steps] });
@@ -506,7 +428,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
       alert('Нарисуйте фигуру на поле или добавьте шаги');
       return;
     }
-    // Сложность определяется автоматически по количеству шагов
     const stepsCount = editingDictation.steps.length;
     const finalDictation: Dictation = {
       ...editingDictation,
@@ -527,7 +448,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     setIsDrawing(false);
   };
 
-  // ===== ПАКЕТНАЯ ПЕЧАТЬ =====
   const handleTogglePrintSelection = (id: string) => {
     setSelectedForPrint((prev) => {
       const next = new Set(prev);
@@ -609,7 +529,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     setSelectedForPrint(new Set());
   };
 
-  // ===== СОХРАНЕНИЕ В PNG =====
   const renderDictationImage = (d: Dictation, mode: 'blank' | 'answer' | 'lines') => {
     const scale = 2;
     const W = GRID_WIDTH * CELL_SIZE;
@@ -884,164 +803,205 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full p-3 space-y-3 pb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3">
-          <div className="space-y-3">
-            <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-lg font-bold text-purple-700">{selectedDictation.name}</h2>
-                  <p className="text-xs text-gray-500">
-                    {DIFFICULTY_LABELS[selectedDictation.difficulty]} · {selectedDictation.steps.length} шагов · Шаг {currentStep}/{selectedDictation.steps.length}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowAnswer(!showAnswer)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 ${
-                    showAnswer ? 'bg-green-100 text-green-700' : 'bg-purple-50 text-purple-700'
-                  }`}
-                >
-                  {showAnswer ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  {showAnswer ? 'Скрыть ответ' : 'Показать ответ'}
-                </button>
-              </div>
-
-              <div className="flex justify-center mb-3">
-                <canvas ref={canvasRef} className="border-2 border-purple-200 rounded-lg" style={{ maxWidth: '100%', height: 'auto' }} />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <button
-                    onClick={handlePlayPause}
-                    disabled={showAnswer}
-                    className={`flex-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 ${
-                      isPlaying ? 'bg-amber-500 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50'
-                    }`}
-                  >
-                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                    {isPlaying ? 'Пауза' : currentStep === selectedDictation.steps.length ? 'Заново' : 'Старт'}
-                  </button>
-                  <button
-                    onClick={handleNextStep}
-                    disabled={isPlaying || showAnswer || currentStep === selectedDictation.steps.length}
-                    className="px-4 py-2.5 rounded-xl bg-purple-100 text-purple-700 font-semibold text-sm flex items-center gap-1 disabled:opacity-50"
-                  >
-                    <SkipForward className="w-4 h-4" />
-                    Следующий
-                  </button>
-                  <button onClick={handleReset} className="px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-semibold text-sm flex items-center gap-1">
-                    <RotateCcw className="w-4 h-4" />
-                    Сброс
-                  </button>
-                </div>
-
-                {!isPlaying && currentStep < selectedDictation.steps.length && !showAnswer && (
-                  <div className="bg-purple-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-gray-600 mb-1">Следующий шаг:</p>
-                    <p className="text-lg font-bold text-purple-700">{formatStep(selectedDictation.steps[currentStep])}</p>
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-xs text-gray-500">Скорость автопроигрывания: {(autoPlaySpeed / 1000).toFixed(1)} сек</label>
-                  <input
-                    type="range"
-                    min={500}
-                    max={5000}
-                    step={100}
-                    value={autoPlaySpeed}
-                    onChange={(e) => setAutoPlaySpeed(Number(e.target.value))}
-                    className="w-full accent-purple-600"
-                  />
-                </div>
-              </div>
+        {/* ===== ЗАГЛУШКА ДЛЯ ПУСТОГО СПИСКА ===== */}
+        {dictations.length === 0 ? (
+          <div className="bg-white rounded-2xl p-8 shadow-sm text-center space-y-4">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full">
+              <Inbox className="w-10 h-10 text-purple-600" />
             </div>
-
-            <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <h3 className="text-sm font-bold text-purple-700 mb-2">Полная инструкция</h3>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                {selectedDictation.steps.map((step, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-center gap-2 text-xs p-1.5 rounded ${
-                      i < currentStep ? 'bg-green-50 text-green-700' : i === currentStep ? 'bg-purple-100 text-purple-700 font-bold' : 'text-gray-500'
-                    }`}
-                  >
-                    <span className="w-6 text-right">{i + 1}.</span>
-                    <span className="flex-1">{formatStep(step)}</span>
-                    {i < currentStep && <span className="text-green-600">✓</span>}
-                  </div>
-                ))}
-              </div>
+            <div>
+              <h2 className="text-xl font-bold text-purple-700 mb-2">Пока нет диктантов</h2>
+              <p className="text-sm text-gray-600 max-w-md mx-auto">
+                Создайте свой первый графический диктант — нарисуйте фигуру прямо на поле, и программа автоматически запишет пошаговую инструкцию.
+              </p>
             </div>
+            <button
+              onClick={() => handleStartEditor()}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold"
+            >
+              <Plus className="w-5 h-5" />
+              Создать первый диктант
+            </button>
           </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3">
+            <div className="space-y-3">
+              {selectedDictation ? (
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h2 className="text-lg font-bold text-purple-700">{selectedDictation.name}</h2>
+                      <p className="text-xs text-gray-500">
+                        {DIFFICULTY_LABELS[selectedDictation.difficulty]} · {selectedDictation.steps.length} шагов · Шаг {currentStep}/{selectedDictation.steps.length}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowAnswer(!showAnswer)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 ${
+                        showAnswer ? 'bg-green-100 text-green-700' : 'bg-purple-50 text-purple-700'
+                      }`}
+                    >
+                      {showAnswer ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showAnswer ? 'Скрыть ответ' : 'Показать ответ'}
+                    </button>
+                  </div>
 
-          <div className="space-y-3">
-            <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-bold text-purple-700">Диктанты</label>
-                <div className="flex gap-1">
+                  <div className="flex justify-center mb-3">
+                    <canvas ref={canvasRef} className="border-2 border-purple-200 rounded-lg" style={{ maxWidth: '100%', height: 'auto' }} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handlePlayPause}
+                        disabled={showAnswer}
+                        className={`flex-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 ${
+                          isPlaying ? 'bg-amber-500 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50'
+                        }`}
+                      >
+                        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                        {isPlaying ? 'Пауза' : currentStep === selectedDictation.steps.length ? 'Заново' : 'Старт'}
+                      </button>
+                      <button
+                        onClick={handleNextStep}
+                        disabled={isPlaying || showAnswer || currentStep === selectedDictation.steps.length}
+                        className="px-4 py-2.5 rounded-xl bg-purple-100 text-purple-700 font-semibold text-sm flex items-center gap-1 disabled:opacity-50"
+                      >
+                        <SkipForward className="w-4 h-4" />
+                        Следующий
+                      </button>
+                      <button onClick={handleReset} className="px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-semibold text-sm flex items-center gap-1">
+                        <RotateCcw className="w-4 h-4" />
+                        Сброс
+                      </button>
+                    </div>
+
+                    {!isPlaying && currentStep < selectedDictation.steps.length && !showAnswer && (
+                      <div className="bg-purple-50 rounded-lg p-3 text-center">
+                        <p className="text-xs text-gray-600 mb-1">Следующий шаг:</p>
+                        <p className="text-lg font-bold text-purple-700">{formatStep(selectedDictation.steps[currentStep])}</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-xs text-gray-500">Скорость автопроигрывания: {(autoPlaySpeed / 1000).toFixed(1)} сек</label>
+                      <input
+                        type="range"
+                        min={500}
+                        max={5000}
+                        step={100}
+                        value={autoPlaySpeed}
+                        onChange={(e) => setAutoPlaySpeed(Number(e.target.value))}
+                        className="w-full accent-purple-600"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
+                  <p className="text-gray-500 mb-3">Выберите диктант из списка справа</p>
                   <button
                     onClick={() => handleStartEditor()}
-                    className="px-2 py-1 text-xs bg-purple-600 text-white rounded-lg font-semibold flex items-center gap-1"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-sm"
                   >
-                    <Plus className="w-3 h-3" />
-                    Создать
-                  </button>
-                  <button
-                    onClick={() => setShowImageExport(true)}
-                    className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-semibold flex items-center gap-1"
-                  >
-                    <ImageIcon className="w-3 h-3" />
-                    Картинка
-                  </button>
-                  <button
-                    onClick={() => setShowBatchPrint(true)}
-                    className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-semibold flex items-center gap-1"
-                  >
-                    <Printer className="w-3 h-3" />
-                    Печать
+                    <Plus className="w-4 h-4" />
+                    Создать новый
                   </button>
                 </div>
-              </div>
-              <div className="space-y-1.5 max-h-96 overflow-y-auto">
-                {dictations.map((d) => (
-                  <div
-                    key={d.id}
-                    className={`flex items-center gap-2 p-2 rounded-lg border-2 transition-colors ${
-                      selectedId === d.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-200'
-                    }`}
-                  >
+              )}
+
+              {selectedDictation && (
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                  <h3 className="text-sm font-bold text-purple-700 mb-2">Полная инструкция</h3>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {selectedDictation.steps.map((step, i) => (
+                      <div
+                        key={i}
+                        className={`flex items-center gap-2 text-xs p-1.5 rounded ${
+                          i < currentStep ? 'bg-green-50 text-green-700' : i === currentStep ? 'bg-purple-100 text-purple-700 font-bold' : 'text-gray-500'
+                        }`}
+                      >
+                        <span className="w-6 text-right">{i + 1}.</span>
+                        <span className="flex-1">{formatStep(step)}</span>
+                        {i < currentStep && <span className="text-green-600">✓</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-bold text-purple-700">
+                    Диктанты ({dictations.length})
+                  </label>
+                  <div className="flex gap-1">
                     <button
-                      onClick={() => {
-                        setSelectedId(d.id);
-                        handleReset();
-                      }}
-                      className="flex-1 text-left"
+                      onClick={() => handleStartEditor()}
+                      className="px-2 py-1 text-xs bg-purple-600 text-white rounded-lg font-semibold flex items-center gap-1"
                     >
-                      <p className="text-sm font-semibold text-gray-800">{d.name}</p>
-                      <p className="text-[10px] text-gray-500">
-                        {DIFFICULTY_LABELS[d.difficulty]} · {d.steps.length} шагов
-                      </p>
+                      <Plus className="w-3 h-3" />
+                      Создать
                     </button>
-                    <button onClick={() => handleStartEditor(d)} className="p-1 text-purple-500 hover:bg-purple-50 rounded" title="Редактировать">
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    {!PRESET_DICTATIONS.find((p) => p.id === d.id) && (
+                    {selectedDictation && (
+                      <>
+                        <button
+                          onClick={() => setShowImageExport(true)}
+                          className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-semibold flex items-center gap-1"
+                        >
+                          <ImageIcon className="w-3 h-3" />
+                          Картинка
+                        </button>
+                        <button
+                          onClick={() => setShowBatchPrint(true)}
+                          className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg font-semibold flex items-center gap-1"
+                        >
+                          <Printer className="w-3 h-3" />
+                          Печать
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                  {dictations.map((d) => (
+                    <div
+                      key={d.id}
+                      className={`flex items-center gap-2 p-2 rounded-lg border-2 transition-colors ${
+                        selectedId === d.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-200'
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          setSelectedId(d.id);
+                          handleReset();
+                        }}
+                        className="flex-1 text-left"
+                      >
+                        <p className="text-sm font-semibold text-gray-800">{d.name}</p>
+                        <p className="text-[10px] text-gray-500">
+                          {DIFFICULTY_LABELS[d.difficulty]} · {d.steps.length} шагов
+                        </p>
+                      </button>
+                      <button onClick={() => handleStartEditor(d)} className="p-1 text-purple-500 hover:bg-purple-50 rounded" title="Редактировать">
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
                       <button onClick={() => handleDeleteDictation(d.id)} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Удалить">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900">
+                <b>Совет:</b> Диктуйте команды медленно и чётко. Дайте ребёнку время нарисовать каждую линию. После завершения сравните результат с образцом.
               </div>
             </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900">
-              <b>Совет:</b> Диктуйте команды медленно и чётко. Дайте ребёнку время нарисовать каждую линию. После завершения сравните результат с образцом.
-            </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button onClick={() => setShowFaq(!showFaq)} className="w-full px-4 py-3 flex items-center justify-between gap-2">
@@ -1077,8 +1037,7 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
         </div>
       </main>
 
-      {/* МОДАЛКА СОХРАНЕНИЯ В PNG */}
-      {showImageExport && (
+      {showImageExport && selectedDictation && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -1112,7 +1071,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
         </div>
       )}
 
-      {/* МОДАЛКА ПАКЕТНОЙ ПЕЧАТИ */}
       {showBatchPrint && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col">
