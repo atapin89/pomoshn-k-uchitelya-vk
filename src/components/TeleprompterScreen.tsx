@@ -3,7 +3,6 @@ import {
   Play,
   Pause,
   Square,
-  Settings,
   Monitor,
   FlipHorizontal,
   FlipVertical,
@@ -16,6 +15,8 @@ import {
   RotateCcw,
   Type,
   Gauge,
+  Mic,
+  Settings,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -36,6 +37,9 @@ interface TeleprompterSettings {
   mirrorV: boolean;
   focusMode: 'line' | 'word' | 'none';
   textWidth: number;
+  recordQuality: '720p' | '1080p' | '4K';
+  selectedVideoDeviceId: string;
+  selectedAudioDeviceId: string;
 }
 
 const SCRIPTS_KEY = 'teleprompter-scripts';
@@ -55,6 +59,12 @@ const THEMES = {
   contrast: { bg: '#000000', text: '#ffff00', accent: '#fbbf24' },
 };
 
+const QUALITY_MAP = {
+  '720p': { width: 1280, height: 720, bitrate: 2_500_000, label: '720p HD' },
+  '1080p': { width: 1920, height: 1080, bitrate: 5_000_000, label: '1080p Full HD' },
+  '4K': { width: 3840, height: 2160, bitrate: 15_000_000, label: '4K Ultra HD' },
+};
+
 function loadScripts(): Script[] {
   try {
     const raw = localStorage.getItem(SCRIPTS_KEY);
@@ -72,18 +82,9 @@ function saveScripts(list: Script[]) {
 function loadSettings(): TeleprompterSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
   } catch {}
-  return {
-    speed: 1.0,
-    fontSize: 32,
-    fontFamily: 'Arial, sans-serif',
-    theme: 'dark',
-    mirrorH: false,
-    mirrorV: false,
-    focusMode: 'line',
-    textWidth: 80,
-  };
+  return DEFAULT_SETTINGS;
 }
 
 function saveSettings(s: TeleprompterSettings) {
@@ -92,17 +93,35 @@ function saveSettings(s: TeleprompterSettings) {
   } catch {}
 }
 
+const DEFAULT_SETTINGS: TeleprompterSettings = {
+  speed: 1.0,
+  fontSize: 32,
+  fontFamily: 'Arial, sans-serif',
+  theme: 'dark',
+  mirrorH: false,
+  mirrorV: false,
+  focusMode: 'line',
+  textWidth: 80,
+  recordQuality: '1080p',
+  selectedVideoDeviceId: '',
+  selectedAudioDeviceId: '',
+};
+
 export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   const [scripts, setScripts] = useState<Script[]>(() => loadScripts());
   const [activeScriptId, setActiveScriptId] = useState(scripts[0]?.id || '');
   const [settings, setSettings] = useState<TeleprompterSettings>(() => loadSettings());
   const [isPlaying, setIsPlaying] = useState(false);
   const [scrollPos, setScrollPos] = useState(0);
-  const [showSettings, setShowSettings] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
   const [timerLeft, setTimerLeft] = useState<number | null>(null);
   const [timerPaused, setTimerPaused] = useState(false);
+
+  // Медиа
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [showCamera, setShowCamera] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
 
   // Позиция камеры (для drag)
   const [cameraPos, setCameraPos] = useState({ x: 20, y: 100 });
@@ -116,12 +135,31 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   const lastTimeRef = useRef<number>(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const activeScript = scripts.find((s) => s.id === activeScriptId) || scripts[0];
   const theme = THEMES[settings.theme];
 
   const wordCount = activeScript.text.trim().split(/\s+/).filter(Boolean).length;
   const readingTime = Math.ceil(wordCount / (150 * settings.speed));
+
+  // ===== ПОЛУЧЕНИЕ СПИСКА УСТРОЙСТВ =====
+  useEffect(() => {
+    const enumDevices = async () => {
+      try {
+        // Сначала запрашиваем разрешение, чтобы получить реальные имена устройств
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        tempStream.getTracks().forEach((t) => t.stop());
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setVideoDevices(devices.filter((d) => d.kind === 'videoinput'));
+        setAudioDevices(devices.filter((d) => d.kind === 'audioinput'));
+      } catch {
+        // Игнорируем, если нет доступа
+      }
+    };
+    enumDevices();
+  }, []);
 
   // ===== КОРРЕКТНЫЙ ПРОГРЕСС =====
   const [progress, setProgress] = useState(0);
@@ -146,7 +184,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
       const delta = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
 
-      // Пикселей в секунду = скорость * размер_шрифта * 1.5
       const pixelsPerSecond = settings.speed * settings.fontSize * 1.5;
       const pixelsPerFrame = (pixelsPerSecond * delta) / 1000;
       setScrollPos((prev) => prev + pixelsPerFrame);
@@ -177,7 +214,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   // ===== ГОРЯЧИЕ КЛАВИШИ =====
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
 
       switch (e.key.toLowerCase()) {
         case ' ':
@@ -260,53 +297,141 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
     URL.revokeObjectURL(url);
   };
 
-  const toggleCamera = async () => {
-    if (!showCamera) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) videoRef.current.srcObject = stream;
-        setShowCamera(true);
-      } catch (err) {
-        alert('Не удалось получить доступ к камере');
+  // ===== ЕДИНЫЙ ПОТОК С КАМЕРЫ И МИКРОФОНА =====
+  const startCameraStream = async (includeAudio = true): Promise<MediaStream | null> => {
+    try {
+      // Остановить предыдущий поток
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
       }
-    } else {
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach((t) => t.stop());
+
+      const q = QUALITY_MAP[settings.recordQuality];
+      const videoConstraints: MediaTrackConstraints = {
+        width: { ideal: q.width },
+        height: { ideal: q.height },
+      };
+      if (settings.selectedVideoDeviceId) {
+        videoConstraints.deviceId = { exact: settings.selectedVideoDeviceId };
       }
-      setShowCamera(false);
+
+      const audioConstraints: MediaTrackConstraints | boolean = includeAudio
+        ? settings.selectedAudioDeviceId
+          ? { deviceId: { exact: settings.selectedAudioDeviceId } }
+          : true
+        : false;
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: audioConstraints,
+      });
+      streamRef.current = stream;
+
+      // Подключить к video-элементу для предпросмотра
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      return stream;
+    } catch (err) {
+      console.error('Stream error:', err);
+      alert('Не удалось получить доступ к камере/микрофону');
+      return null;
     }
   };
 
+  const stopCameraStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setShowCamera(false);
+    setIsRecording(false);
+  };
+
+  const toggleCamera = async () => {
+    if (showCamera) {
+      // Если идёт запись — сначала остановить её
+      if (isRecording) stopRecording();
+      stopCameraStream();
+    } else {
+      const stream = await startCameraStream(false); // для предпросмотра без аудио
+      if (stream) setShowCamera(true);
+    }
+  };
+
+  // При смене устройств или качества — перезапуск потока
+  useEffect(() => {
+    if (showCamera) {
+      startCameraStream(isRecording);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.selectedVideoDeviceId, settings.selectedAudioDeviceId, settings.recordQuality]);
+
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      const recorder = new MediaRecorder(stream);
+      // Если поток не активен — создать его
+      let stream = streamRef.current;
+      if (!stream) {
+        stream = await startCameraStream(true);
+        if (!stream) return;
+        setShowCamera(true);
+      } else {
+        // Проверим, что есть аудио-треки
+        if (stream.getAudioTracks().length === 0) {
+          // Перезапустим с аудио
+          stream = await startCameraStream(true);
+          if (!stream) return;
+        }
+      }
+
+      const q = QUALITY_MAP[settings.recordQuality];
+      const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+      const mimeType = mimeTypes.find((m) => MediaRecorder.isTypeSupported(m)) || '';
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: q.bitrate,
+      });
       mediaRecorderRef.current = recorder;
       chunksRef.current = [];
 
-      recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        const blob = new Blob(chunksRef.current, { type: mimeType || 'video/webm' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `запись-${Date.now()}.webm`;
+        a.download = `запись-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
         a.click();
         URL.revokeObjectURL(url);
-        stream.getTracks().forEach((t) => t.stop());
+        setIsRecording(false);
+        triggerHaptic('heavy');
       };
 
-      recorder.start();
-      alert('Запись начата. Нажмите снова для остановки.');
+      recorder.onerror = () => {
+        setIsRecording(false);
+      };
+
+      recorder.start(1000);
+      setIsRecording(true);
+      triggerHaptic('light');
     } catch (err) {
+      console.error('Recording error:', err);
       alert('Не удалось начать запись');
+      setIsRecording(false);
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
+      // setIsRecording(false) вызывается в onstop
     }
   };
 
@@ -357,8 +482,8 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
     const dx = clientX - dragStart.current.x;
     const dy = clientY - dragStart.current.y;
     setCameraPos({
-      x: Math.max(0, Math.min(window.innerWidth - 140, dragStart.current.camX + dx)),
-      y: Math.max(0, Math.min(window.innerHeight - 110, dragStart.current.camY + dy)),
+      x: Math.max(0, Math.min(window.innerWidth - 160, dragStart.current.camX + dx)),
+      y: Math.max(0, Math.min(window.innerHeight - 130, dragStart.current.camY + dy)),
     });
   };
 
@@ -383,10 +508,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   // ===== ПРЕЗЕНТАЦИОННЫЙ РЕЖИМ =====
   if (presentationMode) {
     return (
-      <div
-        className="fixed inset-0 z-50 overflow-hidden"
-        style={{ background: theme.bg }}
-      >
+      <div className="fixed inset-0 z-50 overflow-hidden" style={{ background: theme.bg }}>
         {/* Контейнер текста с прокруткой */}
         <div
           ref={scrollRef}
@@ -412,15 +534,15 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* ===== ПЛАВАЮЩАЯ КАМЕРА (перетаскиваемая) ===== */}
+        {/* ПЛАВАЮЩАЯ КАМЕРА (перетаскиваемая) */}
         {showCamera && (
           <div
-            className="fixed z-40 bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 cursor-move"
+            className="fixed z-40 bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 cursor-move select-none"
             style={{
               left: `${cameraPos.x}px`,
               top: `${cameraPos.y}px`,
-              width: '140px',
-              height: '105px',
+              width: '160px',
+              height: '120px',
             }}
             onMouseDown={(e) => handleDragStart(e.clientX, e.clientY)}
             onMouseMove={(e) => handleDragMove(e.clientX, e.clientY)}
@@ -430,16 +552,24 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             onTouchMove={(e) => handleDragMove(e.touches[0].clientX, e.touches[0].clientY)}
             onTouchEnd={handleDragEnd}
           >
-            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-            <div className="absolute top-1 left-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-              LIVE
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover bg-black"
+              style={{ transform: settings.mirrorH ? 'scaleX(-1)' : 'none' }}
+            />
+            <div className={`absolute top-1 left-1 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${isRecording ? 'bg-red-500' : 'bg-black/60'}`}>
+              {isRecording && <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
+              {isRecording ? 'REC' : 'LIVE'}
             </div>
           </div>
         )}
 
-        {/* ===== ВЕРХНЯЯ ПАНЕЛЬ ===== */}
-        <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between gap-2">
-          <div className="bg-black/70 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3">
+        {/* ВЕРХНЯЯ ПАНЕЛЬ */}
+        <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between gap-2 pointer-events-none">
+          <div className="bg-black/70 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 pointer-events-auto">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
               <span className="text-white text-sm font-semibold">
@@ -448,9 +578,18 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             </div>
             <div className="w-px h-5 bg-white/20" />
             <span className="text-white text-sm">{progress}%</span>
+            {isRecording && (
+              <>
+                <div className="w-px h-5 bg-white/20" />
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-red-300 text-sm font-semibold">REC</span>
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 pointer-events-auto">
             {timerLeft !== null && (
               <div className={`bg-black/70 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-2 ${timerLeft <= 30 ? 'animate-pulse bg-red-500/70' : ''}`}>
                 <Clock className="w-4 h-4 text-white" />
@@ -460,7 +599,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
                 <button
                   onClick={() => setTimerPaused(!timerPaused)}
                   className="ml-2 text-white hover:text-yellow-300"
-                  title={timerPaused ? 'Продолжить' : 'Пауза'}
                 >
                   {timerPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
                 </button>
@@ -469,17 +607,15 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             <button
               onClick={handleExitPresentation}
               className="bg-black/70 backdrop-blur-sm text-white rounded-xl p-2 hover:bg-red-500/70"
-              title="Выход (Esc)"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* ===== НИЖНЯЯ ПАНЕЛЬ УПРАВЛЕНИЯ ===== */}
+        {/* НИЖНЯЯ ПАНЕЛЬ УПРАВЛЕНИЯ */}
         <div className="fixed bottom-4 left-4 right-4 z-30 bg-black/80 backdrop-blur-md rounded-2xl p-3 border border-white/10">
-          {/* Ряд 1: Кнопки действий */}
-          <div className="grid grid-cols-5 gap-2 mb-3">
+          <div className="grid grid-cols-6 gap-2 mb-3">
             <button
               onClick={handlePlayPause}
               className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
@@ -492,7 +628,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             <button
               onClick={handleResetProgress}
               className="py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white font-semibold text-sm flex flex-col items-center justify-center gap-1"
-              title="Сброс (R)"
             >
               <RotateCcw className="w-4 h-4" />
               <span className="text-[10px]">Сброс</span>
@@ -502,7 +637,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
                 settings.mirrorH ? 'bg-purple-500 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'
               }`}
-              title="Зеркало (M)"
             >
               <FlipHorizontal className="w-4 h-4" />
               <span className="text-[10px]">Зеркало</span>
@@ -510,11 +644,21 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             <button
               onClick={toggleCamera}
               className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
-                showCamera ? 'bg-red-500 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'
+                showCamera ? 'bg-blue-500 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'
               }`}
             >
               <Camera className="w-4 h-4" />
               <span className="text-[10px]">{showCamera ? 'Камера ✓' : 'Камера'}</span>
+            </button>
+            <button
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={!showCamera && isRecording === false ? false : false}
+              className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
+                isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-700 text-white hover:bg-gray-600'
+              }`}
+            >
+              {isRecording ? <Square className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+              <span className="text-[10px]">{isRecording ? 'Стоп' : 'Запись'}</span>
             </button>
             <button
               onClick={timerLeft === null ? handleStartTimer : handleStopTimer}
@@ -523,11 +667,10 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               }`}
             >
               <Clock className="w-4 h-4" />
-              <span className="text-[10px]">{timerLeft !== null ? 'Стоп таймер' : 'Таймер'}</span>
+              <span className="text-[10px]">{timerLeft !== null ? 'Стоп' : 'Таймер'}</span>
             </button>
           </div>
 
-          {/* Ряд 2: Слайдеры */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Gauge className="w-4 h-4 text-white shrink-0" />
@@ -564,7 +707,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
 
   // ===== ОСНОВНОЙ ЭКРАН =====
   return (
-    <div className="min-h-[100dvh] flex flex-col" style={{ background: theme.bg }}>
+    <div className="min-h-[100dvh] flex flex-col bg-gray-50">
       <header className="bg-purple-700 shadow-md sticky top-0 z-30">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
@@ -572,16 +715,12 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             <h1 className="text-lg font-bold text-white truncate">Телесуфлер</h1>
             <p className="text-xs text-purple-200">{activeScript.name}</p>
           </div>
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="bg-white/20 hover:bg-white/30 text-white rounded-xl px-3 py-2"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
+          <Monitor className="w-5 h-5 text-white/70" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full p-4 space-y-4">
+      <main className="flex-1 max-w-4xl mx-auto w-full p-4 space-y-4 pb-8">
+        {/* ===== УПРАВЛЕНИЕ ВОСПРОИЗВЕДЕНИЕМ ===== */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between gap-2">
             <button
@@ -596,7 +735,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl px-4 py-3"
               title="Сброс в начало"
             >
-              <Square className="w-5 h-5" />
+              <RotateCcw className="w-5 h-5" />
             </button>
           </div>
 
@@ -609,6 +748,18 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               step={0.05}
               value={settings.speed}
               onChange={(e) => updateSettings({ speed: Number(e.target.value) })}
+              className="w-full accent-purple-600"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500">Размер шрифта: {settings.fontSize}px</label>
+            <input
+              type="range"
+              min={12}
+              max={72}
+              value={settings.fontSize}
+              onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
               className="w-full accent-purple-600"
             />
           </div>
@@ -629,6 +780,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
+        {/* ===== СЦЕНАРИЙ ===== */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-sm font-semibold text-purple-700">Сценарий</label>
@@ -672,187 +824,230 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
+        {/* ===== ОФОРМЛЕНИЕ (перенесено из шестерёнки) ===== */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-          <label className="text-sm font-semibold text-purple-700">Инструменты</label>
+          <div className="flex items-center gap-2">
+            <Settings className="w-4 h-4 text-purple-600" />
+            <label className="text-sm font-semibold text-purple-700">Оформление</label>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500">Тема</label>
+            <div className="grid grid-cols-3 gap-2 mt-1">
+              {(['light', 'dark', 'contrast'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => updateSettings({ theme: t })}
+                  className={`py-2 rounded-xl text-sm font-semibold border-2 ${
+                    settings.theme === t ? 'border-purple-500 bg-purple-50' : 'border-gray-200'
+                  }`}
+                >
+                  {t === 'light' ? 'Светлая' : t === 'dark' ? 'Тёмная' : 'Контраст'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500">Шрифт</label>
+            <select
+              value={settings.fontFamily}
+              onChange={(e) => updateSettings({ fontFamily: e.target.value })}
+              className="w-full rounded-xl border border-gray-200 p-2.5 text-sm mt-1"
+            >
+              {FONTS.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500">Ширина текста: {settings.textWidth}%</label>
+            <input
+              type="range"
+              min={50}
+              max={100}
+              value={settings.textWidth}
+              onChange={(e) => updateSettings({ textWidth: Number(e.target.value) })}
+              className="w-full accent-purple-600"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => updateSettings({ mirrorH: !settings.mirrorH })}
+              className={`py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 ${
+                settings.mirrorH ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
+              }`}
+            >
+              <FlipHorizontal className="w-3 h-3" /> Гориз.
+            </button>
+            <button
+              onClick={() => updateSettings({ mirrorV: !settings.mirrorV })}
+              className={`py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 ${
+                settings.mirrorV ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
+              }`}
+            >
+              <FlipVertical className="w-3 h-3" /> Верт.
+            </button>
+            <select
+              value={settings.focusMode}
+              onChange={(e) => updateSettings({ focusMode: e.target.value as any })}
+              className="rounded-xl border border-gray-200 p-2 text-xs bg-white"
+            >
+              <option value="none">Без фокуса</option>
+              <option value="line">Строка</option>
+              <option value="word">Слово</option>
+            </select>
+          </div>
+        </div>
+
+        {/* ===== КАМЕРА И ЗАПИСЬ ===== */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="flex items-center gap-2">
+            <Camera className="w-4 h-4 text-purple-600" />
+            <label className="text-sm font-semibold text-purple-700">Камера и запись</label>
+          </div>
+
+          {/* Предпросмотр камеры */}
+          {showCamera && (
+            <div className="relative bg-black rounded-xl overflow-hidden aspect-video">
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              {isRecording && (
+                <div className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+                  <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  REC
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={toggleCamera}
               className={`py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm ${
-                showCamera ? 'bg-green-100 text-green-700' : 'bg-purple-50 text-purple-700'
+                showCamera ? 'bg-blue-100 text-blue-700' : 'bg-purple-50 text-purple-700'
               }`}
             >
               <Camera className="w-5 h-5" />
               {showCamera ? 'Камера вкл' : 'Камера'}
             </button>
             <button
-              onClick={() => {
-                if (mediaRecorderRef.current?.state === 'recording') stopRecording();
-                else startRecording();
-              }}
-              className="py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm bg-red-50 text-red-700"
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={!showCamera}
+              className={`py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm disabled:opacity-40 ${
+                isRecording ? 'bg-red-100 text-red-700' : 'bg-purple-50 text-purple-700'
+              }`}
             >
-              <Video className="w-5 h-5" />
-              {mediaRecorderRef.current?.state === 'recording' ? 'Стоп запись' : 'Запись'}
-            </button>
-            <button
-              onClick={() => setPresentationMode(true)}
-              className="py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm bg-purple-50 text-purple-700"
-            >
-              <Monitor className="w-5 h-5" />
-              Презентация
-            </button>
-            <button
-              onClick={handleStartTimer}
-              className="py-3 rounded-xl flex flex-col items-center justify-center gap-1 font-semibold text-sm bg-purple-50 text-purple-700"
-            >
-              <Clock className="w-5 h-5" />
-              Таймер
+              {isRecording ? <><Square className="w-5 h-5" /> Стоп</> : <><Video className="w-5 h-5" /> Запись</>}
             </button>
           </div>
-          {timerLeft !== null && timerLeft > 0 && (
-            <div className="flex items-center justify-between bg-orange-50 rounded-lg p-2">
-              <span className="text-sm font-bold text-orange-600">
-                Осталось: {Math.floor(timerLeft / 60)}:{String(timerLeft % 60).padStart(2, '0')}
+
+          {/* Выбор устройств */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 flex items-center gap-1">
+                <Camera className="w-3 h-3" /> Камера
+              </label>
+              <select
+                value={settings.selectedVideoDeviceId}
+                onChange={(e) => updateSettings({ selectedVideoDeviceId: e.target.value })}
+                className="w-full rounded-xl border border-gray-200 p-2 text-sm bg-white mt-1"
+              >
+                <option value="">По умолчанию</option>
+                {videoDevices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label || `Камера ${d.deviceId.slice(0, 8)}...`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 flex items-center gap-1">
+                <Mic className="w-3 h-3" /> Микрофон
+              </label>
+              <select
+                value={settings.selectedAudioDeviceId}
+                onChange={(e) => updateSettings({ selectedAudioDeviceId: e.target.value })}
+                className="w-full rounded-xl border border-gray-200 p-2 text-sm bg-white mt-1"
+              >
+                <option value="">По умолчанию</option>
+                {audioDevices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label || `Микрофон ${d.deviceId.slice(0, 8)}...`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-500">Качество записи</label>
+            <div className="grid grid-cols-3 gap-2 mt-1">
+              {(Object.keys(QUALITY_MAP) as (keyof typeof QUALITY_MAP)[]).map((q) => (
+                <button
+                  key={q}
+                  onClick={() => updateSettings({ recordQuality: q })}
+                  className={`py-2 rounded-xl text-xs font-semibold border-2 ${
+                    settings.recordQuality === q ? 'border-purple-500 bg-purple-50' : 'border-gray-200'
+                  }`}
+                >
+                  {QUALITY_MAP[q].label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ===== ТАЙМЕР ===== */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-purple-600" />
+            <label className="text-sm font-semibold text-purple-700">Таймер выступления</label>
+          </div>
+          {timerLeft !== null ? (
+            <div className="flex items-center justify-between bg-orange-50 rounded-lg p-3">
+              <span className="text-lg font-bold text-orange-600 font-mono">
+                {Math.floor(timerLeft / 60)}:{String(timerLeft % 60).padStart(2, '0')}
               </span>
               <div className="flex gap-2">
                 <button
                   onClick={() => setTimerPaused(!timerPaused)}
-                  className="text-xs bg-orange-200 text-orange-800 px-2 py-1 rounded"
+                  className="text-xs bg-orange-200 text-orange-800 px-3 py-1.5 rounded-lg font-semibold"
                 >
                   {timerPaused ? 'Продолжить' : 'Пауза'}
                 </button>
                 <button
                   onClick={handleStopTimer}
-                  className="text-xs bg-red-200 text-red-800 px-2 py-1 rounded"
+                  className="text-xs bg-red-200 text-red-800 px-3 py-1.5 rounded-lg font-semibold"
                 >
                   Стоп
                 </button>
               </div>
             </div>
+          ) : (
+            <button
+              onClick={handleStartTimer}
+              className="w-full py-3 rounded-xl bg-purple-50 text-purple-700 font-semibold text-sm"
+            >
+              <Clock className="w-4 h-4 inline mr-2" />
+              Установить таймер
+            </button>
           )}
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
-          <b>Горячие клавиши в презентации:</b> Space — старт/пауза, ↑/↓ — скорость, M — зеркало, F — фокус, R — сброс, Esc — выход
+          <b>Горячие клавиши:</b> Space — старт/пауза, ↑/↓ — скорость, M — зеркало, F — фокус, R — сброс, Esc — выход
         </div>
       </main>
-
-      {showSettings && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md max-h-[85vh] rounded-3xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-purple-700">Настройки</h2>
-              <button onClick={() => setShowSettings(false)} className="p-2 rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              <div>
-                <label className="text-sm font-semibold text-purple-700">Размер шрифта: {settings.fontSize}px</label>
-                <input
-                  type="range"
-                  min={12}
-                  max={72}
-                  value={settings.fontSize}
-                  onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
-                  className="w-full accent-purple-600"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-purple-700">Шрифт</label>
-                <select
-                  value={settings.fontFamily}
-                  onChange={(e) => updateSettings({ fontFamily: e.target.value })}
-                  className="w-full rounded-xl border border-gray-200 p-2.5 text-sm mt-1"
-                >
-                  {FONTS.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-purple-700">Тема</label>
-                <div className="grid grid-cols-3 gap-2 mt-1">
-                  {(['light', 'dark', 'contrast'] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => updateSettings({ theme: t })}
-                      className={`py-2 rounded-xl text-sm font-semibold border-2 ${
-                        settings.theme === t ? 'border-purple-500 bg-purple-50' : 'border-gray-200'
-                      }`}
-                    >
-                      {t === 'light' ? 'Светлая' : t === 'dark' ? 'Тёмная' : 'Контраст'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-purple-700">Зеркалирование</label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <button
-                    onClick={() => updateSettings({ mirrorH: !settings.mirrorH })}
-                    className={`py-2 rounded-xl flex items-center justify-center gap-2 text-sm ${
-                      settings.mirrorH ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
-                    }`}
-                  >
-                    <FlipHorizontal className="w-4 h-4" /> Гориз.
-                  </button>
-                  <button
-                    onClick={() => updateSettings({ mirrorV: !settings.mirrorV })}
-                    className={`py-2 rounded-xl flex items-center justify-center gap-2 text-sm ${
-                      settings.mirrorV ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700'
-                    }`}
-                  >
-                    <FlipVertical className="w-4 h-4" /> Верт.
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-purple-700">Фокус</label>
-                <div className="grid grid-cols-3 gap-2 mt-1">
-                  {(['none', 'line', 'word'] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => updateSettings({ focusMode: m })}
-                      className={`py-2 rounded-xl text-xs font-semibold border-2 ${
-                        settings.focusMode === m ? 'border-purple-500 bg-purple-50' : 'border-gray-200'
-                      }`}
-                    >
-                      {m === 'none' ? 'Нет' : m === 'line' ? 'Строка' : 'Слово'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-purple-700">Ширина текста: {settings.textWidth}%</label>
-                <input
-                  type="range"
-                  min={50}
-                  max={100}
-                  value={settings.textWidth}
-                  onChange={(e) => updateSettings({ textWidth: Number(e.target.value) })}
-                  className="w-full accent-purple-600"
-                />
-              </div>
-            </div>
-            <div className="p-5 border-t border-gray-200">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3"
-              >
-                Готово
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
