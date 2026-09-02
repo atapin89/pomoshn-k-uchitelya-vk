@@ -331,43 +331,45 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-8 sm:pt-6 pb-3">
-        {/* Шестерёнка + Помощник учителя + Проект — в одну строку */}
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* Шестерёнка с пульсацией */}
-            <div className="relative shrink-0">
-              <button
-                onClick={handleGearClick}
-                onMouseEnter={() => setGearActive(true)}
-                onMouseLeave={() => setGearActive(false)}
-                onFocus={() => setGearActive(true)}
-                onBlur={() => setGearActive(false)}
-                className="relative text-gray-400 hover:text-purple-600 transition-colors p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-                aria-label="Настройки внешнего вида"
-                title="Настроить разделы"
-              >
-                {!gearSeen && (
-                  <>
-                    <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
-                    <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
-                  </>
-                )}
-                <Settings
-                  className={`relative z-10 w-5 h-5 transition-transform duration-700 ease-in-out ${
-                    gearActive ? 'rotate-[360deg] text-purple-600' : 'rotate-0'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Заголовок на одной линии с шестерёнкой */}
-            <h1 className="text-xl sm:text-2xl font-extrabold text-purple-700 truncate whitespace-nowrap">
-              Помощник учителя
-            </h1>
+        {/* Шестерёнка слева, логотип по центру, проект справа — в одну строку */}
+        <div className="relative flex items-center justify-center mb-1.5">
+          {/* Шестерёнка — слева (absolute) */}
+          <div className="absolute left-0">
+            <button
+              onClick={handleGearClick}
+              onMouseEnter={() => setGearActive(true)}
+              onMouseLeave={() => setGearActive(false)}
+              onFocus={() => setGearActive(true)}
+              onBlur={() => setGearActive(false)}
+              className="relative text-gray-400 hover:text-purple-600 transition-colors p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              aria-label="Настройки внешнего вида"
+              title="Настроить разделы"
+            >
+              {!gearSeen && (
+                <>
+                  <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
+                  <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
+                </>
+              )}
+              <Settings
+                className={`relative z-10 w-5 h-5 transition-transform duration-700 ease-in-out ${
+                  gearActive ? 'rotate-[360deg] text-purple-600' : 'rotate-0'
+                }`}
+              />
+            </button>
           </div>
 
-          {/* Проект Алексея Атапина */}
-          <p className="text-[11px] text-gray-500 text-right shrink-0 leading-tight">
+          {/* Логотип — строго по центру (своё изображение из public/) */}
+          <h1 className="sr-only">Помощник учителя</h1>
+          <img
+            src="/logo.png"
+            alt="Помощник учителя"
+            className="h-12 sm:h-14 w-auto object-contain drop-shadow-sm select-none"
+            draggable={false}
+          />
+
+          {/* Проект — справа (absolute) */}
+          <p className="absolute right-0 text-[11px] text-gray-500 text-right leading-tight">
             Проект{' '}
             <a
               href="https://vk.ru/aaatapin"
