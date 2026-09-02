@@ -10,6 +10,7 @@ import {
   Box,
   Package,
   MonitorPlay,
+  Cloud,
   Calculator,
   Trophy,
   LayoutGrid,
@@ -40,7 +41,8 @@ type SectionId =
   | 'pomodoro'
   | 'dice'
   | 'equipment'
-  | 'teleprompter';
+  | 'teleprompter'
+  | 'wordcloud';
 
 interface Section {
   id: SectionId;
@@ -150,6 +152,13 @@ const SECTIONS: Section[] = [
     description: 'Чтение с экрана',
     hint: 'Профессиональный телесуфлер: плавная прокрутка текста, скорость 0.5–3×, темы (светлая/тёмная/контраст), зеркалирование, режим презентации, таймер выступления, веб-камера и запись видео. Сценарии сохраняются локально.',
     icon: MonitorPlay,
+  },
+  {
+    id: 'wordcloud',
+    title: 'Облако слов',
+    description: 'Генератор облаков',
+    hint: 'Мощный генератор облаков слов с 5 формами (круг, сердце, звезда, ромб, прямоугольник), 6 палитрами, 9 шрифтами + Google Fonts. Ввод текста, загрузка .txt/.csv, построчный режим, настраиваемые стоп-слова, простая нормализация. Экспорт PNG (до 4K), SVG, JSON. Кнопка «Перерисовать», плотность, углы наклона, масштабирование.',
+    icon: Cloud,
   },
 ];
 
