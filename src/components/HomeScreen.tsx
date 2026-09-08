@@ -476,17 +476,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </button>
           </div>
         )}
-
-        <div className="mt-4 mb-1 text-center">
-          <a
-            href="https://max.ru/channel_topteach"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-gray-600 hover:text-purple-600 font-medium transition-colors underline decoration-dotted underline-offset-4 focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
-          >
-            Наше сообщество: вопросы и новости здесь
-          </a>
-        </div>
       </main>
 
       {/* ===== МОДАЛКА НАСТРОЕК: список с иконкой / названием / переключателем ===== */}
