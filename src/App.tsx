@@ -25,6 +25,7 @@ import EquipmentScreen from '@/components/EquipmentScreen';
 import TeleprompterScreen from '@/components/TeleprompterScreen';
 import WordCloudScreen from '@/components/WordCloudScreen';
 import GraphDictationScreen from '@/components/GraphDictationScreen';
+import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 
 type Route = 
   | 'home' 
@@ -45,7 +46,8 @@ type Route =
   | 'equipment'
   | 'teleprompter'
   | 'wordcloud'
-  | 'graphdictation';
+  | 'graphdictation'
+  | 'lifebalance';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -147,6 +149,7 @@ export default function App() {
     teleprompter: <TeleprompterScreen onBack={navigateHome} />,
     wordcloud: <WordCloudScreen onBack={navigateHome} />,
     graphdictation: <GraphDictationScreen onBack={navigateHome} />,
+    lifebalance: <LifeBalanceScreen onBack={navigateHome} />,
     timer: null,
   };
 
