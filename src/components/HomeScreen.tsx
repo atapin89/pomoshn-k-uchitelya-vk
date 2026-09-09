@@ -23,6 +23,7 @@ import {
   Check,
   ChevronUp,
   ChevronDown,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -46,7 +47,8 @@ type SectionId =
   | 'equipment'
   | 'teleprompter'
   | 'wordcloud'
-  | 'graphdictation';
+  | 'graphdictation'
+  | 'lifebalance';
 
 interface Section {
   id: SectionId;
@@ -173,6 +175,13 @@ const SECTIONS: Section[] = [
     description: 'Рисование по клеткам',
     hint: 'Развивающее упражнение для детей 5-9 лет. Рисование линий по клеткам по устным инструкциям. Развивает мелкую моторику, пространственное мышление и внимание.',
     icon: PenTool,
+  },
+  {
+    id: 'lifebalance',
+    title: 'Колесо баланса',
+    description: 'Саморефлексия педагога',
+    hint: 'Оцените 8 сфер жизни от 1 до 10. Интерактивное колесо покажет перекосы, даст персональные рекомендации и позволит скачать результат.',
+    icon: Sparkles,
   },
 ];
 
