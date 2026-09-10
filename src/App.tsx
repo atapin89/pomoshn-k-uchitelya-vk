@@ -26,6 +26,7 @@ import TeleprompterScreen from '@/components/TeleprompterScreen';
 import WordCloudScreen from '@/components/WordCloudScreen';
 import GraphDictationScreen from '@/components/GraphDictationScreen';
 import LifeBalanceScreen from '@/components/LifeBalanceScreen';
+import QRCodeScreen from '@/components/QRCodeScreen';
 
 type Route = 
   | 'home' 
@@ -47,7 +48,8 @@ type Route =
   | 'teleprompter'
   | 'wordcloud'
   | 'graphdictation'
-  | 'lifebalance';
+  | 'lifebalance'
+  | 'qrcode';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -150,6 +152,7 @@ export default function App() {
     wordcloud: <WordCloudScreen onBack={navigateHome} />,
     graphdictation: <GraphDictationScreen onBack={navigateHome} />,
     lifebalance: <LifeBalanceScreen onBack={navigateHome} />,
+    qrcode: <QRCodeScreen onBack={navigateHome} />,
     timer: null,
   };
 
