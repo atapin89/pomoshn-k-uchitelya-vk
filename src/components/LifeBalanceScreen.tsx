@@ -12,6 +12,9 @@ import {
   Wallet,
   Info,
   RotateCcw,
+  X,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import BackButton from './BackButton';
 
@@ -158,6 +161,7 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
     finance: 5,
   });
   const [selectedSphere, setSelectedSphere] = useState<SphereKey | null>(null);
+  const [editingSphere, setEditingSphere] = useState<SphereKey | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [exportName, setExportName] = useState('');
   const wheelRef = useRef<HTMLDivElement>(null);
@@ -186,7 +190,10 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
       health: 5, family: 5, hobby: 5, finance: 5,
     });
     setSelectedSphere(null);
+    setEditingSphere(null);
   };
+
+  const editingSphereData = editingSphere ? SPHERES.find(s => s.key === editingSphere) : null;
 
   const downloadImage = () => {
     const canvas = document.createElement('canvas');
@@ -220,7 +227,6 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
     ctx.font = '14px Arial';
     ctx.fillText(new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }), 500, 115);
 
-    // Рисуем колесо (переносим центр в (500, 380))
     const cx = 500;
     const cy = 380;
     const maxR = 220;
@@ -262,12 +268,10 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
       ctx.closePath();
       ctx.fill();
 
-      // Обводка
       ctx.strokeStyle = sphere.color;
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Подпись сферы
       const labelAngle = ((i + 0.5) * angleStep - 90) * Math.PI / 180;
       const labelR = maxR + 35;
       const lx = cx + labelR * Math.cos(labelAngle);
@@ -286,7 +290,6 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
         ctx.fillText(sphere.title, lx, ly);
       }
 
-      // Оценка
       ctx.fillStyle = sphere.color;
       ctx.font = 'bold 18px Arial';
       const scoreR = (maxR * score) / 10 - 25;
@@ -296,7 +299,6 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
       ctx.fillText(score.toString(), sx, sy);
     }
 
-    // Статистика
     const statsY = 680;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(50, statsY, 900, 110);
@@ -315,7 +317,6 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
     ctx.textAlign = 'right';
     ctx.fillText(`Δ ${stats.balance.toFixed(2)}`, 920, statsY + 55);
 
-    // Рекомендации
     const recY = statsY + 150;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(50, recY, 900, 350);
@@ -370,13 +371,11 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
       tipY += 25;
     });
 
-    // Футер
     ctx.fillStyle = '#9ca3af';
     ctx.font = '13px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('Проект Алексея Атапина · topteach.ru', 500, 1380);
 
-    // Скачать
     canvas.toBlob((blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
@@ -414,7 +413,7 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
             <h2 className="font-bold text-purple-700 mb-1">Как это работает</h2>
             <p className="text-sm text-gray-600 leading-relaxed">
               Оцените 8 сфер жизни от 1 до 10. Колесо покажет, где есть перекос, и даст персональные рекомендации.
-              Нажмите на сектор колеса, чтобы увидеть расшифровку и советы именно по этой сфере.
+              <span className="block mt-1 font-medium text-purple-700">💡 Нажимайте прямо на сектор колеса, чтобы быстро изменить оценку.</span>
             </p>
           </div>
         </div>
@@ -465,7 +464,7 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
                     );
                   })}
 
-                  {/* Секторы (заливка) */}
+                  {/* Секторы (заливка) — кликабельные */}
                   {SPHERES.map((sphere, i) => {
                     const score = scores[sphere.key];
                     const startAngle = (i * 360) / SPHERE_COUNT - 90;
@@ -482,57 +481,80 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
                       'Z',
                     ].join(' ');
 
+                    const isEditing = editingSphere === sphere.key;
+
                     return (
                       <path
                         key={sphere.key}
                         d={pathData}
-                        fill={sphere.color + 'cc'}
+                        fill={sphere.color + (isEditing ? 'ff' : 'cc')}
                         stroke={sphere.color}
-                        strokeWidth="2"
-                        className="cursor-pointer transition-all hover:opacity-80"
-                        onClick={() => setSelectedSphere(sphere.key)}
+                        strokeWidth={isEditing ? 3 : 2}
+                        className="cursor-pointer transition-all hover:opacity-90 active:opacity-75"
+                        style={{ filter: isEditing ? 'brightness(1.1)' : 'none' }}
+                        onClick={() => setEditingSphere(sphere.key)}
                       />
                     );
                   })}
 
-                  {/* Оценки на секторах */}
+                  {/* Кликабельные оценки-пузыри на секторах */}
                   {SPHERES.map((sphere, i) => {
                     const score = scores[sphere.key];
                     const midAngle = ((i + 0.5) * 360) / SPHERE_COUNT - 90;
                     const r = (MAX_RADIUS * score) / 10 - 20;
                     const pos = polarToCartesian(midAngle, r);
                     return (
-                      <text
+                      <g
                         key={`score-${sphere.key}`}
-                        x={pos.x}
-                        y={pos.y}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fontSize="16"
-                        fontWeight="bold"
-                        fill="white"
-                        style={{ pointerEvents: 'none' }}
+                        className="cursor-pointer"
+                        onClick={() => setEditingSphere(sphere.key)}
                       >
-                        {score}
-                      </text>
+                        <circle
+                          cx={pos.x}
+                          cy={pos.y}
+                          r="14"
+                          fill="white"
+                          stroke={sphere.color}
+                          strokeWidth="2"
+                          className="transition-all hover:r-16"
+                        />
+                        <text
+                          x={pos.x}
+                          y={pos.y}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="14"
+                          fontWeight="bold"
+                          fill={sphere.color}
+                          style={{ pointerEvents: 'none' }}
+                        >
+                          {score}
+                        </text>
+                      </g>
                     );
                   })}
 
-                  {/* Подписи сфер */}
+                  {/* Подписи сфер — тоже кликабельные */}
                   {SPHERES.map((sphere, i) => {
                     const midAngle = ((i + 0.5) * 360) / SPHERE_COUNT - 90;
                     const pos = polarToCartesian(midAngle, LABEL_RADIUS);
                     const isSelected = selectedSphere === sphere.key;
+                    const isEditing = editingSphere === sphere.key;
                     return (
-                      <g key={`label-${sphere.key}`} className="cursor-pointer" onClick={() => setSelectedSphere(sphere.key)}>
+                      <g
+                        key={`label-${sphere.key}`}
+                        className="cursor-pointer"
+                        onClick={() => setEditingSphere(sphere.key)}
+                      >
                         <text
                           x={pos.x}
                           y={pos.y}
                           textAnchor="middle"
                           dominantBaseline="middle"
                           fontSize="11"
-                          fontWeight={isSelected ? 'bold' : '500'}
-                          fill={isSelected ? sphere.color : '#4b5563'}
+                          fontWeight={(isSelected || isEditing) ? 'bold' : '500'}
+                          fill={(isSelected || isEditing) ? sphere.color : '#4b5563'}
+                          className="transition-colors"
                         >
                           {sphere.title}
                         </text>
@@ -545,8 +567,12 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
                 </svg>
               </div>
 
+              <p className="text-[11px] text-center text-gray-500 mt-2">
+                👆 Нажмите на сектор, цифру или подпись, чтобы изменить оценку
+              </p>
+
               {/* Статистика */}
-              <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="mt-3 grid grid-cols-3 gap-2">
                 <div className="bg-purple-50 rounded-xl p-3 text-center">
                   <p className="text-[10px] text-gray-500">Средний балл</p>
                   <p className="text-2xl font-bold text-purple-700">{stats.avg.toFixed(1)}</p>
@@ -693,6 +719,141 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
       </main>
+
+      {/* ===== МОДАЛКА РЕДАКТИРОВАНИЯ ОЦЕНКИ ПРЯМО НА КОЛЕСЕ ===== */}
+      {editingSphere && editingSphereData && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setEditingSphere(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Заголовок модалки */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-sm"
+                  style={{ backgroundColor: editingSphereData.color }}
+                >
+                  {editingSphereData.icon}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-gray-800 truncate">{editingSphereData.title}</h3>
+                  <p className="text-xs text-gray-500">Оцените от 1 до 10</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingSphere(null)}
+                className="shrink-0 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Закрыть"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Большая цифра оценки */}
+            <div className="text-center py-2">
+              <div
+                className="text-7xl font-extrabold tabular-nums transition-all duration-200"
+                style={{ color: editingSphereData.color }}
+              >
+                {scores[editingSphere]}
+              </div>
+              <div className="flex justify-center gap-1 mt-1">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
+                  <div
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full transition-colors"
+                    style={{
+                      backgroundColor: i <= scores[editingSphere] ? editingSphereData.color : '#e5e7eb',
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Слайдер */}
+            <div>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={scores[editingSphere]}
+                onChange={(e) => handleScoreChange(editingSphere, Number(e.target.value))}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, ${editingSphereData.color} 0%, ${editingSphereData.color} ${((scores[editingSphere] - 1) / 9) * 100}%, #e5e7eb ${((scores[editingSphere] - 1) / 9) * 100}%, #e5e7eb 100%)`,
+                  accentColor: editingSphereData.color,
+                }}
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-1 px-0.5">
+                <span>Плохо</span>
+                <span>Средне</span>
+                <span>Отлично</span>
+              </div>
+            </div>
+
+            {/* Кнопки -/+ */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (scores[editingSphere] > 1) {
+                    setScores(prev => ({ ...prev, [editingSphere]: prev[editingSphere] - 1 }));
+                  }
+                }}
+                disabled={scores[editingSphere] <= 1}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xl transition-colors flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              >
+                <Minus className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => {
+                  if (scores[editingSphere] < 10) {
+                    setScores(prev => ({ ...prev, [editingSphere]: prev[editingSphere] + 1 }));
+                  }
+                }}
+                disabled={scores[editingSphere] >= 10}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xl transition-colors flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Быстрые кнопки 1-10 */}
+            <div className="grid grid-cols-10 gap-1">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                <button
+                  key={n}
+                  onClick={() => handleScoreChange(editingSphere, n)}
+                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                    scores[editingSphere] === n
+                      ? 'text-white shadow-md scale-105'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                  }`}
+                  style={scores[editingSphere] === n ? { backgroundColor: editingSphereData.color } : {}}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+
+            {/* Кнопка "Подробнее" */}
+            <button
+              onClick={() => {
+                setSelectedSphere(editingSphere);
+                setEditingSphere(null);
+              }}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              Подробнее о сфере
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Модалка экспорта */}
       {showExport && (
