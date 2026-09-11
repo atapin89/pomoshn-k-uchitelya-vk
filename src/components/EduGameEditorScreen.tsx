@@ -11,11 +11,20 @@ import {
 } from 'lucide-react';
 import type { EduGame, EduRound, EduQuestion } from '@/types/eduGame';
 import { generateEduId, DEFAULT_POINTS, gameQuestionsCount } from '@/types/eduGame';
+import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
 
 interface EduGameEditorScreenProps {
   game: EduGame;
   onBack: () => void;
   onSave: (game: EduGame) => void;
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
 }
 
 export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEditorScreenProps) {
@@ -25,11 +34,15 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
   const [expandedRound, setExpandedRound] = useState<string | null>(rounds[0]?.id || null);
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
 
+  // ===== Внутренние диалоги (замена window.confirm / alert) =====
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
+
   // Автосохранение при изменении
   useEffect(() => {
     const timer = setTimeout(() => {
       handleSave();
-    }, 2000); // Задержка 2 секунды после последнего изменения
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [title, rounds]);
@@ -69,12 +82,21 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
 
   const deleteRound = (roundId: string) => {
     if (rounds.length <= 1) {
-      alert('Нельзя удалить последний раунд');
+      setAlertMsg('Нельзя удалить последний раунд. В игре должен остаться хотя бы один раунд с вопросами.');
       return;
     }
-    const proceed = window.confirm('Удалить раунд со всеми вопросами?');
-    if (!proceed) return;
-    setRounds(rounds.filter((r) => r.id !== roundId));
+    const round = rounds.find((r) => r.id === roundId);
+    setConfirmState({
+      title: 'Удалить раунд?',
+      message: round
+        ? `Раунд «${round.title}» со всеми его вопросами (${round.questions.length} шт.) будет удалён безвозвратно.`
+        : 'Раунд будет удалён безвозвратно.',
+      confirmLabel: 'Удалить',
+      danger: true,
+      action: () => {
+        setRounds(rounds.filter((r) => r.id !== roundId));
+      },
+    });
   };
 
   const moveRound = (index: number, direction: 'up' | 'down') => {
@@ -91,7 +113,6 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
     const round = rounds.find((r) => r.id === roundId);
     if (!round) return;
     
-    // Определяем следующий балл
     const existingPoints = round.questions.map((q) => q.points);
     const nextPoint = DEFAULT_POINTS.find((p) => !existingPoints.includes(p)) || 
       (existingPoints.length > 0 ? Math.max(...existingPoints) + 10 : DEFAULT_POINTS[0]);
@@ -132,15 +153,25 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
   };
 
   const deleteQuestion = (roundId: string, questionId: string) => {
-    const proceed = window.confirm('Удалить вопрос?');
-    if (!proceed) return;
-    setRounds(
-      rounds.map((r) =>
-        r.id === roundId
-          ? { ...r, questions: r.questions.filter((q) => q.id !== questionId) }
-          : r
-      )
-    );
+    const round = rounds.find((r) => r.id === roundId);
+    const question = round?.questions.find((q) => q.id === questionId);
+    setConfirmState({
+      title: 'Удалить вопрос?',
+      message: question?.text
+        ? `Вопрос «${question.text}» (${question.points} б.) будет удалён безвозвратно.`
+        : 'Вопрос будет удалён безвозвратно.',
+      confirmLabel: 'Удалить',
+      danger: true,
+      action: () => {
+        setRounds(
+          rounds.map((r) =>
+            r.id === roundId
+              ? { ...r, questions: r.questions.filter((q) => q.id !== questionId) }
+              : r
+          )
+        );
+      },
+    });
   };
 
   const moveQuestion = (roundId: string, questionId: string, direction: 'up' | 'down') => {
@@ -211,7 +242,6 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
         }
       });
       
-      // Проверка дубликатов баллов
       const points = round.questions.map((q) => q.points);
       if (new Set(points).size !== points.length) {
         errors.push(`Раунд «${round.title || roundIndex + 1}»: есть дубликаты баллов`);
@@ -225,10 +255,19 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
     const errors = validateGame();
     
     if (errors.length > 0) {
-      const proceed = window.confirm(
-        `Есть проблемы:\n\n${errors.slice(0, 5).join('\n')}\n\nВыйти без исправления?`
-      );
-      if (!proceed) return;
+      const shown = errors.slice(0, 5);
+      const hidden = errors.length - shown.length;
+      const errorList = shown.map((e, i) => `${i + 1}. ${e}`).join('\n');
+      setConfirmState({
+        title: 'В игре есть проблемы',
+        message: `${errorList}${hidden > 0 ? `\n\n…и ещё ${hidden} ${hidden === 1 ? 'проблема' : hidden < 5 ? 'проблемы' : 'проблем'}.` : ''}\n\nВыйти без исправления? Незаполненные поля сохранятся как есть.`,
+        confirmLabel: 'Всё равно выйти',
+        danger: false,
+        action: () => {
+          onBack();
+        },
+      });
+      return;
     }
     
     onBack();
@@ -493,6 +532,25 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
           <Save className="w-5 h-5" /> Сохранить игру
         </button>
       </main>
+
+      {/* ===== Внутренние диалоги ===== */}
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
+      <AlertDialog
+        isOpen={alertMsg !== null}
+        message={alertMsg ?? ''}
+        onClose={() => setAlertMsg(null)}
+      />
     </div>
   );
 }
