@@ -25,6 +25,7 @@ import {
   ChevronDown,
   Sparkles,
   QrCode,
+  BookText,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -50,7 +51,8 @@ type SectionId =
   | 'wordcloud'
   | 'graphdictation'
   | 'lifebalance'
-  | 'qrcode';
+  | 'qrcode'
+  | 'bibliography';
 
 interface Section {
   id: SectionId;
@@ -191,6 +193,13 @@ const SECTIONS: Section[] = [
     description: 'Генератор кодов',
     hint: 'Создание QR-кодов: текст, ссылки, WiFi для класса, email, телефон, визитки vCard. Настройка цветов и размера, скачивание PNG и SVG.',
     icon: QrCode,
+  },
+  {
+    id: 'bibliography',
+    title: 'Источники по ГОСТу',
+    description: 'Библиография',
+    hint: 'Оформление списка литературы по действующим ГОСТам. 12 типов источников: книги, статьи, диссертации, сайты, НПА, методички, конференции и другие. Живой предпросмотр, автоматическая алфавитная сортировка, экспорт в Word (.doc) и текст (.txt). К каждому полю — справка с точным пунктом ГОСТа.',
+    icon: BookText,
   },
 ];
 
