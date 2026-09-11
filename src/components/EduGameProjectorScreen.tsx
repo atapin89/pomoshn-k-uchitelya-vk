@@ -20,6 +20,7 @@ import {
   downloadTextFile,
   sanitizeFileName,
 } from '@/lib/eduGameStorage';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface EduGameProjectorScreenProps {
   game: EduGame;
@@ -29,6 +30,14 @@ interface EduGameProjectorScreenProps {
 interface ActiveCell {
   round: EduRound;
   question: EduQuestion;
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
 }
 
 function sessionKey(gameId: string): string {
@@ -75,6 +84,9 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
   const [showResults, setShowResults] = useState(false);
   const [newPlayersText, setNewPlayersText] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // ===== Внутренний диалог (замена window.confirm) =====
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -183,25 +195,34 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
   };
 
   const resetAll = () => {
-    const proceed = window.confirm(
-      'Начать новую игру? Все результаты, использованные вопросы и участники будут сброшены.'
-    );
-    if (!proceed) return;
-    
-    clearSession(game.id); // Очищаем localStorage
-    setUsed([]);
-    setPlayers([]); // Полностью очищаем список участников
-    setShowResults(false);
-    setActive(null);
+    setConfirmState({
+      title: 'Начать новую игру?',
+      message: 'Все результаты, использованные вопросы и участники будут сброшены. Это действие нельзя отменить.',
+      confirmLabel: 'Начать заново',
+      danger: true,
+      action: () => {
+        clearSession(game.id);
+        setUsed([]);
+        setPlayers([]);
+        setShowResults(false);
+        setActive(null);
+      },
+    });
   };
 
   const handleBack = () => {
     const hasProgress = used.length > 0 || players.some((p) => p.score !== 0);
     if (hasProgress) {
-      const proceed = window.confirm(
-        'Выйти из проектора? Прогресс будет сохранён — при следующем входе игра продолжится с того же места.'
-      );
-      if (!proceed) return;
+      setConfirmState({
+        title: 'Выйти из проектора?',
+        message: 'Прогресс будет сохранён — при следующем входе игра продолжится с того же места. Вы всегда сможете вернуться к текущей игре.',
+        confirmLabel: 'Выйти',
+        danger: false,
+        action: () => {
+          onBack();
+        },
+      });
+      return;
     }
     onBack();
   };
@@ -589,6 +610,20 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
           </div>
         </div>
       )}
+
+      {/* ===== Внутренний диалог подтверждения ===== */}
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }
