@@ -58,13 +58,12 @@ interface ConfirmState {
 // ===== КОНСТАНТЫ =====
 
 const STORAGE_KEY = 'visual-schedule-projects';
-const MAX_GRID_CELLS = 16;
 
 const TEMPLATES: { id: TemplateType; label: string; icon: React.ReactNode; maxCells: number }[] = [
-  { id: 'horizontal', label: 'Линейный', icon: <LayoutList className="w-4 h-4" />, maxCells: 8 },
-  { id: 'vertical', label: 'Вертикальный', icon: <LayoutList className="w-4 h-4 rotate-90" />, maxCells: 8 },
-  { id: 'grid3', label: 'Сетка 3×3', icon: <Grid3x3 className="w-4 h-4" />, maxCells: 9 },
-  { id: 'grid4', label: 'Сетка 4×4', icon: <LayoutGrid className="w-4 h-4" />, maxCells: 16 },
+  { id: 'horizontal', label: 'Линейный', icon: <LayoutList className="w-3 h-3" />, maxCells: 8 },
+  { id: 'vertical', label: 'Вертикальный', icon: <LayoutList className="w-3 h-3 rotate-90" />, maxCells: 8 },
+  { id: 'grid3', label: '3×3', icon: <Grid3x3 className="w-3 h-3" />, maxCells: 9 },
+  { id: 'grid4', label: '4×4', icon: <LayoutGrid className="w-3 h-3" />, maxCells: 16 },
 ];
 
 // ===== УТИЛИТЫ =====
@@ -129,7 +128,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     saveProjects(projects);
   }, [projects]);
 
-  // Автосохранение текущего проекта
   useEffect(() => {
     const timeout = setTimeout(() => {
       setProjects(prev => {
@@ -152,12 +150,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       )
     : PICTOGRAMS.filter(p => p.category === selectedCategory);
 
-  // ===== ДЕЙСТВИЯ =====
-
   const handleTemplateChange = (template: TemplateType) => {
     setConfirmState({
       title: 'Сменить шаблон?',
-      message: 'Текущее расписание будет очищено. Продолжить?',
+      message: 'Текущее расписание будет очищено.',
       confirmLabel: 'Сменить',
       danger: false,
       action: () => {
@@ -347,8 +343,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setShowProjects(false);
   };
 
-  // ===== РЕНДЕР ЯЧЕЕК =====
-
   const renderCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[currentProject.language] : '');
@@ -360,50 +354,49 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         onDragOver={(e) => handleDragOver(e, cell.id)}
         onDragLeave={handleDragLeave}
         onDrop={() => handleDrop(cell.id)}
-        className={`relative aspect-square rounded-xl border-2 border-dashed transition-all ${
+        className={`relative aspect-square rounded-lg border-2 border-dashed transition-all ${
           isDragOver ? 'border-purple-500 bg-purple-100 scale-105' : 'border-purple-200 bg-white'
         } ${cell.type !== 'empty' ? 'border-solid' : ''}`}
       >
         {cell.type === 'empty' ? (
           <div className="w-full h-full flex items-center justify-center text-purple-300">
-            <Plus className="w-8 h-8" />
+            <Plus className="w-6 h-6" />
           </div>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center p-2 relative group">
+          <div className="w-full h-full flex flex-col items-center justify-center p-1.5 relative group">
             {cell.type === 'pictogram' && pictogram && (
-              <span className="text-4xl sm:text-5xl select-none">{pictogram.emoji}</span>
+              <span className="text-3xl sm:text-4xl select-none">{pictogram.emoji}</span>
             )}
             {cell.type === 'image' && cell.imageData && (
-              <img src={cell.imageData} alt="" className="w-full h-full object-contain rounded-lg" />
+              <img src={cell.imageData} alt="" className="w-full h-full object-contain rounded" />
             )}
             {label && (
-              <p className="text-xs sm:text-sm font-semibold text-gray-700 text-center mt-1 line-clamp-2">
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-700 text-center mt-0.5 line-clamp-2">
                 {label}
               </p>
             )}
             
-            {/* Кнопки действий */}
-            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleEditLabel(cell.id, cell.customLabel)}
-                className="p-1 bg-white rounded-full shadow hover:bg-purple-50"
+                className="p-0.5 bg-white rounded-full shadow hover:bg-purple-50"
                 title="Подпись"
               >
-                <Languages className="w-3 h-3 text-purple-600" />
+                <Languages className="w-2.5 h-2.5 text-purple-600" />
               </button>
               <button
                 onClick={() => handleUploadImage(cell.id)}
-                className="p-1 bg-white rounded-full shadow hover:bg-purple-50"
+                className="p-0.5 bg-white rounded-full shadow hover:bg-purple-50"
                 title="Загрузить фото"
               >
-                <Image className="w-3 h-3 text-purple-600" />
+                <Image className="w-2.5 h-2.5 text-purple-600" />
               </button>
               <button
                 onClick={() => handleClearCell(cell.id)}
-                className="p-1 bg-white rounded-full shadow hover:bg-red-50"
+                className="p-0.5 bg-white rounded-full shadow hover:bg-red-50"
                 title="Очистить"
               >
-                <Trash2 className="w-3 h-3 text-red-500" />
+                <Trash2 className="w-2.5 h-2.5 text-red-500" />
               </button>
             </div>
           </div>
@@ -411,8 +404,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       </div>
     );
   };
-
-  // ===== РЕНДЕР ШАБЛОНОВ =====
 
   const renderSchedule = () => {
     const gridClass = {
@@ -425,98 +416,95 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     return (
       <div
         ref={scheduleRef}
-        className={`grid ${gridClass} gap-2 p-4 bg-white rounded-2xl shadow-sm`}
+        className={`grid ${gridClass} gap-1.5 p-3 bg-white rounded-xl shadow-sm`}
       >
         {currentProject.cells.map(renderCell)}
       </div>
     );
   };
 
-  // ===== ОСНОВНОЙ РЕНДЕР =====
-
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-indigo-50 flex flex-col">
       {/* Header */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-3 py-2 flex items-center gap-2">
           <button
             onClick={onBack}
-            className="p-2 text-white hover:bg-purple-600 rounded-lg transition-colors"
+            className="p-1.5 text-white hover:bg-purple-600 rounded-lg transition-colors"
             aria-label="Назад"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex-1 min-w-0">
             <input
               type="text"
               value={currentProject.name}
               onChange={(e) => setCurrentProject(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full bg-transparent text-white font-bold text-lg border-b border-white/30 focus:border-white focus:outline-none"
-              placeholder="Название расписания"
+              className="w-full bg-transparent text-white font-semibold text-sm border-b border-white/30 focus:border-white focus:outline-none"
+              placeholder="Название"
             />
           </div>
           <button
             onClick={handleToggleLanguage}
-            className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-semibold flex items-center gap-1"
+            className="px-2 py-1 bg-white/20 hover:bg-white/30 text-white rounded text-[10px] font-semibold"
           >
-            <Languages className="w-4 h-4" />
             {currentProject.language === 'ru' ? 'RU' : 'EN'}
           </button>
           <button
             onClick={handleSaveProject}
-            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
+            className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded"
             title="Сохранить"
           >
-            <Save className="w-5 h-5" />
+            <Save className="w-4 h-4" />
           </button>
           <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
+              className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded"
               title="Экспорт"
             >
-              <Download className="w-5 h-5" />
+              <Download className="w-4 h-4" />
             </button>
             {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-purple-200 py-1 z-30">
+              <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-purple-200 py-1 z-30">
                 <button
                   onClick={handleExportPNG}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left text-xs hover:bg-purple-50 flex items-center gap-1.5"
                 >
-                  <FileImage className="w-4 h-4 text-purple-600" />
-                  Скачать PNG
+                  <FileImage className="w-3 h-3 text-purple-600" />
+                  PNG
                 </button>
                 <button
                   onClick={handleExportPDF}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left text-xs hover:bg-purple-50 flex items-center gap-1.5"
                 >
-                  <FileDown className="w-4 h-4 text-purple-600" />
-                  Скачать PDF
+                  <FileDown className="w-3 h-3 text-purple-600" />
+                  PDF
                 </button>
               </div>
             )}
           </div>
           <button
             onClick={() => setShowProjects(!showProjects)}
-            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
+            className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded"
             title="Проекты"
           >
-            <Upload className="w-5 h-5" />
+            <Upload className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
+      <main className="flex-1 max-w-5xl mx-auto w-full p-3 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-3">
         {/* Левая панель: библиотека */}
-        <aside className="bg-white rounded-2xl p-4 shadow-sm space-y-4 h-fit lg:sticky lg:top-20">
+        <aside className="bg-white rounded-xl p-3 shadow-sm space-y-3 h-fit lg:sticky lg:top-16">
           <div>
-            <h2 className="text-sm font-bold text-purple-700 mb-2">Шаблон</h2>
-            <div className="grid grid-cols-2 gap-2">
+            <h2 className="text-xs font-bold text-purple-700 mb-1.5">Шаблон</h2>
+            <div className="grid grid-cols-4 gap-1">
               {TEMPLATES.map(t => (
                 <button
                   key={t.id}
                   onClick={() => handleTemplateChange(t.id)}
-                  className={`p-2 rounded-lg border-2 text-xs font-semibold flex flex-col items-center gap-1 ${
+                  className={`p-1.5 rounded border-2 text-[10px] font-semibold flex flex-col items-center gap-0.5 ${
                     currentProject.template === t.id
                       ? 'border-purple-500 bg-purple-50 text-purple-700'
                       : 'border-gray-200 text-gray-600 hover:border-purple-200'
@@ -530,32 +518,32 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </div>
 
           <div>
-            <div className="relative mb-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <div className="relative mb-1.5">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Поиск..."
-                className="w-full pl-9 pr-3 py-2 rounded-lg border border-purple-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="w-full pl-7 pr-2 py-1.5 rounded-lg border border-purple-200 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 rounded"
                 >
-                  <X className="w-3 h-3 text-gray-500" />
+                  <X className="w-2.5 h-2.5 text-gray-500" />
                 </button>
               )}
             </div>
 
             {!searchQuery && (
-              <div className="flex flex-wrap gap-1 mb-2">
+              <div className="flex flex-wrap gap-0.5 mb-1.5">
                 {PICTOGRAM_CATEGORIES.map(cat => (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
                       selectedCategory === cat.id
                         ? 'bg-purple-600 text-white'
                         : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
@@ -567,7 +555,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               </div>
             )}
 
-            <div className="grid grid-cols-4 gap-1.5 max-h-[400px] overflow-y-auto">
+            <div className="grid grid-cols-5 gap-1 max-h-[300px] overflow-y-auto">
               {filteredPictograms.map(p => (
                 <div
                   key={p.id}
@@ -577,11 +565,11 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                     const emptyCell = currentProject.cells.find(c => c.type === 'empty');
                     if (emptyCell) handleAddPictogramToCell(emptyCell.id, p);
                   }}
-                  className="aspect-square rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 flex flex-col items-center justify-center p-1 cursor-grab active:cursor-grabbing transition-colors"
+                  className="aspect-square rounded bg-purple-50 hover:bg-purple-100 border border-purple-200 flex flex-col items-center justify-center p-0.5 cursor-grab active:cursor-grabbing transition-colors"
                   title={`${p.ru} / ${p.en}`}
                 >
-                  <span className="text-2xl">{p.emoji}</span>
-                  <span className="text-[9px] text-gray-600 text-center line-clamp-1 mt-0.5">
+                  <span className="text-xl">{p.emoji}</span>
+                  <span className="text-[8px] text-gray-600 text-center line-clamp-1">
                     {p[currentProject.language]}
                   </span>
                 </div>
@@ -591,131 +579,106 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
+            className="w-full py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded text-xs font-semibold flex items-center justify-center gap-1.5"
           >
-            <Image className="w-4 h-4" />
-            Загрузить своё фото
+            <Image className="w-3 h-3" />
+            Загрузить фото
           </button>
         </aside>
 
         {/* Правая панель: расписание */}
-        <section className="space-y-4">
+        <section className="space-y-2">
           {renderSchedule()}
           
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <h3 className="text-sm font-bold text-purple-700 mb-2">💡 Подсказки</h3>
-            <ul className="text-xs text-gray-600 space-y-1">
-              <li>• Перетащите пиктограмму из библиотеки в ячейку</li>
-              <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
-              <li>• Наведите на ячейку — появятся кнопки действий</li>
-              <li>• Переключайте язык RU/EN в шапке</li>
-              <li>• Экспортируйте в PNG для доски или PDF для печати</li>
+          <div className="bg-white rounded-xl p-2.5 shadow-sm">
+            <h3 className="text-xs font-bold text-purple-700 mb-1">💡 Подсказки</h3>
+            <ul className="text-[10px] text-gray-600 space-y-0.5">
+              <li>• Перетащите пиктограмму в ячейку</li>
+              <li>• Кликните — добавится в пустую ячейку</li>
+              <li>• Наведите — кнопки действий</li>
+              <li>• RU/EN — переключение языка</li>
             </ul>
           </div>
 
-          {/* ===== СЦЕНАРИИ ИСПОЛЬЗОВАНИЯ ===== */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          {/* СЦЕНАРИИ */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <button
               onClick={() => setShowScenarios(!showScenarios)}
-              className="w-full px-4 py-3 flex items-center justify-between gap-2"
+              className="w-full px-3 py-2 flex items-center justify-between gap-2"
             >
-              <div className="flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-amber-500" />
-                <h3 className="font-bold text-purple-700 text-sm">Сценарии использования</h3>
+              <div className="flex items-center gap-1.5">
+                <Lightbulb className="w-4 h-4 text-amber-500" />
+                <h3 className="font-bold text-purple-700 text-xs">Сценарии</h3>
               </div>
-              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showScenarios ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-purple-600 transition-transform ${showScenarios ? 'rotate-180' : ''}`} />
             </button>
             {showScenarios && (
-              <div className="px-4 pb-4 space-y-3 text-sm text-gray-700">
-                <div className="bg-purple-50 rounded-xl p-3">
-                  <p className="font-bold text-purple-800 mb-1">🧩 Расписание дня для ребёнка с РАС</p>
-                  <p className="text-xs leading-relaxed">Создайте линейное расписание на 5–7 ячеек: проснулся → завтрак → школа → обед → прогулка → дом → сон. Используйте конкретные фото ребёнка и знакомых мест. Повесьте на уровне глаз. Перемещайте «галочку» по мере выполнения — это снижает тревожность и формирует предсказуемость.</p>
+              <div className="px-3 pb-2.5 space-y-2">
+                <div className="bg-purple-50 rounded-lg p-2">
+                  <p className="font-bold text-purple-800 text-[11px] mb-0.5">🧩 Расписание для РАС</p>
+                  <p className="text-[10px] text-gray-600 leading-relaxed">Линейное 5-7 ячеек с фото. Снижает тревожность.</p>
                 </div>
-                <div className="bg-blue-50 rounded-xl p-3">
-                  <p className="font-bold text-blue-800 mb-1">🏫 Режим дня в детском саду</p>
-                  <p className="text-xs leading-relaxed">Сетка 3×3 для группы: завтрак → занятие → прогулка → обед → сон → полдник → игры → родители. Распечатайте на A4 и ламинируйте. Дети сами передвигают маркер-магнит по ячейкам. Воспитатель озвучивает: «Сейчас мы…», ребёнок находит картинку.</p>
+                <div className="bg-blue-50 rounded-lg p-2">
+                  <p className="font-bold text-blue-800 text-[11px] mb-0.5">🏫 Режим дня ДОУ</p>
+                  <p className="text-[10px] text-gray-600 leading-relaxed">Сетка 3×3. Ламинировать, дети двигают маркер.</p>
                 </div>
-                <div className="bg-green-50 rounded-xl p-3">
-                  <p className="font-bold text-green-800 mb-1">📝 Алгоритм выполнения задания</p>
-                  <p className="text-xs leading-relaxed">Вертикальное расписание на 4–6 шагов: прочитай задание → подчеркни главное → реши → проверь → запиши ответ. Используйте для детей с трудностями планирования. Повесьте над партой — ребёнок следует по шагам самостоятельно.</p>
+                <div className="bg-green-50 rounded-lg p-2">
+                  <p className="font-bold text-green-800 text-[11px] mb-0.5">📝 Алгоритм задания</p>
+                  <p className="text-[10px] text-gray-600 leading-relaxed">Вертикальное 4-6 шагов. Для планирования.</p>
                 </div>
-                <div className="bg-amber-50 rounded-xl p-3">
-                  <p className="font-bold text-amber-800 mb-1">📅 Расписание уроков на неделю</p>
-                  <p className="text-xs leading-relaxed">Сетка 4×4: по строкам — дни недели, по столбцам — уроки. Используйте пиктограммы предметов: 📖 чтение, 🔢 математика, 🎨 рисование, ⚽ физкультура. Переключите на EN для билингвального класса. Экспортируйте в PDF и раздайте ученикам.</p>
+                <div className="bg-amber-50 rounded-lg p-2">
+                  <p className="font-bold text-amber-800 text-[11px] mb-0.5">📅 Уроки на неделю</p>
+                  <p className="text-[10px] text-gray-600 leading-relaxed">Сетка 4×4. Экспорт PDF для раздачи.</p>
                 </div>
-                <div className="bg-pink-50 rounded-xl p-3">
-                  <p className="font-bold text-pink-800 mb-1">💬 Социальная история</p>
-                  <p className="text-xs leading-relaxed">Линейное расписание для подготовки к новому событию: «Завтра мы идём в музей» → 🚌 автобус → 🏛 музей → 👀 смотрим → 🤫 ведём себя тихо → 🚌 возвращаемся. Помогает ребёнку с РАС подготовиться к непривычной ситуации и снизить стресс.</p>
+                <div className="bg-pink-50 rounded-lg p-2">
+                  <p className="font-bold text-pink-800 text-[11px] mb-0.5">💬 Социальная история</p>
+                  <p className="text-[10px] text-gray-600 leading-relaxed">Подготовка к событию. Снижает стресс.</p>
                 </div>
-                <div className="bg-indigo-50 rounded-xl p-3">
-                  <p className="font-bold text-indigo-800 mb-1">🔄 Адаптация первоклассника</p>
-                  <p className="text-xs leading-relaxed">Создайте «Утро школьника»: ⏰ подъём → 🪥 зубы → 👕 форма → 🥣 завтрак → 🎒 портфель → 🏫 школа. Повесьте дома и в классе. Первые 2 недели ребёнок следует по картинкам, затем привыкает. Родители отмечают выполненное наклейками.</p>
-                </div>
-                <div className="bg-teal-50 rounded-xl p-3">
-                  <p className="font-bold text-teal-800 mb-1">🎯 Визуальная инструкция для кружка</p>
-                  <p className="text-xs leading-relaxed">Для кружка «Поделки»: 📋 план → ✂️ вырезать → 🎨 раскрасить → 🧩 собрать → 📷 показать. Каждый шаг — пиктограмма + подпись. Дети работают по карточке самостоятельно, педагог помогает только при необходимости.</p>
-                </div>
-                <div className="bg-orange-50 rounded-xl p-3">
-                  <p className="font-bold text-orange-800 mb-1">😊 Шкала эмоций и самопомощь</p>
-                  <p className="text-xs leading-relaxed">Сетка 3×3 с эмоциями: 😊 рад → 😢 грусть → 😠 злость → 😨 страх → 😴 устал → 😌 спокоен. Рядом — действия-помощники: 💧 попить воды → 🚶 прогуляться → 🗣 поговорить → 🎵 музыка → 🤗 обнять. Ребёнок указывает свою эмоцию и выбирает стратегию.</p>
+                <div className="bg-indigo-50 rounded-lg p-2">
+                  <p className="font-bold text-indigo-800 text-[11px] mb-0.5">🔄 Адаптация 1 класса</p>
+                  <p className="text-[10px] text-gray-600 leading-relaxed">Утро школьника. Первые 2 недели.</p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ===== ЧАСТЫЕ ВОПРОСЫ ===== */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          {/* FAQ */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <button
               onClick={() => setShowFaq(!showFaq)}
-              className="w-full px-4 py-3 flex items-center justify-between gap-2"
+              className="w-full px-3 py-2 flex items-center justify-between gap-2"
             >
-              <div className="flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-purple-600" />
-                <h3 className="font-bold text-purple-700 text-sm">Частые вопросы</h3>
+              <div className="flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-purple-600" />
+                <h3 className="font-bold text-purple-700 text-xs">FAQ</h3>
               </div>
-              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showFaq ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-purple-600 transition-transform ${showFaq ? 'rotate-180' : ''}`} />
             </button>
             {showFaq && (
-              <div className="px-4 pb-4 space-y-3 text-sm">
+              <div className="px-3 pb-2.5 space-y-2">
                 <div>
-                  <p className="font-bold text-gray-800 mb-1">❓ Для какого возраста подходит визуальное расписание?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">От 2–3 лет (простые цепочки из 3 картинок) до 10–12 лет (сетка на неделю с подписями). Для подростков с РАС и ОВЗ расписание остаётся актуальным — меняются только пиктограммы и уровень сложности. Взрослые с ментальными особенностями также используют визуальные опоры.</p>
+                  <p className="font-bold text-gray-800 text-[11px] mb-0.5">❓ Возраст?</p>
+                  <p className="text-[10px] text-gray-600">От 2 лет до подростков с ОВЗ.</p>
                 </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Можно ли использовать свои картинки вместо пиктограмм?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да! Нажмите на ячейку → 🖼 → выберите фото с устройства. Это особенно важно для детей с РАС: конкретная фотография их чашки или кровати понятнее абстрактной пиктограммы. Поддерживаются JPG, PNG, WEBP.</p>
+                <div className="border-t border-gray-100 pt-1.5">
+                  <p className="font-bold text-gray-800 text-[11px] mb-0.5">❓ Свои картинки?</p>
+                  <p className="text-[10px] text-gray-600">Да, загрузка JPG/PNG.</p>
                 </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как распечатать расписание?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите ⬇ Скачать → PDF. Файл откроется в формате A4 (альбомная ориентация). Распечатайте на обычном или цветном принтере. Для многоразового использования — ламинируйте и используйте маркеры-липучки для перемещения ячеек.</p>
+                <div className="border-t border-gray-100 pt-1.5">
+                  <p className="font-bold text-gray-800 text-[11px] mb-0.5">❓ Печать?</p>
+                  <p className="text-[10px] text-gray-600">PDF → A4 → ламинировать.</p>
                 </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Сохраняются ли мои проекты?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да, автоматически. Все проекты хранятся локально в браузере и доступны между сессиями. Нажмите 📂 (иконку загрузки) в шапке — увидите список сохранённых расписаний. Можно создавать неограниченное количество проектов.</p>
+                <div className="border-t border-gray-100 pt-1.5">
+                  <p className="font-bold text-gray-800 text-[11px] mb-0.5">❓ Сохранение?</p>
+                  <p className="text-[10px] text-gray-600">Автоматически, локально.</p>
                 </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как сменить язык подписей?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">В шапке нажмите кнопку RU/EN. Все подписи пиктограмм переключатся мгновенно. Это удобно для билингвальных классов и для изучения английского: ребёнок видит картинку и подписи на двух языках.</p>
+                <div className="border-t border-gray-100 pt-1.5">
+                  <p className="font-bold text-gray-800 text-[11px] mb-0.5">❓ Язык?</p>
+                  <p className="text-[10px] text-gray-600">RU/EN в шапке, мгновенно.</p>
                 </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Сколько ячеек можно заполнить?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Зависит от шаблона: линейный — до 8, вертикальный — до 8, сетка 3×3 — 9 ячеек, сетка 4×4 — 16 ячеек. Для ребёнка с РАС рекомендуется начинать с 3–5 ячеек и увеличивать постепенно.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как удалить пиктограмму из ячейки?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Наведите курсор на ячейку → нажмите 🗑 (корзину) в правом верхнем углу. Ячейка станет пустой. Чтобы заменить пиктограмму — просто перетащите новую поверх старой.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Работает ли раздел без интернета?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да. Все пиктограммы — встроенные эмодзи, они хранятся в коде приложения. Загрузка своих фото, сохранение проектов и экспорт работают полностью офлайн. Интернет нужен только для первой загрузки приложения.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Можно ли отправить расписание в родительский чат?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да! Нажмите ⬇ Скачать → PNG. Изображение сохранится на устройство — отправьте его в WhatsApp, Telegram или VK. PNG сохраняет высокое качество (масштаб 2×) и подходит для отправки в мессенджеры и для вставки в презентации.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как использовать расписание на интерактивной доске?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Экспортируйте в PNG → откройте на доске. Или откройте расписание прямо в браузере на проекторе — дети видят процесс заполнения в реальном времени. Используйте линейный шаблон для наглядной последовательности.</p>
+                <div className="border-t border-gray-100 pt-1.5">
+                  <p className="font-bold text-gray-800 text-[11px] mb-0.5">❓ Ячейки?</p>
+                  <p className="text-[10px] text-gray-600">8 (линейный), 9 (3×3), 16 (4×4).</p>
                 </div>
               </div>
             )}
@@ -725,49 +688,47 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
       {/* Модалка проектов */}
       {showProjects && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md max-h-[80vh] rounded-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h2 className="text-lg font-bold text-purple-700">Мои проекты</h2>
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
+          <div className="bg-white w-full max-w-sm max-h-[75vh] rounded-xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-3 border-b border-gray-200">
+              <h2 className="text-sm font-bold text-purple-700">Проекты</h2>
               <button
                 onClick={() => setShowProjects(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-1 hover:bg-gray-100 rounded"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
               <button
                 onClick={handleNewProject}
-                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+                className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5"
               >
-                <Plus className="w-5 h-5" />
-                Новый проект
+                <Plus className="w-4 h-4" />
+                Новый
               </button>
               {projects.length === 0 ? (
-                <p className="text-center text-gray-400 py-8 text-sm">
-                  Пока нет сохранённых проектов
-                </p>
+                <p className="text-center text-gray-400 py-6 text-xs">Нет проектов</p>
               ) : (
                 projects.map(p => (
                   <div
                     key={p.id}
-                    className="flex items-center gap-2 p-3 rounded-xl border border-purple-200 hover:border-purple-400"
+                    className="flex items-center gap-1.5 p-2 rounded-lg border border-purple-200 hover:border-purple-400"
                   >
                     <button
                       onClick={() => handleLoadProject(p)}
                       className="flex-1 text-left"
                     >
-                      <p className="font-semibold text-sm text-gray-800 truncate">{p.name}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="font-semibold text-xs text-gray-800 truncate">{p.name}</p>
+                      <p className="text-[10px] text-gray-500">
                         {new Date(p.updatedAt).toLocaleString('ru-RU')}
                       </p>
                     </button>
                     <button
                       onClick={() => handleDeleteProject(p.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      className="p-1 text-red-500 hover:bg-red-50 rounded"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   </div>
                 ))
@@ -777,33 +738,33 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         </div>
       )}
 
-      {/* Модалка редактирования подписи */}
+      {/* Модалка подписи */}
       {editingCellId && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4">
-            <h3 className="text-lg font-bold text-purple-700">Подпись к ячейке</h3>
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3">
+          <div className="bg-white w-full max-w-xs rounded-xl p-4 space-y-3">
+            <h3 className="text-sm font-bold text-purple-700">Подпись</h3>
             <input
               type="text"
               value={editingLabel}
               onChange={(e) => setEditingLabel(e.target.value)}
-              placeholder="Введите подпись..."
-              className="w-full px-4 py-3 rounded-xl border-2 border-purple-200 focus:outline-none focus:border-purple-500"
+              placeholder="Введите..."
+              className="w-full px-3 py-2 rounded-lg border-2 border-purple-200 focus:outline-none focus:border-purple-500 text-sm"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleSaveLabel()}
             />
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <button
                 onClick={() => setEditingCellId(null)}
-                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold"
+                className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold"
               >
                 Отмена
               </button>
               <button
                 onClick={handleSaveLabel}
-                className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+                className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1"
               >
-                <Check className="w-5 h-5" />
-                Сохранить
+                <Check className="w-4 h-4" />
+                ОК
               </button>
             </div>
           </div>
