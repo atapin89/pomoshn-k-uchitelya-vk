@@ -28,6 +28,7 @@ import GraphDictationScreen from '@/components/GraphDictationScreen';
 import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 import QRCodeScreen from '@/components/QRCodeScreen';
 import BibliographyScreen from '@/components/BibliographyScreen';
+import VisualScheduleScreen from '@/components/VisualScheduleScreen';
 
 type Route = 
   | 'home' 
@@ -51,7 +52,8 @@ type Route =
   | 'graphdictation'
   | 'lifebalance'
   | 'qrcode'
-  | 'bibliography';
+  | 'bibliography'
+  | 'visualschedule';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -156,6 +158,7 @@ export default function App() {
     lifebalance: <LifeBalanceScreen onBack={navigateHome} />,
     qrcode: <QRCodeScreen onBack={navigateHome} />,
     bibliography: <BibliographyScreen onBack={navigateHome} />,
+    visualschedule: <VisualScheduleScreen onBack={navigateHome} />,
     timer: null,
   };
 
