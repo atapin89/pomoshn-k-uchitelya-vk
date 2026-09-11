@@ -402,9 +402,10 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
-        {/* Шестерёнка в левом верхнем углу с tooltip */}
-        <div className="flex items-start justify-between mb-2">
-          <div className="group relative">
+        {/* Верхняя линия: Шестерёнка | Логотип | Проект + Руководство */}
+        <div className="flex items-center gap-3">
+          {/* Шестерёнка слева с tooltip */}
+          <div className="group relative shrink-0">
             <button
               onClick={handleGearClick}
               onMouseEnter={() => setGearActive(true)}
@@ -434,64 +435,62 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </div>
           </div>
 
-          {/* Кнопка руководства справа */}
-          <button
-            onClick={handleManualClick}
-            className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white/60 backdrop-blur-sm shadow-sm"
-            aria-label="Руководство по использованию"
-            title="Руководство"
-          >
-            {!manualSeen && (
-              <>
-                <span className="absolute inset-0 rounded-xl bg-purple-400/60 animate-ping" />
-                <span className="absolute inset-0 rounded-xl ring-2 ring-purple-500 animate-pulse" />
-              </>
-            )}
-            <BookOpen className="relative z-10 w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Логотип — крупнее, по центру */}
-        <div className="flex flex-col items-center mt-3">
-          <h1 className="sr-only">Помощник учителя</h1>
-          <a
-            href="https://vk.ru/topteach"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block transition-all duration-200 ease-out hover:scale-[1.03] hover:brightness-110 hover:drop-shadow-[0_0_12px_rgba(168,85,247,0.55)] active:scale-[0.98] rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2"
-            aria-label="Сообщество «Помощник учителя» ВКонтакте"
-            title="Перейти в сообщество ВКонтакте"
-          >
-            <img
-              src={`${import.meta.env.BASE_URL}logo.png`}
-              alt="Помощник учителя"
-              className="h-28 sm:h-36 w-auto object-contain select-none"
-              draggable={false}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-              }}
-            />
-          </a>
-
-          {/* Подпись под логотипом */}
-          <p className="mt-2 text-[11px] text-gray-500 leading-tight text-center">
-            Проект{' '}
+          {/* Логотип по центру (flex-1) с подписью снизу */}
+          <div className="flex-1 flex flex-col items-center min-w-0">
+            <h1 className="sr-only">Помощник учителя</h1>
             <a
-              href="https://vk.ru/aaatapin"
+              href="https://vk.ru/topteach"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-purple-600 hover:text-purple-800 font-semibold underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
+              className="block transition-all duration-200 ease-out hover:scale-[1.03] hover:brightness-110 hover:drop-shadow-[0_0_12px_rgba(168,85,247,0.55)] active:scale-[0.98] rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2"
+              aria-label="Сообщество «Помощник учителя» ВКонтакте"
+              title="Перейти в сообщество ВКонтакте"
             >
-              Алексея Атапина
+              <img
+                src={`${import.meta.env.BASE_URL}logo.png`}
+                alt="Помощник учителя"
+                className="h-20 sm:h-24 w-auto object-contain select-none"
+                draggable={false}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
             </a>
-          </p>
-        </div>
+            {/* Подзаголовок под логотипом с минимальным отступом */}
+            <p className="mt-1 text-xs sm:text-sm text-gray-500 text-center leading-tight">
+              Простые инструменты для сложных задач
+            </p>
+          </div>
 
-        {/* Подзаголовок */}
-        <div className="flex items-center justify-center mt-3">
-          <p className="text-xs sm:text-sm text-gray-500 text-center">
-            Простые инструменты для сложных задач
-          </p>
+          {/* Правая часть: подпись проекта + кнопка руководства */}
+          <div className="shrink-0 flex items-center gap-2">
+            <p className="text-[10px] sm:text-[11px] text-gray-500 leading-tight text-right whitespace-nowrap">
+              Проект{' '}
+              <a
+                href="https://vk.ru/aaatapin"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-purple-600 hover:text-purple-800 font-semibold underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
+              >
+                Алексея Атапина
+              </a>
+            </p>
+            
+            <button
+              onClick={handleManualClick}
+              className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white/60 backdrop-blur-sm shadow-sm"
+              aria-label="Руководство по использованию"
+              title="Руководство"
+            >
+              {!manualSeen && (
+                <>
+                  <span className="absolute inset-0 rounded-xl bg-purple-400/60 animate-ping" />
+                  <span className="absolute inset-0 rounded-xl ring-2 ring-purple-500 animate-pulse" />
+                </>
+              )}
+              <BookOpen className="relative z-10 w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
