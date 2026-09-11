@@ -26,6 +26,7 @@ import {
   Sparkles,
   QrCode,
   BookText,
+  GripVertical,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -258,6 +259,10 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     return SECTIONS.map(s => s.id);
   });
 
+  // Drag & Drop состояния
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   useEffect(() => {
     try {
       localStorage.setItem(VISIBILITY_KEY, JSON.stringify([...visibleSections]));
@@ -322,6 +327,45 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     });
   };
 
+  // Drag & Drop обработчики
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    setDraggedIndex(idx);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(idx));
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(idx);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIdx: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIdx) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+    setSectionOrder(prev => {
+      const next = [...prev];
+      const [removed] = next.splice(draggedIndex, 1);
+      next.splice(dropIdx, 0, removed);
+      return next;
+    });
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   const showAll = () => {
     setVisibleSections(new Set(SECTIONS.map(s => s.id)));
   };
@@ -357,62 +401,23 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="max-w-md mx-auto w-full px-5 pt-8 sm:pt-6 pb-3">
-        {/* Логотип слева, шестерёнка справа */}
-        <div className="relative flex items-start justify-between mb-1.5">
-          {/* Логотип + подпись — слева, по левому краю */}
-          <div className="flex flex-col items-start">
-            <h1 className="sr-only">Помощник учителя</h1>
-            {/* Логотип = ссылка на сообщество */}
-            <a
-              href="https://vk.ru/topteach"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block transition-all duration-200 ease-out hover:scale-[1.03] hover:brightness-110 hover:drop-shadow-[0_0_12px_rgba(168,85,247,0.55)] active:scale-[0.98] rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2"
-              aria-label="Сообщество «Помощник учителя» ВКонтакте"
-              title="Перейти в сообщество ВКонтакте"
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}logo.png`}
-                alt="Помощник учителя"
-                className="h-20 sm:h-24 w-auto object-contain select-none"
-                draggable={false}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            </a>
-
-            {/* Подпись под логотипом */}
-            <p className="mt-1.5 text-[11px] text-gray-500 leading-tight">
-              Проект{' '}
-              <a
-                href="https://vk.ru/aaatapin"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-600 hover:text-purple-800 font-semibold underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
-              >
-                Алексея Атапина
-              </a>
-            </p>
-          </div>
-
-          {/* Шестерёнка — справа вверху */}
-          <div className="shrink-0">
+      <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
+        {/* Шестерёнка в левом верхнем углу с tooltip */}
+        <div className="flex items-start justify-between mb-2">
+          <div className="group relative">
             <button
               onClick={handleGearClick}
               onMouseEnter={() => setGearActive(true)}
               onMouseLeave={() => setGearActive(false)}
               onFocus={() => setGearActive(true)}
               onBlur={() => setGearActive(false)}
-              className="relative text-gray-400 hover:text-purple-600 transition-colors p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white/60 backdrop-blur-sm shadow-sm"
               aria-label="Настройки внешнего вида"
-              title="Настроить разделы"
             >
               {!gearSeen && (
                 <>
-                  <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
-                  <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
+                  <span className="absolute inset-0 rounded-xl bg-purple-400/60 animate-ping" />
+                  <span className="absolute inset-0 rounded-xl ring-2 ring-purple-500 animate-pulse" />
                 </>
               )}
               <Settings
@@ -421,30 +426,72 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                 }`}
               />
             </button>
+            
+            {/* Tooltip */}
+            <div className="absolute left-0 top-full mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+              Настройка разделов
+              <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 rotate-45" />
+            </div>
           </div>
+
+          {/* Кнопка руководства справа */}
+          <button
+            onClick={handleManualClick}
+            className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white/60 backdrop-blur-sm shadow-sm"
+            aria-label="Руководство по использованию"
+            title="Руководство"
+          >
+            {!manualSeen && (
+              <>
+                <span className="absolute inset-0 rounded-xl bg-purple-400/60 animate-ping" />
+                <span className="absolute inset-0 rounded-xl ring-2 ring-purple-500 animate-pulse" />
+              </>
+            )}
+            <BookOpen className="relative z-10 w-5 h-5" />
+          </button>
         </div>
 
-        {/* Подзаголовок с иконкой руководства */}
-        <div className="flex items-center justify-center gap-2 mt-1.5">
-          <p className="text-xs sm:text-sm text-gray-500 text-center whitespace-nowrap">
+        {/* Логотип — крупнее, по центру */}
+        <div className="flex flex-col items-center mt-3">
+          <h1 className="sr-only">Помощник учителя</h1>
+          <a
+            href="https://vk.ru/topteach"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block transition-all duration-200 ease-out hover:scale-[1.03] hover:brightness-110 hover:drop-shadow-[0_0_12px_rgba(168,85,247,0.55)] active:scale-[0.98] rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2"
+            aria-label="Сообщество «Помощник учителя» ВКонтакте"
+            title="Перейти в сообщество ВКонтакте"
+          >
+            <img
+              src={`${import.meta.env.BASE_URL}logo.png`}
+              alt="Помощник учителя"
+              className="h-28 sm:h-36 w-auto object-contain select-none"
+              draggable={false}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </a>
+
+          {/* Подпись под логотипом */}
+          <p className="mt-2 text-[11px] text-gray-500 leading-tight text-center">
+            Проект{' '}
+            <a
+              href="https://vk.ru/aaatapin"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-600 hover:text-purple-800 font-semibold underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
+            >
+              Алексея Атапина
+            </a>
+          </p>
+        </div>
+
+        {/* Подзаголовок */}
+        <div className="flex items-center justify-center mt-3">
+          <p className="text-xs sm:text-sm text-gray-500 text-center">
             Простые инструменты для сложных задач
           </p>
-          <div className="relative shrink-0">
-            <button
-              onClick={handleManualClick}
-              className="relative text-gray-400 hover:text-purple-600 transition-colors p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-              aria-label="Руководство по использованию"
-              title="Руководство"
-            >
-              {!manualSeen && (
-                <>
-                  <span className="absolute inset-0 rounded-lg bg-purple-400/60 animate-ping" />
-                  <span className="absolute inset-0 rounded-lg ring-2 ring-purple-500 animate-pulse" />
-                </>
-              )}
-              <BookOpen className="relative z-10 w-4 h-4" />
-            </button>
-          </div>
         </div>
       </header>
 
@@ -505,12 +552,15 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         )}
       </main>
 
-      {/* ===== МОДАЛКА НАСТРОЕК: список с иконкой / названием / переключателем ===== */}
+      {/* ===== МОДАЛКА НАСТРОЕК с Drag & Drop ===== */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-purple-700">Настройка разделов</h2>
+              <div>
+                <h2 className="text-xl font-bold text-purple-700">Настройка разделов</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Перетаскивайте плитки для сортировки</p>
+              </div>
               <button
                 onClick={() => setShowSettings(false)}
                 className="p-2 rounded-full hover:bg-gray-100 transition-colors"
@@ -521,11 +571,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
-              <p className="text-sm text-gray-500 mb-3 px-1">
-                Включите разделы и меняйте их порядок стрелками.
-              </p>
-
-              {/* Список: иконка слева | название по центру (1-2 строки) | стрелки | переключатель справа */}
+              {/* Список с Drag & Drop */}
               <div className="space-y-1.5">
                 {sectionOrder.map((id, idx) => {
                   const section = SECTIONS.find(s => s.id === id);
@@ -534,18 +580,35 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                   const isVisible = visibleSections.has(section.id);
                   const isFirst = idx === 0;
                   const isLast = idx === sectionOrder.length - 1;
+                  const isDragging = draggedIndex === idx;
+                  const isDragOver = dragOverIndex === idx;
 
                   return (
                     <div
                       key={section.id}
-                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border-2 transition-all ${
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, idx)}
+                      onDragEnd={handleDragEnd}
+                      className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all cursor-move ${
                         isVisible
                           ? 'border-purple-300 bg-purple-50'
                           : 'border-gray-200 bg-gray-50 opacity-60'
+                      } ${isDragging ? 'opacity-40 scale-95' : ''} ${
+                        isDragOver && draggedIndex !== idx
+                          ? 'border-purple-500 bg-purple-100 shadow-lg'
+                          : ''
                       }`}
                     >
+                      {/* Ручка для перетаскивания */}
+                      <div className="shrink-0 text-gray-400 cursor-grab active:cursor-grabbing">
+                        <GripVertical className="w-5 h-5" />
+                      </div>
+
                       {/* Иконка слева */}
-                      <div className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center ${
+                      <div className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
                         isVisible ? 'bg-purple-100' : 'bg-gray-200'
                       }`}>
                         <Icon className={`w-5 h-5 ${isVisible ? 'text-purple-600' : 'text-gray-400'}`} />
@@ -570,7 +633,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                         <button
                           onClick={() => moveSection(section.id, 'up')}
                           disabled={isFirst}
-                          className="p-0.5 rounded hover:bg-purple-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors active:scale-90"
+                          className="p-1 rounded hover:bg-purple-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors active:scale-90"
                           aria-label="Переместить выше"
                           title="Выше"
                         >
@@ -579,7 +642,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                         <button
                           onClick={() => moveSection(section.id, 'down')}
                           disabled={isLast}
-                          className="p-0.5 rounded hover:bg-purple-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors active:scale-90"
+                          className="p-1 rounded hover:bg-purple-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors active:scale-90"
                           aria-label="Переместить ниже"
                           title="Ниже"
                         >
@@ -590,13 +653,13 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                       {/* Переключатель справа */}
                       <button
                         onClick={() => toggleSectionVisibility(section.id)}
-                        className={`relative shrink-0 w-10 h-5 rounded-full transition-colors ${
+                        className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
                           isVisible ? 'bg-purple-600' : 'bg-gray-300'
                         }`}
                         aria-label="Переключить видимость"
                         tabIndex={-1}
                       >
-                        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
                           isVisible ? 'translate-x-5' : 'translate-x-0'
                         }`} />
                       </button>
@@ -609,19 +672,19 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               <div className="grid grid-cols-3 gap-2 mt-4">
                 <button
                   onClick={showAll}
-                  className="py-2 rounded-xl border-2 border-purple-300 text-purple-700 font-semibold text-xs hover:bg-purple-50 transition-colors"
+                  className="py-2.5 rounded-xl border-2 border-purple-300 text-purple-700 font-semibold text-xs hover:bg-purple-50 transition-colors"
                 >
                   Показать все
                 </button>
                 <button
                   onClick={hideAll}
-                  className="py-2 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold text-xs hover:bg-gray-50 transition-colors"
+                  className="py-2.5 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold text-xs hover:bg-gray-50 transition-colors"
                 >
                   Скрыть все
                 </button>
                 <button
                   onClick={resetOrder}
-                  className="py-2 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold text-xs hover:bg-gray-50 transition-colors"
+                  className="py-2.5 rounded-xl border-2 border-gray-300 text-gray-600 font-semibold text-xs hover:bg-gray-50 transition-colors"
                 >
                   Сброс порядка
                 </button>
