@@ -34,9 +34,18 @@ import { exportEduGameToPDF } from '@/lib/eduGamePdf';
 import BackButton from './BackButton';
 import EduGameEditorScreen from './EduGameEditorScreen';
 import EduGameProjectorScreen from './EduGameProjectorScreen';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface EduGameScreenProps {
   onBack: () => void;
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
 }
 
 // ===== Вспомогательные компоненты =====
@@ -201,6 +210,9 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const [importMsg, setImportMsg] = useState<'ok' | 'error' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // ===== Внутренний диалог (замена window.confirm) =====
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+
   useEffect(() => {
     setGames(loadEduGames());
   }, []);
@@ -219,28 +231,36 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
     const existingCopy = games.find(
       (g) => g.title === preset.title && g.rounds.length === preset.rounds.length
     );
-    if (existingCopy) {
-      const proceed = window.confirm(
-        `Игра «${preset.title}» уже есть в «Моих играх». Создать ещё одну копию?`
-      );
-      if (!proceed) return;
-    }
 
-    const copy: EduGame = {
-      ...preset,
-      id: generateEduId('edugame'),
-      rounds: preset.rounds.map((r) => ({
-        ...r,
-        id: generateEduId('round'),
-        questions: r.questions.map((q) => ({ ...q, id: generateEduId('q') })),
-      })),
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+    const doCopy = () => {
+      const copy: EduGame = {
+        ...preset,
+        id: generateEduId('edugame'),
+        rounds: preset.rounds.map((r) => ({
+          ...r,
+          id: generateEduId('round'),
+          questions: r.questions.map((q) => ({ ...q, id: generateEduId('q') })),
+        })),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      upsertEduGame(copy);
+      refresh();
+      setEditingGame(copy);
+      setIsNewGame(false);
     };
-    upsertEduGame(copy);
-    refresh();
-    setEditingGame(copy);
-    setIsNewGame(false);
+
+    if (existingCopy) {
+      setConfirmState({
+        title: 'Создать ещё одну копию?',
+        message: `Игра «${preset.title}» уже есть в «Моих играх». Будет создана дополнительная копия для редактирования.`,
+        confirmLabel: 'Создать копию',
+        danger: false,
+        action: doCopy,
+      });
+    } else {
+      doCopy();
+    }
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -271,13 +291,16 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   };
 
   const handleDelete = (game: EduGame) => {
-    const proceed = window.confirm(
-      `Удалить игру «${game.title}»? Это действие нельзя отменить.`
-    );
-    if (proceed) {
-      deleteEduGame(game.id);
-      refresh();
-    }
+    setConfirmState({
+      title: 'Удалить игру?',
+      message: `Игра «${game.title}» будет удалена безвозвратно со всеми раундами и вопросами. Это действие нельзя отменить.`,
+      confirmLabel: 'Удалить',
+      danger: true,
+      action: () => {
+        deleteEduGame(game.id);
+        refresh();
+      },
+    });
   };
 
   const handleEditorBack = () => {
@@ -523,6 +546,20 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
           <FaqList items={FAQ_ITEMS} />
         </CollapseSection>
       </main>
+
+      {/* ===== Внутренний диалог подтверждения ===== */}
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }
