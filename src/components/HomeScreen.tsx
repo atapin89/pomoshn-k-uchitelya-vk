@@ -402,7 +402,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
-        {/* Шапка: левая колонка иконок | логотип с подписью */}
+        {/* Шапка: левая колонка иконок | логотип */}
         <div className="flex items-start gap-3">
           {/* Левая колонка: шестерёнка СВЕРХУ, руководство СНИЗУ */}
           <div className="shrink-0 flex flex-col items-center gap-2">
@@ -462,7 +462,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </div>
           </div>
 
-          {/* Логотип с подписью (flex-1) */}
+          {/* Логотип (flex-1) */}
           <div className="flex-1 flex flex-col items-center min-w-0">
             <h1 className="sr-only">Помощник учителя</h1>
             <a
@@ -476,17 +476,13 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
                 alt="Помощник учителя"
-                className="h-24 sm:h-32 w-auto object-contain select-none"
+                className="h-20 sm:h-24 w-auto object-contain select-none"
                 draggable={false}
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = 'none';
                 }}
               />
             </a>
-            {/* Подзаголовок под логотипом с минимальным отступом */}
-            <p className="mt-1 text-xs sm:text-sm text-gray-500 text-center leading-tight">
-              Простые инструменты для сложных задач
-            </p>
           </div>
         </div>
       </header>
