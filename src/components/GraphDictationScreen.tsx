@@ -27,6 +27,7 @@ import {
   Inbox,
 } from 'lucide-react';
 import BackButton from './BackButton';
+import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
 
 type Direction = 'up' | 'down' | 'left' | 'right';
 
@@ -41,6 +42,14 @@ interface Dictation {
   startOffset: { x: number; y: number };
   steps: Step[];
   difficulty: 'easy' | 'medium' | 'hard';
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
 }
 
 const CELL_SIZE = 20;
@@ -261,6 +270,10 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   const [printClass, setPrintClass] = useState('');
   const [printDate, setPrintDate] = useState('');
 
+  // ===== Внутренние диалоги (замена confirm/alert) =====
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const editorCanvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -358,9 +371,16 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   };
 
   const handleDeleteDictation = (id: string) => {
-    if (!confirm('Удалить этот диктант?')) return;
-    setDictations((prev) => prev.filter((d) => d.id !== id));
-    if (selectedId === id) setSelectedId('');
+    setConfirmState({
+      title: 'Удалить этот диктант?',
+      message: 'Диктант будет удалён безвозвратно.',
+      confirmLabel: 'Удалить',
+      danger: true,
+      action: () => {
+        setDictations((prev) => prev.filter((d) => d.id !== id));
+        if (selectedId === id) setSelectedId('');
+      },
+    });
   };
 
   const handleStartEditor = (dictation?: Dictation) => {
@@ -471,11 +491,11 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   const handleSaveDictation = () => {
     if (!editingDictation) return;
     if (!editingDictation.name.trim()) {
-      alert('Введите название диктанта');
+      setAlertMsg('Введите название диктанта');
       return;
     }
     if (editingDictation.steps.length === 0) {
-      alert('Нарисуйте фигуру на поле или добавьте шаги');
+      setAlertMsg('Нарисуйте фигуру на поле или добавьте шаги');
       return;
     }
     const stepsCount = editingDictation.steps.length;
@@ -510,7 +530,7 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   const handleBatchPrint = () => {
     const selected = dictations.filter((d) => selectedForPrint.has(d.id));
     if (selected.length === 0) {
-      alert('Выберите хотя бы один диктант для печати');
+      setAlertMsg('Выберите хотя бы один диктант для печати');
       return;
     }
 
@@ -833,6 +853,13 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
             </div>
           </div>
         </main>
+
+        {/* Информационный диалог в редакторе */}
+        <AlertDialog
+          isOpen={alertMsg !== null}
+          message={alertMsg ?? ''}
+          onClose={() => setAlertMsg(null)}
+        />
       </div>
     );
   }
@@ -1230,6 +1257,25 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
           </div>
         </div>
       )}
+
+      {/* ===== Внутренние диалоги ===== */}
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
+      <AlertDialog
+        isOpen={alertMsg !== null}
+        message={alertMsg ?? ''}
+        onClose={() => setAlertMsg(null)}
+      />
     </div>
   );
 }
