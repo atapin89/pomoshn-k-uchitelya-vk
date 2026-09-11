@@ -34,7 +34,7 @@ import { exportEduGameToPDF } from '@/lib/eduGamePdf';
 import BackButton from './BackButton';
 import EduGameEditorScreen from './EduGameEditorScreen';
 import EduGameProjectorScreen from './EduGameProjectorScreen';
-import { ConfirmDialog } from './ConfirmDialog';
+import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
 
 interface EduGameScreenProps {
   onBack: () => void;
@@ -210,8 +210,9 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
   const [importMsg, setImportMsg] = useState<'ok' | 'error' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ===== Внутренний диалог (замена window.confirm) =====
+  // ===== Внутренние диалоги (замена window.confirm / alert) =====
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setGames(loadEduGames());
@@ -457,7 +458,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
                         icon={Download}
                         label="Скачать PDF для печати"
                         color="text-green-600"
-                        onClick={() => exportEduGameToPDF(g)}
+                        onClick={() => exportEduGameToPDF(g, (msg) => setAlertMsg(msg))}
                       />
                       <IconButton
                         icon={Share2}
@@ -547,7 +548,7 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
         </CollapseSection>
       </main>
 
-      {/* ===== Внутренний диалог подтверждения ===== */}
+      {/* ===== Внутренние диалоги ===== */}
       <ConfirmDialog
         isOpen={confirmState !== null}
         title={confirmState?.title ?? ''}
@@ -559,6 +560,11 @@ export default function EduGameScreen({ onBack }: EduGameScreenProps) {
           setConfirmState(null);
         }}
         onCancel={() => setConfirmState(null)}
+      />
+      <AlertDialog
+        isOpen={alertMsg !== null}
+        message={alertMsg ?? ''}
+        onClose={() => setAlertMsg(null)}
       />
     </div>
   );
