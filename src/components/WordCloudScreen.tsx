@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
+import { AlertDialog } from './ConfirmDialog';
 
 interface WordItem {
   text: string;
@@ -111,7 +112,7 @@ const DEMO_TEXT = `Волк и семеро козлят
 Молока принесла.
 Полны копытцы водицы!
 Козлята ему отвечают:
-— Слышим, слышим — да не матушкин это голосок! Наша матушка поет тонюсеньким голосом и не так причитает.
+— Слышим, слышим — да не матушкин это голосок! Наша матушка поет тонюсеньким голосом и не так причитывает.
 Волку делать нечего. Пошел он в кузницу и велел себе горло перековать, чтоб петь тонюсеньким голосом. Кузнец ему горло перековал. Волк опять побежал к избушке и спрятался за куст.
 Вот приходит коза и стучится:
 — Козлятушки, ребятушки!
@@ -363,7 +364,6 @@ function layoutWords(
   const cx = width / 2;
   const cy = height / 2;
 
-  // ГРУППИРУЕМ СЛОВА ПО ЧАСТОТЕ И ПЕРЕМЕШИВАЕМ ВНУТРИ ГРУПП
   const groups = new Map<number, { word: string; count: number }[]>();
   for (const w of words) {
     if (!groups.has(w.count)) groups.set(w.count, []);
@@ -501,6 +501,9 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
   const [showScen, setShowScen] = useState(false);
   const [openFaqItem, setOpenFaqItem] = useState<number | null>(null);
 
+  // ===== Внутренние диалоги (замена alert) =====
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
+
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -550,7 +553,7 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
     if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
       update({ text: await file.text() });
     } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      alert('Excel: сохраните как CSV и загрузите снова');
+      setAlertMsg('Excel: сохраните файл как CSV и загрузите снова');
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -680,7 +683,7 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
       setProject(data);
       saveProject(data);
     } catch {
-      alert('Не удалось загрузить файл проекта');
+      setAlertMsg('Не удалось загрузить файл проекта. Проверьте, что файл имеет формат JSON проекта Облака слов.');
     }
     if (jsonInputRef.current) jsonInputRef.current.value = '';
   };
@@ -1123,6 +1126,13 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
           <b>Приватность:</b> весь текст и настройки хранятся локально в браузере, данные никуда не отправляются.
         </div>
       </main>
+
+      {/* ===== Внутренний информационный диалог ===== */}
+      <AlertDialog
+        isOpen={alertMsg !== null}
+        message={alertMsg ?? ''}
+        onClose={() => setAlertMsg(null)}
+      />
     </div>
   );
 }
