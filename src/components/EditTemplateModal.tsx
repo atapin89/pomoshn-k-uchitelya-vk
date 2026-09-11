@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import type { LessonTemplate } from '@/types';
 import { formatTime } from '@/lib/format';
 import YandexAdBlock from './YandexAdBlock';
+import { AlertDialog } from './ConfirmDialog';
 
 interface EditTemplateModalProps {
   template: LessonTemplate;
@@ -24,10 +25,12 @@ export default function EditTemplateModal({
     template.stages.map((s) => s.duration),
   );
 
+  // ===== Внутренний диалог (замена alert) =====
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
+
   const totalMin = durations.reduce((a, b) => a + b, 0);
 
   const handleTotalChange = (newTotal: number) => {
-    // Валидация
     if (newTotal < MIN_TOTAL || newTotal > MAX_TOTAL) return;
     
     setDurations((prev) => {
@@ -40,12 +43,10 @@ export default function EditTemplateModal({
         return prev.map((_, i) => base + (i < remainder ? 1 : 0));
       }
       
-      // Пропорциональное масштабирование
       const scaled = prev.map((d) =>
         Math.max(1, Math.round((d / oldTotal) * newTotal)),
       );
       
-      // Корректировка суммы
       const diff = newTotal - scaled.reduce((a, b) => a + b, 0);
       if (diff !== 0) {
         const maxIdx = scaled.indexOf(Math.max(...scaled));
@@ -56,7 +57,6 @@ export default function EditTemplateModal({
   };
 
   const handleStageChange = (idx: number, value: number) => {
-    // Валидация
     if (value < 1 || value > MAX_STAGE) return;
     
     setDurations((prev) => {
@@ -72,7 +72,6 @@ export default function EditTemplateModal({
       
       if (otherIndices.length === 0) return next;
       
-      // Распределяем delta пропорционально между остальными
       let remainingDelta = delta;
       const othersTotal = total - oldValue;
       
@@ -89,7 +88,6 @@ export default function EditTemplateModal({
         }
       }
       
-      // Последний этап получает остаток
       const lastIdx = otherIndices[otherIndices.length - 1];
       next[lastIdx] = Math.max(1, prev[lastIdx] - remainingDelta);
       
@@ -99,7 +97,7 @@ export default function EditTemplateModal({
 
   const handleSave = () => {
     if (!name.trim()) {
-      alert('Введите название урока');
+      setAlertMsg('Введите название урока. Оно будет отображаться в списке шаблонов и поможет быстро найти нужный сценарий.');
       return;
     }
     
@@ -216,6 +214,13 @@ export default function EditTemplateModal({
           </button>
         </div>
       </div>
+
+      {/* ===== Внутренний информационный диалог ===== */}
+      <AlertDialog
+        isOpen={alertMsg !== null}
+        message={alertMsg ?? ''}
+        onClose={() => setAlertMsg(null)}
+      />
     </div>
   );
 }
