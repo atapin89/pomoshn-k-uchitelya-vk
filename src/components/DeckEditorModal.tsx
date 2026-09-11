@@ -3,11 +3,20 @@ import { X, Plus, Trash2 } from 'lucide-react';
 import type { Deck, FlashCard } from '@/types';
 import { generateCardId } from '@/lib/storage';
 import { triggerHaptic } from '@/lib/haptic';
+import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
 
 interface DeckEditorModalProps {
   deck: Deck | null;
   onClose: () => void;
   onSave: (deck: Deck) => void;
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
 }
 
 const MAX_SIDES = 10;
@@ -19,6 +28,10 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
     deck?.cards || [{ id: generateCardId(), sides: ['', ''], status: 'new' }]
   );
 
+  // ===== Внутренние диалоги (замена window.confirm / alert) =====
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
+
   const addCard = () => {
     triggerHaptic('light');
     setCards([...cards, { id: generateCardId(), sides: ['', ''], status: 'new' }]);
@@ -29,8 +42,17 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
     const hasContent = card.sides.some(s => s.trim() !== '');
     
     if (hasContent) {
-      const proceed = window.confirm('Удалить карточку с заполненными данными?');
-      if (!proceed) return;
+      setConfirmState({
+        title: 'Удалить карточку?',
+        message: 'Карточка содержит заполненные данные и будет удалена безвозвратно.',
+        confirmLabel: 'Удалить',
+        danger: true,
+        action: () => {
+          triggerHaptic('medium');
+          setCards(cards.filter((_, i) => i !== index));
+        },
+      });
+      return;
     }
     
     triggerHaptic('medium');
@@ -48,7 +70,7 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
   const addSide = (cardIndex: number) => {
     const card = cards[cardIndex];
     if (card.sides.length >= MAX_SIDES) {
-      alert(`Максимум ${MAX_SIDES} сторон на карточку`);
+      setAlertMsg(`Достигнут максимум: ${MAX_SIDES} сторон на одну карточку. Для более сложных материалов создайте несколько карточек.`);
       return;
     }
     
@@ -62,7 +84,7 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
   const removeSide = (cardIndex: number, sideIndex: number) => {
     const card = cards[cardIndex];
     if (card.sides.length <= MIN_SIDES) {
-      alert(`Минимум ${MIN_SIDES} стороны`);
+      setAlertMsg(`У карточки должно быть минимум ${MIN_SIDES} стороны. Нельзя удалить больше.`);
       return;
     }
     
@@ -74,7 +96,7 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
 
   const handleSave = () => {
     if (!title.trim()) {
-      alert('Введите название колоды');
+      setAlertMsg('Введите название колоды. Оно будет отображаться в списке и поможет найти нужную тему.');
       return;
     }
     
@@ -86,7 +108,7 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
       }));
 
     if (validCards.length === 0) {
-      alert('Добавьте хотя бы одну карточку с заполненной стороной');
+      setAlertMsg('Добавьте хотя бы одну карточку с заполненной стороной. Пустые карточки не сохраняются.');
       return;
     }
 
@@ -225,6 +247,25 @@ export default function DeckEditorModal({ deck, onClose, onSave }: DeckEditorMod
           </button>
         </div>
       </div>
+
+      {/* ===== Внутренние диалоги ===== */}
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
+      <AlertDialog
+        isOpen={alertMsg !== null}
+        message={alertMsg ?? ''}
+        onClose={() => setAlertMsg(null)}
+      />
     </div>
   );
 }
