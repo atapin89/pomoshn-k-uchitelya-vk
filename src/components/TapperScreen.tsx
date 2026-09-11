@@ -38,9 +38,27 @@ import {
 import { downloadTextFile, sanitizeFileName } from '@/lib/eduGameStorage';
 import { triggerHaptic } from '@/lib/haptic';
 import BackButton from './BackButton';
+import { ConfirmDialog, AlertDialog, PromptDialog } from './ConfirmDialog';
 
 interface TapperScreenProps {
   onBack: () => void;
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
+}
+
+interface PromptState {
+  title: string;
+  message?: string;
+  initialValue?: string;
+  placeholder?: string;
+  confirmLabel?: string;
+  action: (value: string) => void;
 }
 
 // ===== Демо-список =====
@@ -142,11 +160,15 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
 
   const [results, setResults] = useState<Record<string, number>>({});
 
+  // ===== Внутренние диалоги (замена prompt/confirm/alert) =====
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
+  const [promptState, setPromptState] = useState<PromptState | null>(null);
+
   useEffect(() => {
     const loadedLists = loadTapperLists();
     setLists(loadedLists);
     
-    // ПРАВКА 1: защита от null при отсутствии сессии
     const sessionResults = loadTapperSession() || {};
     if (Object.keys(sessionResults).length > 0) {
       setResults(sessionResults);
@@ -186,12 +208,10 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      // Пробуем JSON, если не получилось — парсим как TXT
       const text = String(reader.result || '');
       let list: TapperList | null = parseTapperListFile(text);
       
       if (!list) {
-        // Пробуем как TXT
         const names = text
           .split('\n')
           .map((n) => n.trim())
@@ -242,15 +262,21 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
 
   const handleDeleteList = (id: string) => {
     const list = lists.find((l) => l.id === id);
-    const proceed = window.confirm(`Удалить список «${list?.name}»?`);
-    if (!proceed) return;
-    deleteTapperList(id);
-    refreshLists();
-    if (activeList?.id === id) {
-      setActiveList(null);
-      setResults({});
-      clearTapperSession();
-    }
+    setConfirmState({
+      title: 'Удалить список?',
+      message: list ? `Список «${list.name}» будет удалён безвозвратно вместе со всеми учениками.` : 'Список будет удалён безвозвратно.',
+      confirmLabel: 'Удалить',
+      danger: true,
+      action: () => {
+        deleteTapperList(id);
+        refreshLists();
+        if (activeList?.id === id) {
+          setActiveList(null);
+          setResults({});
+          clearTapperSession();
+        }
+      },
+    });
   };
 
   const handleRenameList = (id: string, newName: string) => {
@@ -282,7 +308,7 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
       }));
     
     if (newStudents.length === 0) {
-      alert('Все имена уже есть в списке');
+      setAlertMsg('Все имена из списка уже есть в классе. Попробуйте добавить других учеников.');
       return;
     }
     
@@ -300,21 +326,26 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
   const handleRemoveStudent = (studentId: string) => {
     if (!activeList) return;
     const student = activeList.students.find((s) => s.id === studentId);
-    const proceed = window.confirm(`Удалить ученика «${student?.name}»?`);
-    if (!proceed) return;
-    
-    const updated: TapperList = {
-      ...activeList,
-      students: activeList.students.filter((s) => s.id !== studentId),
-      updatedAt: Date.now(),
-    };
-    setActiveList(updated);
-    upsertTapperList(updated);
-    refreshLists();
-    
-    const newResults = { ...results };
-    delete newResults[studentId];
-    setResults(newResults);
+    setConfirmState({
+      title: 'Удалить ученика?',
+      message: student ? `Ученик «${student.name}» будет удалён из списка. Его результаты также пропадут.` : 'Ученик будет удалён из списка.',
+      confirmLabel: 'Удалить',
+      danger: true,
+      action: () => {
+        const updated: TapperList = {
+          ...activeList,
+          students: activeList.students.filter((s) => s.id !== studentId),
+          updatedAt: Date.now(),
+        };
+        setActiveList(updated);
+        upsertTapperList(updated);
+        refreshLists();
+        
+        const newResults = { ...results };
+        delete newResults[studentId];
+        setResults(newResults);
+      },
+    });
   };
 
   const handleTapStudent = (studentId: string) => {
@@ -334,11 +365,17 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
   };
 
   const handleResetAll = () => {
-    const proceed = window.confirm('Сбросить все результаты?');
-    if (!proceed) return;
-    setResults({});
-    clearTapperSession();
-    triggerHaptic('heavy');
+    setConfirmState({
+      title: 'Сбросить все результаты?',
+      message: 'Все счётчики ответов будут обнулены. Это действие нельзя отменить.',
+      confirmLabel: 'Сбросить',
+      danger: true,
+      action: () => {
+        setResults({});
+        clearTapperSession();
+        triggerHaptic('heavy');
+      },
+    });
   };
 
   const handleTogglePresent = (studentId: string) => {
@@ -413,6 +450,42 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
     
     return lines.join('\n');
   };
+
+  // ===== Единый рендер внутренних диалогов =====
+  const renderDialogs = () => (
+    <>
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
+      <AlertDialog
+        isOpen={alertMsg !== null}
+        message={alertMsg ?? ''}
+        onClose={() => setAlertMsg(null)}
+      />
+      <PromptDialog
+        isOpen={promptState !== null}
+        title={promptState?.title ?? ''}
+        message={promptState?.message}
+        initialValue={promptState?.initialValue}
+        placeholder={promptState?.placeholder}
+        confirmLabel={promptState?.confirmLabel}
+        onConfirm={(v) => {
+          promptState?.action(v);
+          setPromptState(null);
+        }}
+        onCancel={() => setPromptState(null)}
+      />
+    </>
+  );
 
   // ===== ЭКРАН РЕЗУЛЬТАТОВ =====
   if (showResults && activeList && stats) {
@@ -513,6 +586,8 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
             </button>
           </div>
         </main>
+
+        {renderDialogs()}
       </div>
     );
   }
@@ -533,7 +608,6 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
         </header>
 
         <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4">
-          {/* Кнопки */}
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handleCreateList}
@@ -549,7 +623,6 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
             </button>
           </div>
 
-          {/* Демо-список */}
           <button
             onClick={handleLoadDemoList}
             className="w-full bg-gradient-to-r from-violet-100 to-purple-100 border-2 border-purple-300 text-purple-800 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
@@ -575,7 +648,6 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
             </p>
           )}
 
-          {/* Мои списки */}
           {lists.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-400 text-sm">Пока нет списков. Создайте первый или загрузите демо!</p>
@@ -588,7 +660,6 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
                   <button
                     onClick={() => {
                       setActiveList(list);
-                      // ПРАВКА 2: защита от null при отсутствии сессии
                       setResults(loadTapperSession() || {});
                     }}
                     className="flex-1 min-w-0 text-left"
@@ -609,8 +680,14 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
                   </button>
                   <button
                     onClick={() => {
-                      const newName = window.prompt('Новое название:', list.name);
-                      if (newName && newName.trim()) handleRenameList(list.id, newName);
+                      setPromptState({
+                        title: 'Переименовать список',
+                        message: 'Введите новое название списка',
+                        initialValue: list.name,
+                        placeholder: 'Название списка',
+                        confirmLabel: 'Сохранить',
+                        action: (newName) => handleRenameList(list.id, newName),
+                      });
                     }}
                     className="p-2 text-gray-300 hover:text-purple-600 transition-colors"
                     aria-label="Переименовать"
@@ -631,7 +708,6 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
             </div>
           )}
 
-          {/* Инструкции */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <button
               onClick={() => setShowHow(!showHow)}
@@ -674,7 +750,6 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
             )}
           </div>
 
-          {/* Вопросы и сценарии */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <button
               onClick={() => setShowFaq(!showFaq)}
@@ -717,6 +792,8 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
             )}
           </div>
         </main>
+
+        {renderDialogs()}
       </div>
     );
   }
@@ -835,6 +912,8 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
           </button>
         </div>
       </main>
+
+      {renderDialogs()}
     </div>
   );
 }
