@@ -16,6 +16,9 @@ import {
   FileDown,
   FileImage,
   Check,
+  ChevronDown,
+  HelpCircle,
+  Lightbulb,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -112,6 +115,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [draggedPictogram, setDraggedPictogram] = useState<Pictogram | null>(null);
   const [dragOverCellId, setDragOverCellId] = useState<string | null>(null);
+  const [showFaq, setShowFaq] = useState(false);
+  const [showScenarios, setShowScenarios] = useState(false);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -606,6 +611,114 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <li>• Переключайте язык RU/EN в шапке</li>
               <li>• Экспортируйте в PNG для доски или PDF для печати</li>
             </ul>
+          </div>
+
+          {/* ===== СЦЕНАРИИ ИСПОЛЬЗОВАНИЯ ===== */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowScenarios(!showScenarios)}
+              className="w-full px-4 py-3 flex items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-amber-500" />
+                <h3 className="font-bold text-purple-700 text-sm">Сценарии использования</h3>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showScenarios ? 'rotate-180' : ''}`} />
+            </button>
+            {showScenarios && (
+              <div className="px-4 pb-4 space-y-3 text-sm text-gray-700">
+                <div className="bg-purple-50 rounded-xl p-3">
+                  <p className="font-bold text-purple-800 mb-1">🧩 Расписание дня для ребёнка с РАС</p>
+                  <p className="text-xs leading-relaxed">Создайте линейное расписание на 5–7 ячеек: проснулся → завтрак → школа → обед → прогулка → дом → сон. Используйте конкретные фото ребёнка и знакомых мест. Повесьте на уровне глаз. Перемещайте «галочку» по мере выполнения — это снижает тревожность и формирует предсказуемость.</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3">
+                  <p className="font-bold text-blue-800 mb-1">🏫 Режим дня в детском саду</p>
+                  <p className="text-xs leading-relaxed">Сетка 3×3 для группы: завтрак → занятие → прогулка → обед → сон → полдник → игры → родители. Распечатайте на A4 и ламинируйте. Дети сами передвигают маркер-магнит по ячейкам. Воспитатель озвучивает: «Сейчас мы…», ребёнок находит картинку.</p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-3">
+                  <p className="font-bold text-green-800 mb-1">📝 Алгоритм выполнения задания</p>
+                  <p className="text-xs leading-relaxed">Вертикальное расписание на 4–6 шагов: прочитай задание → подчеркни главное → реши → проверь → запиши ответ. Используйте для детей с трудностями планирования. Повесьте над партой — ребёнок следует по шагам самостоятельно.</p>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-3">
+                  <p className="font-bold text-amber-800 mb-1">📅 Расписание уроков на неделю</p>
+                  <p className="text-xs leading-relaxed">Сетка 4×4: по строкам — дни недели, по столбцам — уроки. Используйте пиктограммы предметов: 📖 чтение, 🔢 математика, 🎨 рисование, ⚽ физкультура. Переключите на EN для билингвального класса. Экспортируйте в PDF и раздайте ученикам.</p>
+                </div>
+                <div className="bg-pink-50 rounded-xl p-3">
+                  <p className="font-bold text-pink-800 mb-1">💬 Социальная история</p>
+                  <p className="text-xs leading-relaxed">Линейное расписание для подготовки к новому событию: «Завтра мы идём в музей» → 🚌 автобус → 🏛 музей → 👀 смотрим → 🤫 ведём себя тихо → 🚌 возвращаемся. Помогает ребёнку с РАС подготовиться к непривычной ситуации и снизить стресс.</p>
+                </div>
+                <div className="bg-indigo-50 rounded-xl p-3">
+                  <p className="font-bold text-indigo-800 mb-1">🔄 Адаптация первоклассника</p>
+                  <p className="text-xs leading-relaxed">Создайте «Утро школьника»: ⏰ подъём → 🪥 зубы → 👕 форма → 🥣 завтрак → 🎒 портфель → 🏫 школа. Повесьте дома и в классе. Первые 2 недели ребёнок следует по картинкам, затем привыкает. Родители отмечают выполненное наклейками.</p>
+                </div>
+                <div className="bg-teal-50 rounded-xl p-3">
+                  <p className="font-bold text-teal-800 mb-1">🎯 Визуальная инструкция для кружка</p>
+                  <p className="text-xs leading-relaxed">Для кружка «Поделки»: 📋 план → ✂️ вырезать → 🎨 раскрасить → 🧩 собрать → 📷 показать. Каждый шаг — пиктограмма + подпись. Дети работают по карточке самостоятельно, педагог помогает только при необходимости.</p>
+                </div>
+                <div className="bg-orange-50 rounded-xl p-3">
+                  <p className="font-bold text-orange-800 mb-1">😊 Шкала эмоций и самопомощь</p>
+                  <p className="text-xs leading-relaxed">Сетка 3×3 с эмоциями: 😊 рад → 😢 грусть → 😠 злость → 😨 страх → 😴 устал → 😌 спокоен. Рядом — действия-помощники: 💧 попить воды → 🚶 прогуляться → 🗣 поговорить → 🎵 музыка → 🤗 обнять. Ребёнок указывает свою эмоцию и выбирает стратегию.</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ===== ЧАСТЫЕ ВОПРОСЫ ===== */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowFaq(!showFaq)}
+              className="w-full px-4 py-3 flex items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-purple-600" />
+                <h3 className="font-bold text-purple-700 text-sm">Частые вопросы</h3>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showFaq ? 'rotate-180' : ''}`} />
+            </button>
+            {showFaq && (
+              <div className="px-4 pb-4 space-y-3 text-sm">
+                <div>
+                  <p className="font-bold text-gray-800 mb-1">❓ Для какого возраста подходит визуальное расписание?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">От 2–3 лет (простые цепочки из 3 картинок) до 10–12 лет (сетка на неделю с подписями). Для подростков с РАС и ОВЗ расписание остаётся актуальным — меняются только пиктограммы и уровень сложности. Взрослые с ментальными особенностями также используют визуальные опоры.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Можно ли использовать свои картинки вместо пиктограмм?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да! Нажмите на ячейку → 🖼 → выберите фото с устройства. Это особенно важно для детей с РАС: конкретная фотография их чашки или кровати понятнее абстрактной пиктограммы. Поддерживаются JPG, PNG, WEBP.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Как распечатать расписание?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите ⬇ Скачать → PDF. Файл откроется в формате A4 (альбомная ориентация). Распечатайте на обычном или цветном принтере. Для многоразового использования — ламинируйте и используйте маркеры-липучки для перемещения ячеек.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Сохраняются ли мои проекты?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да, автоматически. Все проекты хранятся локально в браузере и доступны между сессиями. Нажмите 📂 (иконку загрузки) в шапке — увидите список сохранённых расписаний. Можно создавать неограниченное количество проектов.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Как сменить язык подписей?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">В шапке нажмите кнопку RU/EN. Все подписи пиктограмм переключатся мгновенно. Это удобно для билингвальных классов и для изучения английского: ребёнок видит картинку и подписи на двух языках.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Сколько ячеек можно заполнить?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Зависит от шаблона: линейный — до 8, вертикальный — до 8, сетка 3×3 — 9 ячеек, сетка 4×4 — 16 ячеек. Для ребёнка с РАС рекомендуется начинать с 3–5 ячеек и увеличивать постепенно.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Как удалить пиктограмму из ячейки?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Наведите курсор на ячейку → нажмите 🗑 (корзину) в правом верхнем углу. Ячейка станет пустой. Чтобы заменить пиктограмму — просто перетащите новую поверх старой.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Работает ли раздел без интернета?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да. Все пиктограммы — встроенные эмодзи, они хранятся в коде приложения. Загрузка своих фото, сохранение проектов и экспорт работают полностью офлайн. Интернет нужен только для первой загрузки приложения.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Можно ли отправить расписание в родительский чат?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да! Нажмите ⬇ Скачать → PNG. Изображение сохранится на устройство — отправьте его в WhatsApp, Telegram или VK. PNG сохраняет высокое качество (масштаб 2×) и подходит для отправки в мессенджеры и для вставки в презентации.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Как использовать расписание на интерактивной доске?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Экспортируйте в PNG → откройте на доске. Или откройте расписание прямо в браузере на проекторе — дети видят процесс заполнения в реальном времени. Используйте линейный шаблон для наглядной последовательности.</p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </main>
