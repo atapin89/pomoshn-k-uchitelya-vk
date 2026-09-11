@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
+import { ConfirmDialog, AlertDialog, PromptDialog } from './ConfirmDialog';
 
 interface Script {
   id: string;
@@ -40,6 +41,23 @@ interface TeleprompterSettings {
   recordQuality: '720p' | '1080p' | '4K';
   selectedVideoDeviceId: string;
   selectedAudioDeviceId: string;
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
+}
+
+interface PromptState {
+  title: string;
+  message?: string;
+  initialValue?: string;
+  placeholder?: string;
+  confirmLabel?: string;
+  action: (value: string) => void;
 }
 
 const SCRIPTS_KEY = 'teleprompter-scripts';
@@ -128,6 +146,11 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, camX: 0, camY: 0 });
 
+  // ===== Внутренние диалоги (замена prompt/confirm/alert) =====
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
+  const [promptState, setPromptState] = useState<PromptState | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -147,7 +170,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     const enumDevices = async () => {
       try {
-        // Сначала запрашиваем разрешение, чтобы получить реальные имена устройств
         const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         tempStream.getTracks().forEach((t) => t.stop());
 
@@ -265,25 +287,41 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   };
 
   const addScript = () => {
-    const name = prompt('Название сценария:');
-    if (!name) return;
-    const newScript: Script = { id: `script-${Date.now()}`, name, text: '', createdAt: Date.now() };
-    setScripts((prev) => {
-      const next = [...prev, newScript];
-      saveScripts(next);
-      return next;
+    setPromptState({
+      title: 'Новый сценарий',
+      message: 'Введите название сценария',
+      placeholder: 'Например: Вступление к уроку',
+      confirmLabel: 'Создать',
+      action: (name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        const newScript: Script = { id: `script-${Date.now()}`, name: trimmed, text: '', createdAt: Date.now() };
+        setScripts((prev) => {
+          const next = [...prev, newScript];
+          saveScripts(next);
+          return next;
+        });
+        setActiveScriptId(newScript.id);
+      },
     });
-    setActiveScriptId(newScript.id);
   };
 
   const deleteScript = (id: string) => {
-    if (!confirm('Удалить сценарий?')) return;
-    setScripts((prev) => {
-      const next = prev.filter((s) => s.id !== id);
-      if (next.length === 0) next.push({ id: 'default', name: 'Пример', text: '', createdAt: Date.now() });
-      saveScripts(next);
-      if (activeScriptId === id) setActiveScriptId(next[0].id);
-      return next;
+    const script = scripts.find((s) => s.id === id);
+    setConfirmState({
+      title: 'Удалить сценарий?',
+      message: script ? `Сценарий «${script.name}» будет удалён безвозвратно.` : 'Сценарий будет удалён безвозвратно.',
+      confirmLabel: 'Удалить',
+      danger: true,
+      action: () => {
+        setScripts((prev) => {
+          const next = prev.filter((s) => s.id !== id);
+          if (next.length === 0) next.push({ id: 'default', name: 'Пример', text: '', createdAt: Date.now() });
+          saveScripts(next);
+          if (activeScriptId === id) setActiveScriptId(next[0].id);
+          return next;
+        });
+      },
     });
   };
 
@@ -300,7 +338,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   // ===== ЕДИНЫЙ ПОТОК С КАМЕРЫ И МИКРОФОНА =====
   const startCameraStream = async (includeAudio = true): Promise<MediaStream | null> => {
     try {
-      // Остановить предыдущий поток
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -327,14 +364,13 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
       });
       streamRef.current = stream;
 
-      // Подключить к video-элементу для предпросмотра
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
       return stream;
     } catch (err) {
       console.error('Stream error:', err);
-      alert('Не удалось получить доступ к камере/микрофону');
+      setAlertMsg('Не удалось получить доступ к камере или микрофону. Проверьте разрешения в настройках браузера.');
       return null;
     }
   };
@@ -353,16 +389,14 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
 
   const toggleCamera = async () => {
     if (showCamera) {
-      // Если идёт запись — сначала остановить её
       if (isRecording) stopRecording();
       stopCameraStream();
     } else {
-      const stream = await startCameraStream(false); // для предпросмотра без аудио
+      const stream = await startCameraStream(false);
       if (stream) setShowCamera(true);
     }
   };
 
-  // При смене устройств или качества — перезапуск потока
   useEffect(() => {
     if (showCamera) {
       startCameraStream(isRecording);
@@ -372,16 +406,13 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
 
   const startRecording = async () => {
     try {
-      // Если поток не активен — создать его
       let stream = streamRef.current;
       if (!stream) {
         stream = await startCameraStream(true);
         if (!stream) return;
         setShowCamera(true);
       } else {
-        // Проверим, что есть аудио-треки
         if (stream.getAudioTracks().length === 0) {
-          // Перезапустим с аудио
           stream = await startCameraStream(true);
           if (!stream) return;
         }
@@ -423,7 +454,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
       triggerHaptic('light');
     } catch (err) {
       console.error('Recording error:', err);
-      alert('Не удалось начать запись');
+      setAlertMsg('Не удалось начать запись. Попробуйте перезагрузить страницу или проверить доступ к устройствам.');
       setIsRecording(false);
     }
   };
@@ -431,7 +462,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
-      // setIsRecording(false) вызывается в onstop
     }
   };
 
@@ -459,11 +489,22 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   };
 
   const handleStartTimer = () => {
-    const min = prompt('Таймер выступления (минут):', '5');
-    if (min && Number(min) > 0) {
-      setTimerLeft(Number(min) * 60);
-      setTimerPaused(false);
-    }
+    setPromptState({
+      title: 'Таймер выступления',
+      message: 'Сколько минут продлится выступление?',
+      initialValue: '5',
+      placeholder: '5',
+      confirmLabel: 'Запустить',
+      action: (min) => {
+        const n = Number(min);
+        if (n > 0) {
+          setTimerLeft(n * 60);
+          setTimerPaused(false);
+        } else {
+          setAlertMsg('Введите число больше нуля');
+        }
+      },
+    });
   };
 
   const handleStopTimer = () => {
@@ -505,11 +546,46 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
     setScrollPos((prev) => Math.max(0, prev + delta));
   };
 
+  // ===== Рендер общих диалогов =====
+  const renderDialogs = () => (
+    <>
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
+      <AlertDialog
+        isOpen={alertMsg !== null}
+        message={alertMsg ?? ''}
+        onClose={() => setAlertMsg(null)}
+      />
+      <PromptDialog
+        isOpen={promptState !== null}
+        title={promptState?.title ?? ''}
+        message={promptState?.message}
+        initialValue={promptState?.initialValue}
+        placeholder={promptState?.placeholder}
+        confirmLabel={promptState?.confirmLabel}
+        onConfirm={(v) => {
+          promptState?.action(v);
+          setPromptState(null);
+        }}
+        onCancel={() => setPromptState(null)}
+      />
+    </>
+  );
+
   // ===== ПРЕЗЕНТАЦИОННЫЙ РЕЖИМ =====
   if (presentationMode) {
     return (
       <div className="fixed inset-0 z-50 overflow-hidden" style={{ background: theme.bg }}>
-        {/* Контейнер текста с прокруткой */}
         <div
           ref={scrollRef}
           className="h-full overflow-y-auto"
@@ -534,7 +610,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* ПЛАВАЮЩАЯ КАМЕРА (перетаскиваемая) */}
         {showCamera && (
           <div
             className="fixed z-40 bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 cursor-move select-none"
@@ -567,7 +642,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* ВЕРХНЯЯ ПАНЕЛЬ */}
         <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between gap-2 pointer-events-none">
           <div className="bg-black/70 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-3 pointer-events-auto">
             <div className="flex items-center gap-2">
@@ -613,7 +687,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* НИЖНЯЯ ПАНЕЛЬ УПРАВЛЕНИЯ */}
         <div className="fixed bottom-4 left-4 right-4 z-30 bg-black/80 backdrop-blur-md rounded-2xl p-3 border border-white/10">
           <div className="grid grid-cols-6 gap-2 mb-3">
             <button
@@ -652,7 +725,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             </button>
             <button
               onClick={isRecording ? stopRecording : startRecording}
-              disabled={!showCamera && isRecording === false ? false : false}
               className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
                 isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-700 text-white hover:bg-gray-600'
               }`}
@@ -701,6 +773,8 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             </div>
           </div>
         </div>
+
+        {renderDialogs()}
       </div>
     );
   }
@@ -720,7 +794,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full p-4 space-y-4 pb-8">
-        {/* ===== УПРАВЛЕНИЕ ВОСПРОИЗВЕДЕНИЕМ ===== */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between gap-2">
             <button
@@ -780,7 +853,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* ===== СЦЕНАРИЙ ===== */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-sm font-semibold text-purple-700">Сценарий</label>
@@ -824,7 +896,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
-        {/* ===== ОФОРМЛЕНИЕ (перенесено из шестерёнки) ===== */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
             <Settings className="w-4 h-4 text-purple-600" />
@@ -904,14 +975,12 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* ===== КАМЕРА И ЗАПИСЬ ===== */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
             <Camera className="w-4 h-4 text-purple-600" />
             <label className="text-sm font-semibold text-purple-700">Камера и запись</label>
           </div>
 
-          {/* Предпросмотр камеры */}
           {showCamera && (
             <div className="relative bg-black rounded-xl overflow-hidden aspect-video">
               <video
@@ -951,7 +1020,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             </button>
           </div>
 
-          {/* Выбор устройств */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-gray-500 flex items-center gap-1">
@@ -1007,7 +1075,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* ===== ТАЙМЕР ===== */}
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-purple-600" />
@@ -1048,6 +1115,8 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
           <b>Горячие клавиши:</b> Space — старт/пауза, ↑/↓ — скорость, M — зеркало, F — фокус, R — сброс, Esc — выход
         </div>
       </main>
+
+      {renderDialogs()}
     </div>
   );
 }
