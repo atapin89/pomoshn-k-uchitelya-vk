@@ -163,7 +163,7 @@ const SECTIONS: Section[] = [
   {
     id: 'teleprompter',
     title: 'Телесуфлер',
-    description: 'Чтение с экрана',
+    description: 'Чтение и запись с экрана',
     hint: 'Профессиональный телесуфлер: плавная прокрутка текста, скорость 0.5–3×, темы (светлая/тёмная/контраст), зеркалирование, режим презентации, таймер выступления, веб-камера и запись видео. Сценарии сохраняются локально.',
     icon: MonitorPlay,
   },
@@ -451,7 +451,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                     <span className="absolute inset-0 rounded-xl ring-2 ring-purple-500 animate-pulse" />
                   </>
                 )}
-                <BookOpen className="relative z-10 w-6 h-6" />
+                <BookOpen className="relative z-10 w-6 h-6 transition-transform duration-300 group-hover:scale-y-[-1]" />
               </button>
               
               {/* Tooltip справа от иконки */}
