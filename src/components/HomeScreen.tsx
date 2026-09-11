@@ -24,6 +24,7 @@ import {
   ChevronUp,
   ChevronDown,
   Sparkles,
+  QrCode,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -48,7 +49,8 @@ type SectionId =
   | 'teleprompter'
   | 'wordcloud'
   | 'graphdictation'
-  | 'lifebalance';
+  | 'lifebalance'
+  | 'qrcode';
 
 interface Section {
   id: SectionId;
@@ -182,6 +184,13 @@ const SECTIONS: Section[] = [
     description: 'Саморефлексия педагога',
     hint: 'Оцените 8 сфер жизни от 1 до 10. Интерактивное колесо покажет перекосы, даст персональные рекомендации и позволит скачать результат.',
     icon: Sparkles,
+  },
+  {
+    id: 'qrcode',
+    title: 'QR-коды',
+    description: 'Генератор кодов',
+    hint: 'Создание QR-кодов: текст, ссылки, WiFi для класса, email, телефон, визитки vCard. Настройка цветов и размера, скачивание PNG и SVG.',
+    icon: QrCode,
   },
 ];
 
