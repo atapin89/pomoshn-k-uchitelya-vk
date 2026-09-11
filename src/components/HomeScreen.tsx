@@ -403,7 +403,8 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
         {/* Верхняя линия: Шестерёнка | Логотип | Проект + Руководство */}
-        <div className="flex items-center gap-3">
+        {/* items-start — значки прижаты к ВЕРХНЕЙ границе логотипа */}
+        <div className="flex items-start gap-3">
           {/* Шестерёнка слева с tooltip */}
           <div className="group relative shrink-0">
             <button
@@ -435,7 +436,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </div>
           </div>
 
-          {/* Логотип по центру (flex-1) с подписью снизу */}
+          {/* Логотип по центру (flex-1), УВЕЛИЧЕН */}
           <div className="flex-1 flex flex-col items-center min-w-0">
             <h1 className="sr-only">Помощник учителя</h1>
             <a
@@ -449,7 +450,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               <img
                 src={`${import.meta.env.BASE_URL}logo.png`}
                 alt="Помощник учителя"
-                className="h-20 sm:h-24 w-auto object-contain select-none"
+                className="h-28 sm:h-36 w-auto object-contain select-none"
                 draggable={false}
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.display = 'none';
