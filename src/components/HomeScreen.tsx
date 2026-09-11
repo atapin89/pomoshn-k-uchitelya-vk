@@ -26,6 +26,7 @@ import {
   Sparkles,
   QrCode,
   BookText,
+  CalendarDays,
   GripVertical,
   type LucideIcon,
 } from 'lucide-react';
@@ -53,7 +54,8 @@ type SectionId =
   | 'graphdictation'
   | 'lifebalance'
   | 'qrcode'
-  | 'bibliography';
+  | 'bibliography'
+  | 'visualschedule';
 
 interface Section {
   id: SectionId;
@@ -201,6 +203,13 @@ const SECTIONS: Section[] = [
     description: 'Библиография',
     hint: 'Оформление списка литературы по действующим ГОСТам. 12 типов источников: книги, статьи, диссертации, сайты, НПА, методички, конференции и другие. Живой предпросмотр, автоматическая алфавитная сортировка, экспорт в Word (.doc) и текст (.txt). К каждому полю — справка с точным пунктом ГОСТа.',
     icon: BookText,
+  },
+  {
+    id: 'visualschedule',
+    title: 'Визуальное расписание',
+    description: 'Пиктограммы',
+    hint: 'Создание визуальных расписаний с пиктограммами для детей с РАС и ОВЗ. 150+ билингвальных пиктограмм (RU/EN) в 9 категориях: утро, еда, школа, досуг, эмоции, дом, одежда, транспорт, занятия. 4 шаблона: линейный, вертикальный, сетка 3×3 и 4×4. Drag & Drop из библиотеки, загрузка своих фото, редактирование подписей. Экспорт в PNG для доски и PDF для печати. Сохранение проектов.',
+    icon: CalendarDays,
   },
 ];
 
