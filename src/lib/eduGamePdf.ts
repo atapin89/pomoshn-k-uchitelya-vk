@@ -11,7 +11,6 @@ import { sanitizeFileName } from '@/lib/eduGameStorage';
  * Если шрифт не загрузился, используется helvetica (без кириллицы).
  */
 
-// Путь к шрифту Roboto (можно заменить на локальный)
 const FONT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf';
 const FONT_BOLD_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf';
 
@@ -21,7 +20,6 @@ async function loadFonts(doc: jsPDF): Promise<void> {
   if (fontLoaded) return;
   
   try {
-    // Загружаем шрифты
     const [regularRes, boldRes] = await Promise.all([
       fetch(FONT_URL),
       fetch(FONT_BOLD_URL),
@@ -41,7 +39,7 @@ async function loadFonts(doc: jsPDF): Promise<void> {
     fontLoaded = true;
   } catch {
     console.warn('Не удалось загрузить шрифт Roboto. Кириллица может не отображаться.');
-    fontLoaded = true; // Чтобы не пытаться снова
+    fontLoaded = true;
   }
 }
 
@@ -56,17 +54,25 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-export async function exportEduGameToPDF(game: EduGame): Promise<void> {
-  // Проверка на пустую игру
+/**
+ * Экспорт игры в PDF с карточками для печати.
+ * @param game Игра для экспорта
+ * @param onError Опциональный callback для показа ошибок через UI (вместо alert)
+ */
+export async function exportEduGameToPDF(
+  game: EduGame,
+  onError?: (message: string) => void,
+): Promise<void> {
   const totalQuestions = game.rounds.reduce((sum, r) => sum + r.questions.length, 0);
   if (totalQuestions === 0) {
-    alert('В игре нет вопросов для печати');
+    if (onError) {
+      onError('В игре нет вопросов для печати. Добавьте хотя бы один вопрос в редакторе игры.');
+    }
     return;
   }
 
   const doc = new jsPDF();
   
-  // Загружаем шрифты с поддержкой кириллицы
   await loadFonts(doc);
   
   const fontName = fontLoaded ? 'Roboto' : 'helvetica';
@@ -118,7 +124,6 @@ export async function exportEduGameToPDF(game: EduGame): Promise<void> {
 
   game.rounds.forEach((round) => {
     round.questions.forEach((q) => {
-      // ===== ЛИЦЕВАЯ СТОРОНА: ВОПРОС =====
       if (!firstPage) doc.addPage();
       firstPage = false;
 
@@ -147,7 +152,6 @@ export async function exportEduGameToPDF(game: EduGame): Promise<void> {
       doc.setFontSize(9);
       doc.text(`${game.title} · карточка игрока`, W / 2, H - 14, { align: 'center' });
 
-      // ===== ОБОРОТ: БАЛЛЫ + ОТВЕТ =====
       doc.addPage();
       drawFrame();
 
