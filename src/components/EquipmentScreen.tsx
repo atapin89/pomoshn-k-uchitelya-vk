@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface LoanRecord {
   id: string;
@@ -18,6 +19,14 @@ interface LoanRecord {
   item: string;
   loanedAt: number;
   returnedAt: number | null;
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
 }
 
 const STORAGE_KEY = 'equipment-loans';
@@ -87,6 +96,9 @@ export default function EquipmentScreen({ onBack }: { onBack: () => void }) {
   const [customItem, setCustomItem] = useState('');
   const [filter, setFilter] = useState<HistoryFilter>('all');
 
+  // ===== Внутренние диалоги (замена window.confirm) =====
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+
   const update = (next: LoanRecord[]) => {
     setLoans(next);
     saveLoans(next);
@@ -140,17 +152,31 @@ export default function EquipmentScreen({ onBack }: { onBack: () => void }) {
 
   const handleReturnAll = () => {
     if (outstanding.length === 0) return;
-    if (!window.confirm(`Вернуть все предметы (${outstanding.length})?`)) return;
-    const now = Date.now();
-    update(loans.map((l) => (l.returnedAt ? l : { ...l, returnedAt: now })));
-    triggerHaptic('heavy');
+    setConfirmState({
+      title: 'Вернуть все предметы?',
+      message: `Будет возвращено ${outstanding.length} ${outstanding.length === 1 ? 'предмет' : outstanding.length < 5 ? 'предмета' : 'предметов'} от всех учеников.`,
+      confirmLabel: 'Вернуть всё',
+      danger: false,
+      action: () => {
+        const now = Date.now();
+        update(loans.map((l) => (l.returnedAt ? l : { ...l, returnedAt: now })));
+        triggerHaptic('heavy');
+      },
+    });
   };
 
   const handleClearHistory = () => {
     if (loans.length === 0) return;
-    if (!window.confirm('Очистить всю историю учёта? Действие необратимо.')) return;
-    update([]);
-    triggerHaptic('heavy');
+    setConfirmState({
+      title: 'Очистить всю историю учёта?',
+      message: 'Все записи о выдачах и возвратах будут удалены безвозвратно. Это действие нельзя отменить.',
+      confirmLabel: 'Очистить',
+      danger: true,
+      action: () => {
+        update([]);
+        triggerHaptic('heavy');
+      },
+    });
   };
 
   const filteredHistory = useMemo(() => {
@@ -237,6 +263,20 @@ export default function EquipmentScreen({ onBack }: { onBack: () => void }) {
             <Trash2 className="w-5 h-5" /> Очистить историю
           </button>
         </main>
+
+        {/* ===== Внутренний диалог подтверждения ===== */}
+        <ConfirmDialog
+          isOpen={confirmState !== null}
+          title={confirmState?.title ?? ''}
+          message={confirmState?.message}
+          confirmLabel={confirmState?.confirmLabel}
+          danger={confirmState?.danger}
+          onConfirm={() => {
+            confirmState?.action();
+            setConfirmState(null);
+          }}
+          onCancel={() => setConfirmState(null)}
+        />
       </div>
     );
   }
@@ -363,6 +403,20 @@ export default function EquipmentScreen({ onBack }: { onBack: () => void }) {
           </button>
         </div>
       </main>
+
+      {/* ===== Внутренний диалог подтверждения ===== */}
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }
