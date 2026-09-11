@@ -181,15 +181,17 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-50 to-purple-50 flex flex-col">
-      <header className="bg-indigo-700 shadow-md sticky top-0 z-10">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-indigo-50 flex flex-col">
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-white truncate">Генератор QR-кодов</h1>
-            <p className="text-xs text-indigo-200">Создание кодов для любых задач</p>
+            <p className="text-xs text-purple-200">Создание кодов для любых задач</p>
           </div>
-          <QrCode className="w-6 h-6 text-white/70" />
+          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
+            <QrCode className="w-5 h-5 text-white" />
+          </div>
         </div>
       </header>
 
@@ -199,7 +201,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
           <div className="space-y-3">
             {/* Тип QR-кода */}
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <h2 className="text-lg font-bold text-indigo-700 mb-3">Тип QR-кода</h2>
+              <h2 className="text-lg font-bold text-purple-700 mb-3">Тип QR-кода</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {QR_TYPES.map((qt) => (
                   <button
@@ -207,15 +209,15 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                     onClick={() => setOptions(prev => ({ ...prev, type: qt.type }))}
                     className={`p-3 rounded-xl border-2 transition-all ${
                       options.type === qt.type
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-gray-200 hover:border-indigo-200'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-purple-200'
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <div className={`${options.type === qt.type ? 'text-indigo-600' : 'text-gray-500'}`}>
+                      <div className={`${options.type === qt.type ? 'text-purple-600' : 'text-gray-500'}`}>
                         {qt.icon}
                       </div>
-                      <span className={`text-sm font-semibold ${options.type === qt.type ? 'text-indigo-700' : 'text-gray-700'}`}>
+                      <span className={`text-sm font-semibold ${options.type === qt.type ? 'text-purple-700' : 'text-gray-700'}`}>
                         {qt.label}
                       </span>
                     </div>
@@ -227,7 +229,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
 
             {/* Поля ввода в зависимости от типа */}
             <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-              <h2 className="text-lg font-bold text-indigo-700 mb-3">Содержимое</h2>
+              <h2 className="text-lg font-bold text-purple-700 mb-3">Содержимое</h2>
 
               {options.type === 'text' && (
                 <div>
@@ -237,7 +239,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                     onChange={(e) => setOptions(prev => ({ ...prev, text: e.target.value }))}
                     placeholder="Введите текст для QR-кода"
                     rows={4}
-                    className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   />
                 </div>
               )}
@@ -250,7 +252,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                     value={options.url}
                     onChange={(e) => setOptions(prev => ({ ...prev, url: e.target.value }))}
                     placeholder="https://example.com"
-                    className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   />
                 </div>
               )}
@@ -264,7 +266,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                       value={options.wifiSSID}
                       onChange={(e) => setOptions(prev => ({ ...prev, wifiSSID: e.target.value }))}
                       placeholder="MyWiFiNetwork"
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     />
                   </div>
                   <div>
@@ -274,7 +276,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                       value={options.wifiPassword}
                       onChange={(e) => setOptions(prev => ({ ...prev, wifiPassword: e.target.value }))}
                       placeholder="password123"
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     />
                   </div>
                   <div>
@@ -282,19 +284,19 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                     <select
                       value={options.wifiEncryption}
                       onChange={(e) => setOptions(prev => ({ ...prev, wifiEncryption: e.target.value as any }))}
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     >
                       <option value="WPA">WPA/WPA2 (рекомендуется)</option>
                       <option value="WEP">WEP (устаревший)</option>
                       <option value="nopass">Без пароля</option>
                     </select>
                   </div>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-purple-50 transition-colors">
                     <input
                       type="checkbox"
                       checked={options.wifiHidden}
                       onChange={(e) => setOptions(prev => ({ ...prev, wifiHidden: e.target.checked }))}
-                      className="w-4 h-4 accent-indigo-600"
+                      className="w-4 h-4 accent-purple-600 rounded"
                     />
                     <span className="text-sm text-gray-700">Скрытая сеть</span>
                   </label>
@@ -310,7 +312,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                       value={options.emailTo}
                       onChange={(e) => setOptions(prev => ({ ...prev, emailTo: e.target.value }))}
                       placeholder="example@mail.com"
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     />
                   </div>
                   <div>
@@ -320,7 +322,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                       value={options.emailSubject}
                       onChange={(e) => setOptions(prev => ({ ...prev, emailSubject: e.target.value }))}
                       placeholder="Тема письма"
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     />
                   </div>
                   <div>
@@ -330,7 +332,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                       onChange={(e) => setOptions(prev => ({ ...prev, emailBody: e.target.value }))}
                       placeholder="Текст письма"
                       rows={3}
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     />
                   </div>
                 </div>
@@ -344,7 +346,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                     value={options.phoneNumber}
                     onChange={(e) => setOptions(prev => ({ ...prev, phoneNumber: e.target.value }))}
                     placeholder="+7 (999) 123-45-67"
-                    className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   />
                 </div>
               )}
@@ -358,7 +360,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                       value={options.vcardName}
                       onChange={(e) => setOptions(prev => ({ ...prev, vcardName: e.target.value }))}
                       placeholder="Иванов Иван Иванович"
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     />
                   </div>
                   <div>
@@ -368,7 +370,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                       value={options.vcardPhone}
                       onChange={(e) => setOptions(prev => ({ ...prev, vcardPhone: e.target.value }))}
                       placeholder="+7 (999) 123-45-67"
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     />
                   </div>
                   <div>
@@ -378,7 +380,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                       value={options.vcardEmail}
                       onChange={(e) => setOptions(prev => ({ ...prev, vcardEmail: e.target.value }))}
                       placeholder="ivan@example.com"
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     />
                   </div>
                   <div>
@@ -388,7 +390,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                       value={options.vcardOrg}
                       onChange={(e) => setOptions(prev => ({ ...prev, vcardOrg: e.target.value }))}
                       placeholder="ООО Ромашка"
-                      className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     />
                   </div>
                 </div>
@@ -397,7 +399,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
               <button
                 onClick={handleCopyContent}
                 disabled={!isValid()}
-                className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-2.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copied ? 'Скопировано!' : 'Копировать содержимое'}
@@ -407,13 +409,13 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
             {/* Настройки дизайна */}
             <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-indigo-700 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-purple-700 flex items-center gap-2">
                   <Palette className="w-5 h-5" />
                   Дизайн
                 </h2>
                 <button
                   onClick={handleReset}
-                  className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-semibold flex items-center gap-1"
+                  className="px-3 py-1.5 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-semibold flex items-center gap-1 transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" /> Сброс
                 </button>
@@ -426,7 +428,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                     type="color"
                     value={options.foregroundColor}
                     onChange={(e) => setOptions(prev => ({ ...prev, foregroundColor: e.target.value }))}
-                    className="w-full h-10 rounded-lg border border-gray-300 cursor-pointer"
+                    className="w-full h-12 rounded-xl border-2 border-purple-200 cursor-pointer p-1 bg-purple-50"
                   />
                 </div>
                 <div>
@@ -435,15 +437,16 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                     type="color"
                     value={options.backgroundColor}
                     onChange={(e) => setOptions(prev => ({ ...prev, backgroundColor: e.target.value }))}
-                    className="w-full h-10 rounded-lg border border-gray-300 cursor-pointer"
+                    className="w-full h-12 rounded-xl border-2 border-purple-200 cursor-pointer p-1 bg-purple-50"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-semibold text-gray-700 mb-1 block">
-                  Размер: {options.size}px
-                </label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-sm font-semibold text-gray-700">Размер</label>
+                  <span className="text-sm font-bold text-purple-600 tabular-nums">{options.size}px</span>
+                </div>
                 <input
                   type="range"
                   min={100}
@@ -451,8 +454,12 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                   step={50}
                   value={options.size}
                   onChange={(e) => setOptions(prev => ({ ...prev, size: Number(e.target.value) }))}
-                  className="w-full accent-indigo-600"
+                  className="w-full accent-purple-600"
                 />
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>100px</span>
+                  <span>800px</span>
+                </div>
               </div>
 
               <div>
@@ -460,7 +467,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                 <select
                   value={options.errorCorrection}
                   onChange={(e) => setOptions(prev => ({ ...prev, errorCorrection: e.target.value as any }))}
-                  className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full rounded-xl border-2 border-purple-200 bg-purple-50 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                 >
                   <option value="L">Низкая (7%) — больше данных</option>
                   <option value="M">Средняя (15%) — баланс</option>
@@ -474,17 +481,17 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
           {/* Правая колонка: предпросмотр и скачивание */}
           <div className="space-y-3">
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <h2 className="text-lg font-bold text-indigo-700 mb-3">Предпросмотр</h2>
+              <h2 className="text-lg font-bold text-purple-700 mb-3">Предпросмотр</h2>
               <div className="flex justify-center">
-                <div className="relative">
+                <div className="relative w-full max-w-[300px] aspect-square bg-gray-50 rounded-2xl border-2 border-purple-100 overflow-hidden flex items-center justify-center">
                   <canvas
                     ref={canvasRef}
-                    className="rounded-xl border-2 border-gray-200"
+                    className="rounded-xl"
                     style={{ width: '100%', maxWidth: '300px', height: 'auto' }}
                   />
                   {isGenerating && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-xl">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
                     </div>
                   )}
                   {!isValid() && (
@@ -497,11 +504,11 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
             </div>
 
             <div className="bg-white rounded-2xl p-4 shadow-sm space-y-2">
-              <h3 className="text-sm font-bold text-indigo-700 mb-2">Скачать</h3>
+              <h3 className="text-sm font-bold text-purple-700 mb-2">Скачать</h3>
               <button
                 onClick={() => handleDownload('png')}
                 disabled={!isValid()}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md transition-colors"
               >
                 <Download className="w-4 h-4" />
                 PNG (растр)
@@ -509,15 +516,15 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
               <button
                 onClick={() => handleDownload('svg')}
                 disabled={!isValid()}
-                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+                className="w-full py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md transition-colors"
               >
                 <Download className="w-4 h-4" />
                 SVG (вектор)
               </button>
             </div>
 
-            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-[11px] text-indigo-900">
-              <b>Совет:</b> Для печати используйте SVG (вектор) — он масштабируется без потери качества. Для веба и соцсетей подойдёт PNG.
+            <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-3 text-[11px] text-purple-900">
+              <b>💡 Совет:</b> Для печати используйте SVG (вектор) — он масштабируется без потери качества. Для веба и соцсетей подойдёт PNG.
             </div>
           </div>
         </div>
