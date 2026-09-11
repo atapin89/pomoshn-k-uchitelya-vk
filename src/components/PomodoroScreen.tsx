@@ -49,6 +49,7 @@ import { downloadTextFile, sanitizeFileName } from '@/lib/eduGameStorage';
 import { playBell } from '@/lib/sound';
 import { triggerHaptic } from '@/lib/haptic';
 import BackButton from './BackButton';
+import { AlertDialog } from './ConfirmDialog';
 
 interface PomodoroScreenProps {
   onBack: () => void;
@@ -131,6 +132,10 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
   const [showFaq, setShowFaq] = useState(false);
   const [openHow, setOpenHow] = useState<number | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // ===== Внутренний диалог (замена alert) =====
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -324,9 +329,9 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
         setTasks(state.tasks);
         setActiveTaskId(state.activeTaskId);
         setSettings(state.settings);
-        alert('Данные импортированы!');
+        setAlertMsg('Данные успешно импортированы! Задачи, настройки и статистика восстановлены.');
       } else {
-        alert('Не удалось импортировать данные');
+        setAlertMsg('Не удалось импортировать данные. Проверьте, что файл имеет формат JSON, экспортированный из Помодоро.');
       }
     };
     reader.readAsText(file);
@@ -343,6 +348,15 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
       return b.updatedAt - a.updatedAt;
     });
   }, [tasks]);
+
+  // ===== Общий рендер внутреннего диалога =====
+  const renderAlert = () => (
+    <AlertDialog
+      isOpen={alertMsg !== null}
+      message={alertMsg ?? ''}
+      onClose={() => setAlertMsg(null)}
+    />
+  );
 
   // ===== ЭКРАН НАСТРОЕК =====
   if (showSettings) {
@@ -506,6 +520,8 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
             Сохранить настройки
           </button>
         </main>
+
+        {renderAlert()}
       </div>
     );
   }
@@ -593,6 +609,8 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
             <Download className="w-5 h-5" /> Экспорт CSV
           </button>
         </main>
+
+        {renderAlert()}
       </div>
     );
   }
@@ -909,6 +927,8 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
           )}
         </div>
       </main>
+
+      {renderAlert()}
     </div>
   );
 }
