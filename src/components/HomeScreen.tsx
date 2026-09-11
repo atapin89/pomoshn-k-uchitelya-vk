@@ -402,7 +402,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
-        {/* Верхняя линия: Шестерёнка | Логотип | Проект + Руководство */}
+        {/* Верхняя линия: Шестерёнка | Логотип | Руководство */}
         {/* items-start — значки прижаты к ВЕРХНЕЙ границе логотипа */}
         <div className="flex items-start gap-3">
           {/* Шестерёнка слева с tooltip */}
@@ -436,7 +436,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </div>
           </div>
 
-          {/* Логотип по центру (flex-1), УВЕЛИЧЕН */}
+          {/* Логотип по центру (flex-1) */}
           <div className="flex-1 flex flex-col items-center min-w-0">
             <h1 className="sr-only">Помощник учителя</h1>
             <a
@@ -463,20 +463,8 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </p>
           </div>
 
-          {/* Правая часть: подпись проекта + кнопка руководства */}
-          <div className="shrink-0 flex items-center gap-2">
-            <p className="text-[10px] sm:text-[11px] text-gray-500 leading-tight text-right whitespace-nowrap">
-              Проект{' '}
-              <a
-                href="https://vk.ru/aaatapin"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-600 hover:text-purple-800 font-semibold underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
-              >
-                Алексея Атапина
-              </a>
-            </p>
-            
+          {/* Правая часть: только кнопка руководства */}
+          <div className="shrink-0">
             <button
               onClick={handleManualClick}
               className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white/60 backdrop-blur-sm shadow-sm"
@@ -551,6 +539,21 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           </div>
         )}
       </main>
+
+      {/* ===== Нижний правый угол: подпись проекта ===== */}
+      <footer className="max-w-md mx-auto w-full px-5 pb-4 flex justify-end">
+        <p className="text-[10px] sm:text-[11px] text-gray-500 leading-tight text-right">
+          Проект{' '}
+          <a
+            href="https://vk.ru/aaatapin"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-600 hover:text-purple-800 font-semibold underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
+          >
+            Алексея Атапина
+          </a>
+        </p>
+      </footer>
 
       {/* ===== МОДАЛКА НАСТРОЕК с Drag & Drop ===== */}
       {showSettings && (
