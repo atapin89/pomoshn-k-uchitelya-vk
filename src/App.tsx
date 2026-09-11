@@ -27,6 +27,7 @@ import WordCloudScreen from '@/components/WordCloudScreen';
 import GraphDictationScreen from '@/components/GraphDictationScreen';
 import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 import QRCodeScreen from '@/components/QRCodeScreen';
+import BibliographyScreen from '@/components/BibliographyScreen';
 
 type Route = 
   | 'home' 
@@ -49,7 +50,8 @@ type Route =
   | 'wordcloud'
   | 'graphdictation'
   | 'lifebalance'
-  | 'qrcode';
+  | 'qrcode'
+  | 'bibliography';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -153,6 +155,7 @@ export default function App() {
     graphdictation: <GraphDictationScreen onBack={navigateHome} />,
     lifebalance: <LifeBalanceScreen onBack={navigateHome} />,
     qrcode: <QRCodeScreen onBack={navigateHome} />,
+    bibliography: <BibliographyScreen onBack={navigateHome} />,
     timer: null,
   };
 
