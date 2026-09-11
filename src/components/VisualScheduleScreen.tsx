@@ -376,8 +376,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               </p>
             )}
             
-            {/* Кнопки действий — смещены ниже на ~30 пт (top-8 ≈ 2rem = 32px) */}
-            <div className="absolute top-8 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Кнопки действий — отступ от верхней границы 50 пт */}
+            <div className="absolute top-[50pt] right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleEditLabel(cell.id, cell.customLabel)}
                 className="p-1 bg-white rounded-full shadow hover:bg-purple-50"
