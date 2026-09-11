@@ -451,7 +451,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                     <span className="absolute inset-0 rounded-xl ring-2 ring-purple-500 animate-pulse" />
                   </>
                 )}
-                <BookOpen className="relative z-10 w-6 h-6 transition-transform duration-300 group-hover:scale-y-[-1]" />
+                <BookOpen className="relative z-10 w-6 h-6 transition-transform duration-300 group-hover:scale-x-[-1]" />
               </button>
               
               {/* Tooltip справа от иконки */}
