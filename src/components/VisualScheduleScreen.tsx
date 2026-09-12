@@ -20,11 +20,22 @@ import {
   HelpCircle,
   Lightbulb,
   Share2,
+  Copy,
+  Maximize2,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { PICTOGRAMS, PICTOGRAM_CATEGORIES, type Pictogram } from '@/data/pictograms';
 import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
+
+// VK Bridge API для мини-апа
+declare global {
+  interface Window {
+    vkBridge?: {
+      send: (method: string, params?: any) => Promise<any>;
+    };
+  }
+}
 
 // ===== ТИПЫ =====
 
@@ -95,6 +106,10 @@ function createEmptyCells(template: TemplateType): ScheduleCell[] {
   }));
 }
 
+function isVKMiniApp(): boolean {
+  return typeof window !== 'undefined' && !!window.vkBridge;
+}
+
 // ===== КОМПОНЕНТ =====
 
 export default function VisualScheduleScreen({ onBack }: { onBack: () => void }) {
@@ -118,7 +133,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [showFaq, setShowFaq] = useState(false);
   const [showScenarios, setShowScenarios] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [showFullscreenPreview, setShowFullscreenPreview] = useState(false);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -130,18 +145,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   useEffect(() => {
     saveProjects(projects);
   }, [projects]);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const ua = navigator.userAgent || '';
-      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) 
-        || ('ontouchstart' in window && window.innerWidth < 1024);
-      setIsMobile(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -281,10 +284,12 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     if (!scheduleRef.current) return null;
     return await html2canvas(scheduleRef.current, {
       backgroundColor: '#ffffff',
-      scale: 2,
+      scale: 3,
       useCORS: true,
       logging: false,
       allowTaint: true,
+      width: scheduleRef.current.scrollWidth,
+      height: scheduleRef.current.scrollHeight,
     });
   };
 
@@ -294,79 +299,26 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       if (!canvas) return;
       const dataUrl = canvas.toDataURL('image/png');
       
-      if (isMobile) {
-        // На мобильных открываем в новой вкладке
-        const newWindow = window.open();
-        if (newWindow) {
-          newWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>${currentProject.name}</title>
-              <style>
-                body {
-                  margin: 0;
-                  padding: 20px;
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                  justify-content: center;
-                  min-height: 100vh;
-                  background: #f5f5f5;
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                }
-                img {
-                  max-width: 100%;
-                  height: auto;
-                  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                }
-                .instructions {
-                  margin-top: 20px;
-                  padding: 15px;
-                  background: white;
-                  border-radius: 8px;
-                  text-align: center;
-                  max-width: 90%;
-                }
-                h2 {
-                  margin: 0 0 10px 0;
-                  color: #7c3aed;
-                }
-                p {
-                  margin: 5px 0;
-                  color: #666;
-                }
-              </style>
-            </head>
-            <body>
-              <img src="${dataUrl}" alt="${currentProject.name}" />
-              <div class="instructions">
-                <h2>📱 Как сохранить</h2>
-                <p><strong>Долгое нажатие на картинку</strong></p>
-                <p>Выберите «Сохранить изображение» или «Добавить в фото»</p>
-                <p style="margin-top: 15px; font-size: 12px; color: #999;">
-                  Или сделайте скриншот экрана
-                </p>
-              </div>
-            </body>
-            </html>
-          `);
-          newWindow.document.close();
-          setAlertMsg('Открыта новая вкладка — сохраните картинку');
-        } else {
-          // Если всплывающие окна заблокированы
-          setPreviewImage(dataUrl);
-          setAlertMsg('Разрешите всплывающие окна или используйте скриншот');
+      // Пробуем VK Bridge API для мини-апа
+      if (isVKMiniApp() && window.vkBridge) {
+        try {
+          const base64Data = dataUrl.split(',')[1];
+          await window.vkBridge.send('VKWebAppSaveFile', {
+            fileName: `${currentProject.name}.png`,
+            fileContent: base64Data,
+          });
+          setAlertMsg('Файл сохранён ✅');
+          setShowExportMenu(false);
+          return;
+        } catch (vkError) {
+          console.error('VK Bridge error:', vkError);
         }
-      } else {
-        const link = document.createElement('a');
-        link.download = `${currentProject.name}.png`;
-        link.href = dataUrl;
-        link.click();
-        setAlertMsg('PNG сохранён ✅');
       }
+      
+      // Fallback: открываем полноэкранную модалку
+      setPreviewImage(dataUrl);
+      setShowFullscreenPreview(true);
+      setAlertMsg('Нажмите «Поделиться» или скопируйте изображение');
     } catch (error) {
       console.error('Export PNG error:', error);
       setAlertMsg('Ошибка экспорта PNG');
@@ -380,71 +332,14 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       if (!canvas) return;
       const imgData = canvas.toDataURL('image/png');
       
-      if (isMobile) {
-        const newWindow = window.open();
-        if (newWindow) {
-          newWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>${currentProject.name}</title>
-              <style>
-                body {
-                  margin: 0;
-                  padding: 20px;
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                  justify-content: center;
-                  min-height: 100vh;
-                  background: #f5f5f5;
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                }
-                img {
-                  max-width: 100%;
-                  height: auto;
-                  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                }
-                .instructions {
-                  margin-top: 20px;
-                  padding: 15px;
-                  background: white;
-                  border-radius: 8px;
-                  text-align: center;
-                  max-width: 90%;
-                }
-                h2 {
-                  margin: 0 0 10px 0;
-                  color: #7c3aed;
-                }
-                p {
-                  margin: 5px 0;
-                  color: #666;
-                }
-              </style>
-            </head>
-            <body>
-              <img src="${imgData}" alt="${currentProject.name}" />
-              <div class="instructions">
-                <h2>📱 Как сохранить PDF</h2>
-                <p><strong>Долгое нажатие на картинку</strong></p>
-                <p>Сохраните изображение, затем конвертируйте в PDF</p>
-                <p style="margin-top: 15px; font-size: 12px; color: #999;">
-                  Или отправьте картинку в мессенджер для печати
-                </p>
-              </div>
-            </body>
-            </html>
-          `);
-          newWindow.document.close();
-          setAlertMsg('Открыта новая вкладка — сохраните картинку');
-        } else {
-          setPreviewImage(imgData);
-          setAlertMsg('Разрешите всплывающие окна или используйте скриншот');
-        }
+      // Для PDF всегда показываем модалку
+      setPreviewImage(imgData);
+      setShowFullscreenPreview(true);
+      
+      if (isVKMiniApp()) {
+        setAlertMsg('Нажмите «Поделиться» для отправки в мессенджер или сохранения');
       } else {
+        // На десктопе создаём PDF
         const pdf = new jsPDF('landscape', 'mm', 'a4');
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
@@ -466,12 +361,26 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     if (!previewImage) return;
     
     try {
-      // Конвертируем data URL в Blob
+      // Пробуем VK Bridge
+      if (isVKMiniApp() && window.vkBridge) {
+        try {
+          const base64Data = previewImage.split(',')[1];
+          await window.vkBridge.send('VKWebAppShare', {
+            link: previewImage,
+          });
+          setAlertMsg('Отправлено ✅');
+          return;
+        } catch (vkError) {
+          console.error('VK Bridge share error:', vkError);
+        }
+      }
+      
+      // Web Share API
       const response = await fetch(previewImage);
       const blob = await response.blob();
       const file = new File([blob], `${currentProject.name}.png`, { type: 'image/png' });
       
-      if (navigator.share && navigator.canShare({ files: [file] })) {
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: currentProject.name,
@@ -479,11 +388,34 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         });
         setAlertMsg('Отправлено ✅');
       } else {
-        setAlertMsg('Функция "Поделиться" недоступна в этом браузере');
+        setAlertMsg('Функция "Поделиться" недоступна. Скопируйте изображение.');
       }
     } catch (error) {
       console.error('Share error:', error);
       setAlertMsg('Не удалось поделиться');
+    }
+  };
+
+  const handleCopyImage = async () => {
+    if (!previewImage) return;
+    
+    try {
+      const response = await fetch(previewImage);
+      const blob = await response.blob();
+      
+      if (navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            [blob.type]: blob,
+          }),
+        ]);
+        setAlertMsg('Изображение скопировано ✅');
+      } else {
+        setAlertMsg('Копирование недоступно в этом браузере');
+      }
+    } catch (error) {
+      console.error('Copy error:', error);
+      setAlertMsg('Не удалось скопировать');
     }
   };
 
@@ -549,24 +481,30 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center p-1.5 relative group">
             {cell.type === 'pictogram' && pictogram && (
-              <span className="text-4xl sm:text-5xl select-none">{pictogram.emoji}</span>
+              <span className="text-4xl sm:text-5xl select-none flex-shrink-0">{pictogram.emoji}</span>
             )}
             {cell.type === 'image' && cell.imageData && (
               <img src={cell.imageData} alt="" className="w-full h-full object-contain rounded-lg" />
             )}
             {label && (
               <p 
-                className="text-xs sm:text-sm font-semibold text-gray-700 text-center mt-1 line-clamp-2 overflow-hidden w-full px-1"
-                style={{ 
+                className="text-xs sm:text-sm font-semibold text-gray-700 text-center mt-1 w-full px-1 overflow-hidden"
+                style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 1,
+                  WebkitBoxOrient: 'vertical',
                   wordBreak: 'break-word',
-                  overflowWrap: 'break-word'
+                  overflowWrap: 'break-word',
+                  textOverflow: 'ellipsis',
+                  maxHeight: '1.5em',
+                  lineHeight: '1.2',
                 }}
               >
                 {label}
               </p>
             )}
             
-            {/* Кнопки действий — отступ от верхней границы 50 пт */}
+            {/* Кнопки действий */}
             <div className="absolute top-[50pt] right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleEditLabel(cell.id, cell.customLabel)}
@@ -616,7 +554,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-indigo-50 flex flex-col">
-      {/* Header с названием раздела */}
+      {/* Header */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
           <button
@@ -688,7 +626,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
-        {/* Левая панель: библиотека */}
+        {/* Левая панель */}
         <aside className="bg-white rounded-2xl p-4 shadow-sm space-y-4 h-fit lg:sticky lg:top-20">
           <div>
             <h2 className="text-sm font-bold text-purple-700 mb-2">Шаблон</h2>
@@ -779,7 +717,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </button>
         </aside>
 
-        {/* Правая панель: расписание */}
+        {/* Правая панель */}
         <section className="space-y-4">
           {renderSchedule()}
           
@@ -790,12 +728,12 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
               <li>• Наведите на ячейку — появятся кнопки действий</li>
               <li>• Переключайте язык RU/EN в шапке</li>
-              <li>• 📱 На телефоне: откроется новая вкладка для сохранения</li>
+              <li>• 📱 В мини-апе VK: используйте «Поделиться» для сохранения</li>
               <li>• 💻 На компьютере: PNG/PDF скачиваются автоматически</li>
             </ul>
           </div>
 
-          {/* СЦЕНАРИИ И ЧАСТЫЕ ВОПРОСЫ остаются без изменений */}
+          {/* Сценарии и FAQ */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <button
               onClick={() => setShowScenarios(!showScenarios)}
@@ -906,42 +844,56 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         </div>
       )}
 
-      {/* Модалка превью для мобильных (fallback) */}
-      {previewImage && (
-        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-2xl flex flex-col items-center gap-4">
-            <div className="text-white text-center space-y-1">
-              <p className="text-lg font-bold">📱 Сохранение изображения</p>
-              <p className="text-sm text-gray-300">Долгое нажатие на картинку → «Сохранить»</p>
-            </div>
-            
-            <div className="relative w-full max-h-[70vh] flex items-center justify-center bg-white rounded-xl overflow-hidden shadow-2xl">
-              <img 
-                src={previewImage} 
-                alt="Расписание" 
-                className="max-w-full max-h-[70vh] object-contain"
-                draggable={true}
-              />
-            </div>
+      {/* Полноэкранная модалка превью */}
+      {showFullscreenPreview && previewImage && (
+        <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+          <div className="flex items-center justify-between p-4 bg-black/80">
+            <h2 className="text-white font-bold text-lg">Сохранить расписание</h2>
+            <button
+              onClick={() => setShowFullscreenPreview(false)}
+              className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-100">
+            <img 
+              src={previewImage} 
+              alt="Расписание" 
+              className="max-w-full max-h-full object-contain shadow-2xl"
+            />
+          </div>
 
-            <div className="flex gap-3 w-full max-w-md">
+          <div className="p-4 bg-white border-t border-gray-200 space-y-3">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={handleShareImage}
-                className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+                className="py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex flex-col items-center gap-1"
               >
                 <Share2 className="w-5 h-5" />
-                Поделиться
+                <span className="text-xs">Поделиться</span>
               </button>
               <button
-                onClick={() => setPreviewImage(null)}
-                className="flex-1 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-semibold"
+                onClick={handleCopyImage}
+                className="py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex flex-col items-center gap-1"
               >
-                Закрыть
+                <Copy className="w-5 h-5" />
+                <span className="text-xs">Копировать</span>
+              </button>
+              <button
+                onClick={() => setShowFullscreenPreview(false)}
+                className="py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold flex flex-col items-center gap-1"
+              >
+                <X className="w-5 h-5" />
+                <span className="text-xs">Закрыть</span>
               </button>
             </div>
-
-            <p className="text-xs text-gray-400 text-center max-w-sm">
-              Или сделайте скриншот экрана
+            
+            <p className="text-xs text-gray-500 text-center">
+              {isVKMiniApp() 
+                ? '📱 Нажмите «Поделиться» для отправки в мессенджер или сохранения'
+                : '💻 Нажмите «Копировать» и вставьте в нужное место'}
             </p>
           </div>
         </div>
