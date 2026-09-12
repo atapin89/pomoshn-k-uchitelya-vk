@@ -19,17 +19,16 @@ import {
   ChevronDown,
   HelpCircle,
   Lightbulb,
-  Share2,
-  Copy,
   Camera,
   ExternalLink,
+  Smartphone,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { PICTOGRAMS, PICTOGRAM_CATEGORIES, type Pictogram } from '@/data/pictograms';
 import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
 
-// VK Bridge API для мини-апа
+// VK Bridge API
 declare global {
   interface Window {
     vkBridge?: {
@@ -140,6 +139,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showFullscreenPreview, setShowFullscreenPreview] = useState(false);
   const [showScreenshotGuide, setShowScreenshotGuide] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -300,65 +300,57 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   };
 
   const handleExportPNG = async () => {
+    setIsExporting(true);
     try {
       const canvas = await generateCanvas();
       if (!canvas) return;
       const dataUrl = canvas.toDataURL('image/png');
       
-      // Пробуем различные методы сохранения
-      if (isVKMiniApp() && window.vkBridge) {
-        try {
-          // Метод 1: VKWebAppSaveFile
-          const base64Data = dataUrl.split(',')[1];
-          await window.vkBridge.send('VKWebAppSaveFile', {
-            fileName: `${currentProject.name}.png`,
-            fileContent: base64Data,
-          });
-          setAlertMsg('Файл сохранён ✅');
-          setShowExportMenu(false);
-          return;
-        } catch (vkError) {
-          console.error('VK Bridge save error:', vkError);
-        }
-      }
-      
-      // Метод 2: Попробовать открыть в новой вкладке через location
+      // Метод 1: Прямое скачивание через link
       try {
-        const blob = await (await fetch(dataUrl)).blob();
-        const url = URL.createObjectURL(blob);
-        
-        // Создаём временную ссылку и кликаем
         const link = document.createElement('a');
-        link.href = url;
         link.download = `${currentProject.name}.png`;
+        link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-        setAlertMsg('Если файл не скачался — используйте инструкцию ниже');
-      } catch (downloadError) {
-        console.error('Download error:', downloadError);
+        setAlertMsg('Файл скачивается...');
+        setIsExporting(false);
+        return;
+      } catch (e) {
+        console.error('Direct download failed:', e);
       }
       
-      // В любом случае показываем модалку с инструкцией
+      // Метод 2: Открыть в новой вкладке
+      try {
+        const newWindow = window.open(dataUrl, '_blank');
+        if (newWindow) {
+          setAlertMsg('Открыто в новой вкладке — сохраните через меню браузера');
+          setIsExporting(false);
+          return;
+        }
+      } catch (e) {
+        console.error('Open in new tab failed:', e);
+      }
+      
+      // Метод 3: Показать модалку с инструкцией
       setPreviewImage(dataUrl);
       setShowFullscreenPreview(true);
+      setAlertMsg('Используйте скриншот для сохранения');
     } catch (error) {
       console.error('Export PNG error:', error);
-      setAlertMsg('Ошибка экспорта PNG');
+      setAlertMsg('Ошибка экспорта. Попробуйте скриншот.');
     }
+    setIsExporting(false);
     setShowExportMenu(false);
   };
 
   const handleExportPDF = async () => {
+    setIsExporting(true);
     try {
       const canvas = await generateCanvas();
       if (!canvas) return;
       const imgData = canvas.toDataURL('image/png');
-      
-      setPreviewImage(imgData);
-      setShowFullscreenPreview(true);
       
       if (!isVKMiniApp()) {
         const pdf = new jsPDF('landscape', 'mm', 'a4');
@@ -370,94 +362,17 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pageHeight - 20));
         pdf.save(`${currentProject.name}.pdf`);
         setAlertMsg('PDF сохранён ✅');
+      } else {
+        setPreviewImage(imgData);
+        setShowFullscreenPreview(true);
+        setAlertMsg('В мини-апе используйте скриншот');
       }
     } catch (error) {
       console.error('Export PDF error:', error);
-      setAlertMsg('Ошибка экспорта PDF');
+      setAlertMsg('Ошибка экспорта');
     }
+    setIsExporting(false);
     setShowExportMenu(false);
-  };
-
-  const handleOpenInNewTab = () => {
-    if (!previewImage) return;
-    
-    try {
-      // Открываем data URL в новой вкладке
-      const newWindow = window.open(previewImage, '_blank');
-      if (!newWindow) {
-        // Если всплывающие окна заблокированы, используем location
-        window.location.href = previewImage;
-      }
-      setAlertMsg('Открыто в новой вкладке');
-    } catch (error) {
-      console.error('Open in new tab error:', error);
-      setAlertMsg('Не удалось открыть в новой вкладке');
-    }
-  };
-
-  const handleShareImage = async () => {
-    if (!previewImage) return;
-    
-    try {
-      // Пробуем VK Bridge
-      if (isVKMiniApp() && window.vkBridge) {
-        try {
-          await window.vkBridge.send('VKWebAppShare', {
-            link: previewImage,
-          });
-          setAlertMsg('Отправлено ✅');
-          return;
-        } catch (vkError) {
-          console.error('VK Bridge share error:', vkError);
-        }
-      }
-      
-      // Web Share API
-      const response = await fetch(previewImage);
-      const blob = await response.blob();
-      const file = new File([blob], `${currentProject.name}.png`, { type: 'image/png' });
-      
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: currentProject.name,
-          text: 'Визуальное расписание',
-        });
-        setAlertMsg('Отправлено ✅');
-      } else {
-        setAlertMsg('Функция «Поделиться» недоступна. Используйте скриншот.');
-        setShowScreenshotGuide(true);
-      }
-    } catch (error) {
-      console.error('Share error:', error);
-      setAlertMsg('Не удалось поделиться');
-      setShowScreenshotGuide(true);
-    }
-  };
-
-  const handleCopyImage = async () => {
-    if (!previewImage) return;
-    
-    try {
-      const response = await fetch(previewImage);
-      const blob = await response.blob();
-      
-      if (navigator.clipboard && navigator.clipboard.write) {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            [blob.type]: blob,
-          }),
-        ]);
-        setAlertMsg('Изображение скопировано ✅');
-      } else {
-        setAlertMsg('Копирование недоступно. Используйте скриншот.');
-        setShowScreenshotGuide(true);
-      }
-    } catch (error) {
-      console.error('Copy error:', error);
-      setAlertMsg('Не удалось скопировать');
-      setShowScreenshotGuide(true);
-    }
   };
 
   const handleSaveProject = () => {
@@ -634,21 +549,28 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               onClick={() => setShowExportMenu(!showExportMenu)}
               className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
               title="Экспорт"
+              disabled={isExporting}
             >
-              <Download className="w-5 h-5" />
+              {isExporting ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Download className="w-5 h-5" />
+              )}
             </button>
             {showExportMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-purple-200 py-1 z-30">
                 <button
                   onClick={handleExportPNG}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2"
+                  disabled={isExporting}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2 disabled:opacity-50"
                 >
                   <FileImage className="w-4 h-4 text-purple-600" />
                   Скачать PNG
                 </button>
                 <button
                   onClick={handleExportPDF}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2"
+                  disabled={isExporting}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2 disabled:opacity-50"
                 >
                   <FileDown className="w-4 h-4 text-purple-600" />
                   Скачать PDF
@@ -769,34 +691,141 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
               <li>• Наведите на ячейку — появятся кнопки действий</li>
               <li>• Переключайте язык RU/EN в шапке</li>
-              <li>• 📱 В мини-апе VK: используйте «Скриншот» для сохранения</li>
-              <li>• 💻 На компьютере: PNG/PDF скачиваются автоматически</li>
+              <li>• 📱 В мини-апе: используйте скриншот для сохранения</li>
+              <li>• 💻 На компьютере: файл скачивается автоматически</li>
             </ul>
-          </div>
-
-          {/* Сценарии */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <button
-              onClick={() => setShowScenarios(!showScenarios)}
-              className="w-full px-4 py-3 flex items-center justify-between gap-2"
-            >
-              <div className="flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-amber-500" />
-                <h3 className="font-bold text-purple-700 text-sm">Сценарии использования</h3>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showScenarios ? 'rotate-180' : ''}`} />
-            </button>
-            {showScenarios && (
-              <div className="px-4 pb-4 space-y-3 text-sm text-gray-700">
-                <div className="bg-purple-50 rounded-xl p-3">
-                  <p className="font-bold text-purple-800 mb-1">🧩 Расписание дня для ребёнка с РАС</p>
-                  <p className="text-xs leading-relaxed">Создайте линейное расписание на 5–7 ячеек: проснулся → завтрак → школа → обед → прогулка → дом → сон. Используйте конкретные фото ребёнка и знакомых мест. Повесьте на уровне глаз. Перемещайте «галочку» по мере выполнения — это снижает тревожность и формирует предсказуемость.</p>
-                </div>
-              </div>
-            )}
           </div>
         </section>
       </main>
+
+      {/* Полноэкранная модалка превью */}
+      {showFullscreenPreview && previewImage && (
+        <div className="fixed inset-0 z-[60] bg-black flex flex-col">
+          <div className="flex items-center justify-between p-4 bg-black/80">
+            <h2 className="text-white font-bold text-lg">Сохранить расписание</h2>
+            <button
+              onClick={() => setShowFullscreenPreview(false)}
+              className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-100">
+            <img 
+              src={previewImage} 
+              alt="Расписание" 
+              className="max-w-full max-h-full object-contain shadow-2xl"
+            />
+          </div>
+
+          <div className="p-4 bg-white border-t border-gray-200 space-y-3">
+            <button
+              onClick={() => setShowScreenshotGuide(true)}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+            >
+              <Camera className="w-5 h-5" />
+              Как сохранить (инструкция)
+            </button>
+            
+            <button
+              onClick={() => setShowFullscreenPreview(false)}
+              className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка инструкции по скриншоту */}
+      {showScreenshotGuide && (
+        <div className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-purple-700 flex items-center gap-2">
+                <Smartphone className="w-5 h-5" />
+                Как сохранить изображение
+              </h3>
+              <button
+                onClick={() => setShowScreenshotGuide(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                <p className="font-bold text-amber-800 mb-2">⚠️ Важно:</p>
+                <p className="text-sm text-gray-700">
+                  В мини-апе ВКонтакте прямое скачивание файлов ограничено. Используйте один из способов ниже:
+                </p>
+              </div>
+
+              {isIOS() ? (
+                <div className="bg-blue-50 rounded-xl p-4">
+                  <p className="font-bold text-blue-800 mb-2">📱 Способ 1: Скриншот на iPhone</p>
+                  <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+                    <li>Нажмите <strong>боковую кнопку</strong> и <strong>кнопку громкости вверх</strong> одновременно</li>
+                    <li>Отпустите обе кнопки</li>
+                    <li>Нажмите на появившийся скриншот в левом нижнем углу</li>
+                    <li>Обрежьте лишние края</li>
+                    <li>Нажмите «Готово» → «Сохранить в Фото»</li>
+                  </ol>
+                </div>
+              ) : (
+                <div className="bg-green-50 rounded-xl p-4">
+                  <p className="font-bold text-green-800 mb-2">📱 Способ 1: Скриншот на Android</p>
+                  <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+                    <li>Нажмите <strong>кнопку питания</strong> и <strong>кнопку громкости вниз</strong> одновременно</li>
+                    <li>Отпустите обе кнопки</li>
+                    <li>Нажмите на появившийся скриншот</li>
+                    <li>Обрежьте лишние края</li>
+                    <li>Нажмите «Сохранить»</li>
+                  </ol>
+                </div>
+              )}
+
+              <div className="bg-purple-50 rounded-xl p-4">
+                <p className="font-bold text-purple-800 mb-2">💡 Способ 2: Открыть в браузере</p>
+                <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+                  <li>Нажмите кнопку «Открыть» ниже</li>
+                  <li>Изображение откроется в новой вкладке</li>
+                  <li>Долгое нажатие на картинку → «Сохранить изображение»</li>
+                </ol>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="font-bold text-gray-800 mb-2">📤 Способ 3: Отправить себе</p>
+                <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+                  <li>Сделайте скриншот</li>
+                  <li>Отправьте его себе в «Сообщения» ВК</li>
+                  <li>Откройте сообщение и сохраните изображение</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  window.open(previewImage || '', '_blank');
+                }}
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-5 h-5" />
+                Открыть
+              </button>
+              <button
+                onClick={() => setShowScreenshotGuide(false)}
+                className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold"
+              >
+                Понятно
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Модалка проектов */}
       {showProjects && (
@@ -881,123 +910,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 Сохранить
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Полноэкранная модалка превью */}
-      {showFullscreenPreview && previewImage && (
-        <div className="fixed inset-0 z-[60] bg-black flex flex-col">
-          <div className="flex items-center justify-between p-4 bg-black/80">
-            <h2 className="text-white font-bold text-lg">Сохранить расписание</h2>
-            <button
-              onClick={() => setShowFullscreenPreview(false)}
-              className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          
-          <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-100">
-            <img 
-              src={previewImage} 
-              alt="Расписание" 
-              className="max-w-full max-h-full object-contain shadow-2xl"
-            />
-          </div>
-
-          <div className="p-4 bg-white border-t border-gray-200 space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setShowScreenshotGuide(true)}
-                className="py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex flex-col items-center gap-1"
-              >
-                <Camera className="w-5 h-5" />
-                <span className="text-xs">Скриншот</span>
-              </button>
-              <button
-                onClick={handleOpenInNewTab}
-                className="py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex flex-col items-center gap-1"
-              >
-                <ExternalLink className="w-5 h-5" />
-                <span className="text-xs">Открыть</span>
-              </button>
-            </div>
-            
-            <button
-              onClick={() => setShowFullscreenPreview(false)}
-              className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold"
-            >
-              Закрыть
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Модалка инструкции по скриншоту */}
-      {showScreenshotGuide && (
-        <div className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-purple-700 flex items-center gap-2">
-                <Camera className="w-5 h-5" />
-                Как сделать скриншот
-              </h3>
-              <button
-                onClick={() => setShowScreenshotGuide(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {isIOS() ? (
-                <>
-                  <div className="bg-blue-50 rounded-xl p-4">
-                    <p className="font-bold text-blue-800 mb-2">📱 iPhone/iPad:</p>
-                    <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
-                      <li>Нажмите <strong>боковую кнопку</strong> и <strong>кнопку увеличения громкости</strong> одновременно</li>
-                      <li>Отпустите обе кнопки</li>
-                      <li>Скриншот сохранится в приложении «Фото»</li>
-                    </ol>
-                  </div>
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <p className="font-bold text-gray-800 mb-2">Для старых iPhone (с кнопкой Home):</p>
-                    <p className="text-sm text-gray-700">Нажмите <strong>боковую кнопку</strong> и <strong>кнопку Home</strong> одновременно</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="bg-green-50 rounded-xl p-4">
-                    <p className="font-bold text-green-800 mb-2">📱 Android:</p>
-                    <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
-                      <li>Нажмите <strong>кнопку питания</strong> и <strong>кнопку уменьшения громкости</strong> одновременно</li>
-                      <li>Отпустите обе кнопки</li>
-                      <li>Скриншот сохранится в галерее</li>
-                    </ol>
-                  </div>
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <p className="font-bold text-gray-800 mb-2">Альтернатива для Android:</p>
-                    <p className="text-sm text-gray-700">Смахните вниз от верхнего края экрана → нажмите иконку <strong>«Скриншот»</strong> в быстрых настройках</p>
-                  </div>
-                </>
-              )}
-
-              <div className="bg-purple-50 rounded-xl p-4">
-                <p className="font-bold text-purple-800 mb-2">💡 Совет:</p>
-                <p className="text-sm text-gray-700">
-                  После скриншота вы можете обрезать лишние края в редакторе фото и отправить картинку в мессенджер или сохранить в галерею.
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowScreenshotGuide(false)}
-              className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold"
-            >
-              Понятно
-            </button>
           </div>
         </div>
       )}
