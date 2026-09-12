@@ -116,6 +116,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [dragOverCellId, setDragOverCellId] = useState<string | null>(null);
   const [showFaq, setShowFaq] = useState(false);
   const [showScenarios, setShowScenarios] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -127,6 +129,18 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   useEffect(() => {
     saveProjects(projects);
   }, [projects]);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const ua = navigator.userAgent || '';
+      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) 
+        || ('ontouchstart' in window && window.innerWidth < 1024);
+      setIsMobile(mobile);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -262,45 +276,78 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     }));
   };
 
+  const generateCanvas = async () => {
+    if (!scheduleRef.current) return null;
+    return await html2canvas(scheduleRef.current, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+  };
+
   const handleExportPNG = async () => {
-    if (!scheduleRef.current) return;
     try {
-      const canvas = await html2canvas(scheduleRef.current, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-      });
-      const link = document.createElement('a');
-      link.download = `${currentProject.name}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-      setAlertMsg('PNG сохранён ✅');
+      const canvas = await generateCanvas();
+      if (!canvas) return;
+      const dataUrl = canvas.toDataURL('image/png');
+      
+      if (isMobile) {
+        setPreviewImage(dataUrl);
+        setAlertMsg('Долгое нажатие на картинку → «Сохранить изображение»');
+      } else {
+        const link = document.createElement('a');
+        link.download = `${currentProject.name}.png`;
+        link.href = dataUrl;
+        link.click();
+        setAlertMsg('PNG сохранён ✅');
+      }
     } catch (error) {
+      console.error('Export PNG error:', error);
       setAlertMsg('Ошибка экспорта PNG');
     }
     setShowExportMenu(false);
   };
 
   const handleExportPDF = async () => {
-    if (!scheduleRef.current) return;
     try {
-      const canvas = await html2canvas(scheduleRef.current, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-      });
+      const canvas = await generateCanvas();
+      if (!canvas) return;
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('landscape', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth - 20;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pageHeight - 20));
-      pdf.save(`${currentProject.name}.pdf`);
-      setAlertMsg('PDF сохранён ✅');
+      if (isMobile) {
+        setPreviewImage(imgData);
+        setAlertMsg('Долгое нажатие на картинку → «Сохранить». Затем откройте в PDF-конвертере или отправьте в мессенджер.');
+      } else {
+        const pdf = new jsPDF('landscape', 'mm', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = pageWidth - 20;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pageHeight - 20));
+        pdf.save(`${currentProject.name}.pdf`);
+        setAlertMsg('PDF сохранён ✅');
+      }
     } catch (error) {
+      console.error('Export PDF error:', error);
       setAlertMsg('Ошибка экспорта PDF');
     }
     setShowExportMenu(false);
+  };
+
+  const handleDownloadPreview = () => {
+    if (!previewImage) return;
+    try {
+      const link = document.createElement('a');
+      link.download = `${currentProject.name}.png`;
+      link.href = previewImage;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error('Download error:', e);
+    }
   };
 
   const handleSaveProject = () => {
@@ -601,7 +648,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
               <li>• Наведите на ячейку — появятся кнопки действий</li>
               <li>• Переключайте язык RU/EN в шапке</li>
-              <li>• Экспортируйте в PNG для доски или PDF для печати</li>
+              <li>• 📱 На телефоне: долгое нажатие на картинку → «Сохранить»</li>
+              <li>• 💻 На компьютере: PNG/PDF скачиваются автоматически</li>
             </ul>
           </div>
 
@@ -798,6 +846,47 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 Сохранить
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка превью изображения для мобильных */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4">
+          <div className="w-full max-w-2xl flex flex-col items-center gap-4">
+            <div className="text-white text-center space-y-1">
+              <p className="text-lg font-bold">📱 Долгое нажатие на картинку</p>
+              <p className="text-sm text-gray-300">Выберите «Сохранить изображение» или «Добавить в фото»</p>
+            </div>
+            
+            <div className="relative w-full max-h-[70vh] flex items-center justify-center bg-white rounded-xl overflow-hidden shadow-2xl">
+              <img 
+                src={previewImage} 
+                alt="Расписание" 
+                className="max-w-full max-h-[70vh] object-contain"
+                draggable={false}
+              />
+            </div>
+
+            <div className="flex gap-3 w-full max-w-md">
+              <button
+                onClick={handleDownloadPreview}
+                className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                Скачать
+              </button>
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="flex-1 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-semibold"
+              >
+                Закрыть
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-400 text-center max-w-sm">
+              Если скачивание не работает — сделайте скриншот экрана или отправьте картинку в мессенджер через кнопку «Поделиться»
+            </p>
           </div>
         </div>
       )}
