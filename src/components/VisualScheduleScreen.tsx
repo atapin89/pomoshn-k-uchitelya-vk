@@ -106,12 +106,43 @@ function createEmptyCells(template: TemplateType): ScheduleCell[] {
   }));
 }
 
-function isVKMiniApp(): boolean {
-  return typeof window !== 'undefined' && !!window.vkBridge;
+// Надежное определение WebView (VK, Telegram, Instagram и т.д.)
+function isWebView(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const ua = navigator.userAgent || '';
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  
+  // Признаки WebView
+  const webviewIndicators = [
+    'wv',           // Android WebView
+    'WebView',      // Общая метка
+    'vkclient',     // VK клиент
+    'vkandroidapp', // VK Android
+    'Telegram',     // Telegram
+    'Instagram',    // Instagram
+  ];
+  
+  const hasWebviewIndicator = webviewIndicators.some(ind => ua.includes(ind));
+  
+  // VK Bridge доступен
+  const hasVKBridge = !!window.vkBridge;
+  
+  // В мобильном браузере, но без признаков полноценного браузера
+  const isStandalone = (window.navigator as any).standalone === true;
+  const isInAppBrowser = isMobile && (hasWebviewIndicator || hasVKBridge) && !isStandalone;
+  
+  return isInAppBrowser || hasVKBridge;
 }
 
 function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
+function isDesktop(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth >= 1024 && !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
 // ===== КОМПОНЕНТ =====
@@ -303,43 +334,44 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setIsExporting(true);
     try {
       const canvas = await generateCanvas();
-      if (!canvas) return;
+      if (!canvas) {
+        setAlertMsg('Не удалось создать изображение');
+        setIsExporting(false);
+        setShowExportMenu(false);
+        return;
+      }
       const dataUrl = canvas.toDataURL('image/png');
       
-      // Метод 1: Прямое скачивание через link
+      // Если в WebView (VK, Telegram и т.д.) — сразу показываем модалку с инструкцией
+      if (isWebView()) {
+        setPreviewImage(dataUrl);
+        setShowFullscreenPreview(true);
+        setAlertMsg('Для сохранения используйте скриншот экрана');
+        setIsExporting(false);
+        setShowExportMenu(false);
+        return;
+      }
+      
+      // На десктопе/обычном браузере — пробуем скачать
       try {
         const link = document.createElement('a');
         link.download = `${currentProject.name}.png`;
         link.href = dataUrl;
+        link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        setAlertMsg('Файл скачивается...');
-        setIsExporting(false);
-        return;
+        setAlertMsg('PNG сохранён ✅');
       } catch (e) {
-        console.error('Direct download failed:', e);
+        console.error('Download failed:', e);
+        // Если скачивание не сработало — показываем модалку
+        setPreviewImage(dataUrl);
+        setShowFullscreenPreview(true);
+        setAlertMsg('Не удалось скачать. Используйте скриншот.');
       }
-      
-      // Метод 2: Открыть в новой вкладке
-      try {
-        const newWindow = window.open(dataUrl, '_blank');
-        if (newWindow) {
-          setAlertMsg('Открыто в новой вкладке — сохраните через меню браузера');
-          setIsExporting(false);
-          return;
-        }
-      } catch (e) {
-        console.error('Open in new tab failed:', e);
-      }
-      
-      // Метод 3: Показать модалку с инструкцией
-      setPreviewImage(dataUrl);
-      setShowFullscreenPreview(true);
-      setAlertMsg('Используйте скриншот для сохранения');
     } catch (error) {
       console.error('Export PNG error:', error);
-      setAlertMsg('Ошибка экспорта. Попробуйте скриншот.');
+      setAlertMsg('Ошибка экспорта. Попробуйте ещё раз.');
     }
     setIsExporting(false);
     setShowExportMenu(false);
@@ -349,23 +381,37 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setIsExporting(true);
     try {
       const canvas = await generateCanvas();
-      if (!canvas) return;
+      if (!canvas) {
+        setAlertMsg('Не удалось создать изображение');
+        setIsExporting(false);
+        setShowExportMenu(false);
+        return;
+      }
       const imgData = canvas.toDataURL('image/png');
       
-      if (!isVKMiniApp()) {
-        const pdf = new jsPDF('landscape', 'mm', 'a4');
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pageWidth - 20;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pageHeight - 20));
-        pdf.save(`${currentProject.name}.pdf`);
-        setAlertMsg('PDF сохранён ✅');
-      } else {
+      // В WebView показываем модалку
+      if (isWebView()) {
         setPreviewImage(imgData);
         setShowFullscreenPreview(true);
-        setAlertMsg('В мини-апе используйте скриншот');
+        setAlertMsg('Для сохранения используйте скриншот экрана');
+      } else {
+        // На десктопе создаём PDF
+        try {
+          const pdf = new jsPDF('landscape', 'mm', 'a4');
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          const imgWidth = pageWidth - 20;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          
+          pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pageHeight - 20));
+          pdf.save(`${currentProject.name}.pdf`);
+          setAlertMsg('PDF сохранён ✅');
+        } catch (e) {
+          console.error('PDF creation failed:', e);
+          setPreviewImage(imgData);
+          setShowFullscreenPreview(true);
+          setAlertMsg('Не удалось создать PDF. Используйте скриншот.');
+        }
       }
     } catch (error) {
       console.error('Export PDF error:', error);
@@ -691,8 +737,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
               <li>• Наведите на ячейку — появятся кнопки действий</li>
               <li>• Переключайте язык RU/EN в шапке</li>
-              <li>• 📱 В мини-апе: используйте скриншот для сохранения</li>
-              <li>• 💻 На компьютере: файл скачивается автоматически</li>
+              <li>• 📱 В мини-апе: откроется картинка для скриншота</li>
+              <li>• 💻 На компьютере: PNG/PDF скачиваются автоматически</li>
             </ul>
           </div>
         </section>
@@ -729,6 +775,23 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             </button>
             
             <button
+              onClick={() => {
+                try {
+                  const newWindow = window.open(previewImage || '', '_blank');
+                  if (!newWindow) {
+                    window.location.href = previewImage || '';
+                  }
+                } catch (e) {
+                  console.error('Open failed:', e);
+                }
+              }}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+            >
+              <ExternalLink className="w-5 h-5" />
+              Открыть в браузере
+            </button>
+            
+            <button
               onClick={() => setShowFullscreenPreview(false)}
               className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold"
             >
@@ -759,7 +822,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                 <p className="font-bold text-amber-800 mb-2">⚠️ Важно:</p>
                 <p className="text-sm text-gray-700">
-                  В мини-апе ВКонтакте прямое скачивание файлов ограничено. Используйте один из способов ниже:
+                  Встроенный браузер ВК не позволяет напрямую скачивать файлы. Используйте один из способов ниже:
                 </p>
               </div>
 
@@ -790,7 +853,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <div className="bg-purple-50 rounded-xl p-4">
                 <p className="font-bold text-purple-800 mb-2">💡 Способ 2: Открыть в браузере</p>
                 <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
-                  <li>Нажмите кнопку «Открыть» ниже</li>
+                  <li>Нажмите кнопку «Открыть в браузере» ниже</li>
                   <li>Изображение откроется в новой вкладке</li>
                   <li>Долгое нажатие на картинку → «Сохранить изображение»</li>
                 </ol>
@@ -809,7 +872,14 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             <div className="flex gap-2">
               <button
                 onClick={() => {
-                  window.open(previewImage || '', '_blank');
+                  try {
+                    const newWindow = window.open(previewImage || '', '_blank');
+                    if (!newWindow) {
+                      window.location.href = previewImage || '';
+                    }
+                  } catch (e) {
+                    console.error('Open failed:', e);
+                  }
                 }}
                 className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
               >
