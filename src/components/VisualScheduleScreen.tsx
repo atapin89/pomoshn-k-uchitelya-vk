@@ -21,7 +21,8 @@ import {
   Lightbulb,
   Share2,
   Copy,
-  Maximize2,
+  Camera,
+  ExternalLink,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -110,6 +111,10 @@ function isVKMiniApp(): boolean {
   return typeof window !== 'undefined' && !!window.vkBridge;
 }
 
+function isIOS(): boolean {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
 // ===== КОМПОНЕНТ =====
 
 export default function VisualScheduleScreen({ onBack }: { onBack: () => void }) {
@@ -134,6 +139,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [showScenarios, setShowScenarios] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showFullscreenPreview, setShowFullscreenPreview] = useState(false);
+  const [showScreenshotGuide, setShowScreenshotGuide] = useState(false);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -299,9 +305,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       if (!canvas) return;
       const dataUrl = canvas.toDataURL('image/png');
       
-      // Пробуем VK Bridge API для мини-апа
+      // Пробуем различные методы сохранения
       if (isVKMiniApp() && window.vkBridge) {
         try {
+          // Метод 1: VKWebAppSaveFile
           const base64Data = dataUrl.split(',')[1];
           await window.vkBridge.send('VKWebAppSaveFile', {
             fileName: `${currentProject.name}.png`,
@@ -311,14 +318,32 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           setShowExportMenu(false);
           return;
         } catch (vkError) {
-          console.error('VK Bridge error:', vkError);
+          console.error('VK Bridge save error:', vkError);
         }
       }
       
-      // Fallback: открываем полноэкранную модалку
+      // Метод 2: Попробовать открыть в новой вкладке через location
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const url = URL.createObjectURL(blob);
+        
+        // Создаём временную ссылку и кликаем
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${currentProject.name}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        setAlertMsg('Если файл не скачался — используйте инструкцию ниже');
+      } catch (downloadError) {
+        console.error('Download error:', downloadError);
+      }
+      
+      // В любом случае показываем модалку с инструкцией
       setPreviewImage(dataUrl);
       setShowFullscreenPreview(true);
-      setAlertMsg('Нажмите «Поделиться» или скопируйте изображение');
     } catch (error) {
       console.error('Export PNG error:', error);
       setAlertMsg('Ошибка экспорта PNG');
@@ -332,14 +357,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       if (!canvas) return;
       const imgData = canvas.toDataURL('image/png');
       
-      // Для PDF всегда показываем модалку
       setPreviewImage(imgData);
       setShowFullscreenPreview(true);
       
-      if (isVKMiniApp()) {
-        setAlertMsg('Нажмите «Поделиться» для отправки в мессенджер или сохранения');
-      } else {
-        // На десктопе создаём PDF
+      if (!isVKMiniApp()) {
         const pdf = new jsPDF('landscape', 'mm', 'a4');
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
@@ -357,6 +378,23 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setShowExportMenu(false);
   };
 
+  const handleOpenInNewTab = () => {
+    if (!previewImage) return;
+    
+    try {
+      // Открываем data URL в новой вкладке
+      const newWindow = window.open(previewImage, '_blank');
+      if (!newWindow) {
+        // Если всплывающие окна заблокированы, используем location
+        window.location.href = previewImage;
+      }
+      setAlertMsg('Открыто в новой вкладке');
+    } catch (error) {
+      console.error('Open in new tab error:', error);
+      setAlertMsg('Не удалось открыть в новой вкладке');
+    }
+  };
+
   const handleShareImage = async () => {
     if (!previewImage) return;
     
@@ -364,7 +402,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       // Пробуем VK Bridge
       if (isVKMiniApp() && window.vkBridge) {
         try {
-          const base64Data = previewImage.split(',')[1];
           await window.vkBridge.send('VKWebAppShare', {
             link: previewImage,
           });
@@ -388,11 +425,13 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         });
         setAlertMsg('Отправлено ✅');
       } else {
-        setAlertMsg('Функция "Поделиться" недоступна. Скопируйте изображение.');
+        setAlertMsg('Функция «Поделиться» недоступна. Используйте скриншот.');
+        setShowScreenshotGuide(true);
       }
     } catch (error) {
       console.error('Share error:', error);
       setAlertMsg('Не удалось поделиться');
+      setShowScreenshotGuide(true);
     }
   };
 
@@ -411,11 +450,13 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         ]);
         setAlertMsg('Изображение скопировано ✅');
       } else {
-        setAlertMsg('Копирование недоступно в этом браузере');
+        setAlertMsg('Копирование недоступно. Используйте скриншот.');
+        setShowScreenshotGuide(true);
       }
     } catch (error) {
       console.error('Copy error:', error);
       setAlertMsg('Не удалось скопировать');
+      setShowScreenshotGuide(true);
     }
   };
 
@@ -728,12 +769,12 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
               <li>• Наведите на ячейку — появятся кнопки действий</li>
               <li>• Переключайте язык RU/EN в шапке</li>
-              <li>• 📱 В мини-апе VK: используйте «Поделиться» для сохранения</li>
+              <li>• 📱 В мини-апе VK: используйте «Скриншот» для сохранения</li>
               <li>• 💻 На компьютере: PNG/PDF скачиваются автоматически</li>
             </ul>
           </div>
 
-          {/* Сценарии и FAQ */}
+          {/* Сценарии */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <button
               onClick={() => setShowScenarios(!showScenarios)}
@@ -866,35 +907,97 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </div>
 
           <div className="p-4 bg-white border-t border-gray-200 space-y-3">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={handleShareImage}
+                onClick={() => setShowScreenshotGuide(true)}
                 className="py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex flex-col items-center gap-1"
               >
-                <Share2 className="w-5 h-5" />
-                <span className="text-xs">Поделиться</span>
+                <Camera className="w-5 h-5" />
+                <span className="text-xs">Скриншот</span>
               </button>
               <button
-                onClick={handleCopyImage}
+                onClick={handleOpenInNewTab}
                 className="py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex flex-col items-center gap-1"
               >
-                <Copy className="w-5 h-5" />
-                <span className="text-xs">Копировать</span>
-              </button>
-              <button
-                onClick={() => setShowFullscreenPreview(false)}
-                className="py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold flex flex-col items-center gap-1"
-              >
-                <X className="w-5 h-5" />
-                <span className="text-xs">Закрыть</span>
+                <ExternalLink className="w-5 h-5" />
+                <span className="text-xs">Открыть</span>
               </button>
             </div>
             
-            <p className="text-xs text-gray-500 text-center">
-              {isVKMiniApp() 
-                ? '📱 Нажмите «Поделиться» для отправки в мессенджер или сохранения'
-                : '💻 Нажмите «Копировать» и вставьте в нужное место'}
-            </p>
+            <button
+              onClick={() => setShowFullscreenPreview(false)}
+              className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка инструкции по скриншоту */}
+      {showScreenshotGuide && (
+        <div className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-purple-700 flex items-center gap-2">
+                <Camera className="w-5 h-5" />
+                Как сделать скриншот
+              </h3>
+              <button
+                onClick={() => setShowScreenshotGuide(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {isIOS() ? (
+                <>
+                  <div className="bg-blue-50 rounded-xl p-4">
+                    <p className="font-bold text-blue-800 mb-2">📱 iPhone/iPad:</p>
+                    <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+                      <li>Нажмите <strong>боковую кнопку</strong> и <strong>кнопку увеличения громкости</strong> одновременно</li>
+                      <li>Отпустите обе кнопки</li>
+                      <li>Скриншот сохранится в приложении «Фото»</li>
+                    </ol>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="font-bold text-gray-800 mb-2">Для старых iPhone (с кнопкой Home):</p>
+                    <p className="text-sm text-gray-700">Нажмите <strong>боковую кнопку</strong> и <strong>кнопку Home</strong> одновременно</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-green-50 rounded-xl p-4">
+                    <p className="font-bold text-green-800 mb-2">📱 Android:</p>
+                    <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+                      <li>Нажмите <strong>кнопку питания</strong> и <strong>кнопку уменьшения громкости</strong> одновременно</li>
+                      <li>Отпустите обе кнопки</li>
+                      <li>Скриншот сохранится в галерее</li>
+                    </ol>
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="font-bold text-gray-800 mb-2">Альтернатива для Android:</p>
+                    <p className="text-sm text-gray-700">Смахните вниз от верхнего края экрана → нажмите иконку <strong>«Скриншот»</strong> в быстрых настройках</p>
+                  </div>
+                </>
+              )}
+
+              <div className="bg-purple-50 rounded-xl p-4">
+                <p className="font-bold text-purple-800 mb-2">💡 Совет:</p>
+                <p className="text-sm text-gray-700">
+                  После скриншота вы можете обрезать лишние края в редакторе фото и отправить картинку в мессенджер или сохранить в галерею.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowScreenshotGuide(false)}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold"
+            >
+              Понятно
+            </button>
           </div>
         </div>
       )}
