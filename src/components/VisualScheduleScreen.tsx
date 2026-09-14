@@ -111,7 +111,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [showScenarios, setShowScenarios] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   
-  // 🆕 Режим предпросмотра
+  // Режим предпросмотра
   const [showPreview, setShowPreview] = useState(false);
   const [previewLanguage, setPreviewLanguage] = useState<Language>('ru');
   const [editingPreviewCellId, setEditingPreviewCellId] = useState<string | null>(null);
@@ -223,7 +223,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     }
   };
 
-  // 🆕 Редактирование подписи в режиме предпросмотра
   const handlePreviewEditLabel = (cellId: string) => {
     const cell = currentProject.cells.find(c => c.id === cellId);
     if (!cell) return;
@@ -279,29 +278,25 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     }));
   };
 
-  // 🆕 Открыть режим предпросмотра
   const handleOpenPreview = () => {
     setPreviewLanguage(currentProject.language);
     setShowPreview(true);
   };
 
-  // 🆕 Генерация canvas с правильными пропорциями для A4
   const generatePreviewCanvas = async () => {
     if (!previewRef.current) return null;
 
-    // Временно увеличиваем размер для лучшего качества
     const originalTransform = previewRef.current.style.transform;
     previewRef.current.style.transform = 'scale(1)';
 
     const canvas = await html2canvas(previewRef.current, {
       backgroundColor: '#ffffff',
-      scale: 2, // Меньше scale для стабильности
+      scale: 2,
       useCORS: true,
       allowTaint: true,
       logging: false,
       imageTimeout: 15000,
       ignoreElements: (element) => {
-        // Скрываем элементы управления в превью
         return element.classList?.contains('preview-controls') || false;
       },
     });
@@ -310,7 +305,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     return canvas;
   };
 
-  // 🆕 Экспорт в PDF
   const handleExportPDF = async () => {
     if (isExporting) return;
     setIsExporting(true);
@@ -325,17 +319,14 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
       const imgData = canvas.toDataURL('image/png', 0.95);
       
-      // A4 альбомная: 297 × 210 мм
       const pdf = new jsPDF('landscape', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       
-      // Оставляем поля 15мм с каждой стороны
       const margin = 15;
       const maxWidth = pageWidth - margin * 2;
       const maxHeight = pageHeight - margin * 2;
       
-      // Сохраняем пропорции
       const aspectRatio = canvas.width / canvas.height;
       let imgWidth = maxWidth;
       let imgHeight = imgWidth / aspectRatio;
@@ -345,7 +336,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         imgWidth = imgHeight * aspectRatio;
       }
       
-      // Центрируем на странице
       const x = (pageWidth - imgWidth) / 2;
       const y = (pageHeight - imgHeight) / 2;
 
@@ -392,7 +382,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setIsExporting(false);
   };
 
-  // 🆕 Печать
   const handlePrint = async () => {
     try {
       const canvas = await generatePreviewCanvas();
@@ -429,7 +418,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     }
   };
 
-  // 🆕 Поделиться (Web Share API)
   const handleShare = async () => {
     try {
       const canvas = await generatePreviewCanvas();
@@ -503,7 +491,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setShowProjects(false);
   };
 
-  // Рендер ячейки для основного редактора
+  // ✅ ИСПРАВЛЕНО: Разделение на зоны картинка/текст
   const renderCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[currentProject.language] : '');
@@ -515,7 +503,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         onDragOver={(e) => handleDragOver(e, cell.id)}
         onDragLeave={handleDragLeave}
         onDrop={() => handleDrop(cell.id)}
-        className={`relative aspect-square rounded-xl border-2 border-dashed transition-all overflow-hidden ${
+        className={`relative aspect-square rounded-xl border-2 border-dashed transition-all overflow-hidden flex flex-col ${
           isDragOver ? 'border-purple-500 bg-purple-100 scale-105' : 'border-purple-200 bg-white'
         } ${cell.type !== 'empty' ? 'border-solid' : ''}`}
       >
@@ -524,55 +512,89 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             <Plus className="w-6 h-6" />
           </div>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center p-1.5 relative group">
-            {cell.type === 'pictogram' && pictogram && (
-              <span className="text-4xl sm:text-5xl select-none flex-shrink-0">{pictogram.emoji}</span>
-            )}
-            {cell.type === 'image' && cell.imageData && (
-              <img src={cell.imageData} alt="" className="w-full h-full object-contain rounded-lg" />
-            )}
+          <>
+            {/* ЗОНА 1: Картинка/эмодзи (70% высоты) */}
+            <div className="flex-[7] flex items-center justify-center overflow-hidden px-1 pt-1 relative group">
+              {cell.type === 'pictogram' && pictogram && (
+                <span 
+                  className="select-none leading-none"
+                  style={{ 
+                    fontSize: 'clamp(28px, 5vw, 48px)',
+                    lineHeight: 1,
+                  }}
+                >
+                  {pictogram.emoji}
+                </span>
+              )}
+              {cell.type === 'image' && cell.imageData && (
+                <img 
+                  src={cell.imageData} 
+                  alt="" 
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              )}
+            </div>
+
+            {/* ЗОНА 2: Текст подписи (30% высоты) */}
             {label && (
-              <p
-                className="text-xs sm:text-sm font-semibold text-gray-700 text-center mt-1 w-full px-1"
-                style={{
-                  wordBreak: 'break-word',
-                  overflowWrap: 'break-word',
-                }}
-              >
-                {label}
-              </p>
+              <div className="flex-[3] flex items-center justify-center px-1.5 pb-1.5 border-t border-gray-100">
+                <p
+                  className="text-[10px] sm:text-xs font-semibold text-gray-700 text-center w-full leading-tight"
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {label}
+                </p>
+              </div>
             )}
 
-            <div className="action-buttons-overlay absolute top-[50pt] right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Кнопки действий */}
+            <div className="action-buttons-overlay absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
               <button
-                onClick={() => handleEditLabel(cell.id, cell.customLabel)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditLabel(cell.id, cell.customLabel);
+                }}
                 className="p-1 bg-white rounded-full shadow hover:bg-purple-50"
                 title="Подпись"
               >
                 <Languages className="w-3 h-3 text-purple-600" />
               </button>
               <button
-                onClick={() => handleUploadImage(cell.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUploadImage(cell.id);
+                }}
                 className="p-1 bg-white rounded-full shadow hover:bg-purple-50"
                 title="Загрузить фото"
               >
                 <Image className="w-3 h-3 text-purple-600" />
               </button>
               <button
-                onClick={() => handleClearCell(cell.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearCell(cell.id);
+                }}
                 className="p-1 bg-white rounded-full shadow hover:bg-red-50"
                 title="Очистить"
               >
                 <Trash2 className="w-3 h-3 text-red-500" />
               </button>
             </div>
-          </div>
+          </>
         )}
       </div>
     );
   };
 
-  // 🆕 Рендер ячейки для предпросмотра (с пропорциями A4)
+  // ✅ ИСПРАВЛЕНО: Разделение на зоны картинка/текст для предпросмотра
   const renderPreviewCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[previewLanguage] : '');
@@ -580,7 +602,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     return (
       <div
         key={cell.id}
-        className="relative aspect-square rounded-2xl border-4 border-gray-300 bg-white overflow-hidden flex flex-col items-center justify-center p-4 hover:border-purple-500 cursor-pointer transition-colors group"
+        className="relative aspect-square rounded-2xl border-4 border-gray-300 bg-white overflow-hidden hover:border-purple-500 cursor-pointer transition-colors group flex flex-col"
         onClick={() => handlePreviewEditLabel(cell.id)}
       >
         {cell.type === 'empty' ? (
@@ -589,29 +611,53 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </div>
         ) : (
           <>
-            {cell.type === 'pictogram' && pictogram && (
-              <span className="text-7xl sm:text-8xl select-none mb-3">{pictogram.emoji}</span>
-            )}
-            {cell.type === 'image' && cell.imageData && (
-              <img src={cell.imageData} alt="" className="w-full h-3/4 object-contain rounded-xl mb-2" />
-            )}
+            {/* ЗОНА 1: Картинка/эмодзи (70% высоты) */}
+            <div className="flex-[7] flex items-center justify-center overflow-hidden px-2 pt-2">
+              {cell.type === 'pictogram' && pictogram && (
+                <span 
+                  className="select-none leading-none"
+                  style={{ 
+                    fontSize: 'clamp(48px, 8vw, 96px)',
+                    lineHeight: 1,
+                  }}
+                >
+                  {pictogram.emoji}
+                </span>
+              )}
+              {cell.type === 'image' && cell.imageData && (
+                <img 
+                  src={cell.imageData} 
+                  alt="" 
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              )}
+            </div>
+
+            {/* ЗОНА 2: Текст подписи (30% высоты) */}
             {label && (
-              <p
-                className="text-lg sm:text-xl font-semibold text-gray-800 text-center w-full px-2"
-                style={{
-                  wordBreak: 'break-word',
-                  overflowWrap: 'break-word',
-                }}
-              >
-                {label}
-              </p>
+              <div className="flex-[3] flex items-center justify-center px-3 pb-3 pt-1 border-t border-gray-100">
+                <p
+                  className="text-base sm:text-lg font-semibold text-gray-800 text-center w-full leading-tight"
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {label}
+                </p>
+              </div>
             )}
           </>
         )}
-        
+
         {/* Индикатор редактирования */}
         <div className="preview-controls absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="bg-purple-600 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+          <div className="bg-purple-600 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow-md">
             <Edit3 className="w-3 h-3" />
             Изменить
           </div>
@@ -638,7 +684,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     );
   };
 
-  // 🆕 Рендер предпросмотра (для PDF)
   const renderPreviewSchedule = () => {
     const gridClass = {
       horizontal: 'grid-cols-4',
@@ -888,10 +933,9 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         </section>
       </main>
 
-      {/* 🆕 ПОЛНОЭКРАННЫЙ РЕЖИМ ПРЕДПРОСМОТРА */}
+      {/* ПОЛНОЭКРАННЫЙ РЕЖИМ ПРЕДПРОСМОТРА */}
       {showPreview && (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col">
-          {/* Панель управления превью */}
           <div className="bg-purple-700 px-4 py-3 flex items-center justify-between gap-3 shadow-md">
             <div className="flex items-center gap-3">
               <Maximize2 className="w-5 h-5 text-white" />
@@ -915,21 +959,18 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             </div>
           </div>
 
-          {/* Подсказка */}
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center">
             <p className="text-sm text-amber-800">
               💡 <strong>Кликните на любую ячейку</strong>, чтобы изменить подпись перед экспортом
             </p>
           </div>
 
-          {/* Область предпросмотра (прокручиваемая) */}
           <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-start justify-center">
             <div className="bg-white rounded-2xl shadow-lg w-full max-w-[1200px] p-4">
               {renderPreviewSchedule()}
             </div>
           </div>
 
-          {/* Панель действий */}
           <div className="bg-white border-t border-gray-200 p-4 shadow-lg">
             <div className="max-w-[1200px] mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
               <button
