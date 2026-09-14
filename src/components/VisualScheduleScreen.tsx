@@ -17,6 +17,10 @@ import {
   ChevronDown,
   HelpCircle,
   Lightbulb,
+  Printer,
+  Edit3,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -106,8 +110,14 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [showFaq, setShowFaq] = useState(false);
   const [showScenarios, setShowScenarios] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  
+  // 🆕 Режим предпросмотра
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLanguage, setPreviewLanguage] = useState<Language>('ru');
+  const [editingPreviewCellId, setEditingPreviewCellId] = useState<string | null>(null);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadTargetCellId, setUploadTargetCellId] = useState<string | null>(null);
 
@@ -213,6 +223,29 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     }
   };
 
+  // 🆕 Редактирование подписи в режиме предпросмотра
+  const handlePreviewEditLabel = (cellId: string) => {
+    const cell = currentProject.cells.find(c => c.id === cellId);
+    if (!cell) return;
+    const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
+    const currentLabel = cell.customLabel || (pictogram ? pictogram[previewLanguage] : '');
+    setEditingPreviewCellId(cellId);
+    setEditingLabel(currentLabel || '');
+  };
+
+  const handleSavePreviewLabel = () => {
+    if (editingPreviewCellId) {
+      setCurrentProject(prev => ({
+        ...prev,
+        cells: prev.cells.map(cell =>
+          cell.id === editingPreviewCellId ? { ...cell, customLabel: editingLabel } : cell
+        ),
+      }));
+      setEditingPreviewCellId(null);
+      setEditingLabel('');
+    }
+  };
+
   const handleUploadImage = (cellId: string) => {
     setUploadTargetCellId(cellId);
     fileInputRef.current?.click();
@@ -246,90 +279,77 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     }));
   };
 
-  // ⚡ ИСПРАВЛЕННАЯ функция: БЕЗ foreignObjectRendering, с правильной обработкой шрифтов
-  const generateCanvas = async () => {
-    if (!scheduleRef.current) return null;
+  // 🆕 Открыть режим предпросмотра
+  const handleOpenPreview = () => {
+    setPreviewLanguage(currentProject.language);
+    setShowPreview(true);
+  };
 
-    const UNICODE_FONTS = `
-      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 
-      'Noto Sans', 'Noto Sans Cyrillic', 'Apple Color Emoji', 'Segoe UI Emoji', 
-      'Segoe UI Symbol', 'Noto Color Emoji', sans-serif
-    `;
+  // 🆕 Генерация canvas с правильными пропорциями для A4
+  const generatePreviewCanvas = async () => {
+    if (!previewRef.current) return null;
 
-    return await html2canvas(scheduleRef.current, {
+    // Временно увеличиваем размер для лучшего качества
+    const originalTransform = previewRef.current.style.transform;
+    previewRef.current.style.transform = 'scale(1)';
+
+    const canvas = await html2canvas(previewRef.current, {
       backgroundColor: '#ffffff',
-      scale: 3,
+      scale: 2, // Меньше scale для стабильности
       useCORS: true,
       allowTaint: true,
       logging: false,
       imageTimeout: 15000,
-      // ВАЖНО: НЕ используем foreignObjectRendering — он создаёт пустой лист в WebView
-      // Скрываем кнопки действий (они не нужны в PDF)
       ignoreElements: (element) => {
-        // Скрываем кнопки с классом group-hover (действия)
-        if (element.classList && element.classList.contains('export-hide')) {
-          return true;
-        }
-        // Скрываем элементы с абсолютным позиционированием и кнопками
-        const style = window.getComputedStyle(element);
-        if (
-          style.position === 'absolute' &&
-          element.tagName === 'DIV' &&
-          element.querySelectorAll('button').length > 0
-        ) {
-          return true;
-        }
-        return false;
-      },
-      // Принудительно применяем шрифты к клону DOM перед рендером
-      onclone: (clonedDoc: Document, element: HTMLElement) => {
-        // Применяем Unicode-шрифт ко всем элементам
-        const allElements = element.querySelectorAll('*');
-        allElements.forEach((el) => {
-          const htmlEl = el as HTMLElement;
-          // Устанавливаем inline-стили для гарантированного применения
-          htmlEl.style.fontFamily = UNICODE_FONTS;
-          // Отключаем webkit-оптимизации, которые могут ломать рендер
-          htmlEl.style.webkitFontSmoothing = 'auto';
-          htmlEl.style.mozOsxFontSmoothing = 'auto';
-        });
-
-        // Скрываем кнопки действий в клоне
-        const actionButtons = element.querySelectorAll('.action-buttons-overlay');
-        actionButtons.forEach((btn) => {
-          (btn as HTMLElement).style.display = 'none';
-        });
+        // Скрываем элементы управления в превью
+        return element.classList?.contains('preview-controls') || false;
       },
     });
+
+    previewRef.current.style.transform = originalTransform;
+    return canvas;
   };
 
+  // 🆕 Экспорт в PDF
   const handleExportPDF = async () => {
     if (isExporting) return;
     setIsExporting(true);
 
     try {
-      const canvas = await generateCanvas();
-      if (!canvas) {
+      const canvas = await generatePreviewCanvas();
+      if (!canvas || canvas.width === 0 || canvas.height === 0) {
         setAlertMsg('Не удалось создать изображение');
         setIsExporting(false);
         return;
       }
 
-      // Проверяем, что canvas не пустой
-      if (canvas.width === 0 || canvas.height === 0) {
-        setAlertMsg('Пустое изображение. Попробуйте ещё раз.');
-        setIsExporting(false);
-        return;
-      }
-
-      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgData = canvas.toDataURL('image/png', 0.95);
+      
+      // A4 альбомная: 297 × 210 мм
       const pdf = new jsPDF('landscape', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pageWidth - 20;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Оставляем поля 15мм с каждой стороны
+      const margin = 15;
+      const maxWidth = pageWidth - margin * 2;
+      const maxHeight = pageHeight - margin * 2;
+      
+      // Сохраняем пропорции
+      const aspectRatio = canvas.width / canvas.height;
+      let imgWidth = maxWidth;
+      let imgHeight = imgWidth / aspectRatio;
+      
+      if (imgHeight > maxHeight) {
+        imgHeight = maxHeight;
+        imgWidth = imgHeight * aspectRatio;
+      }
+      
+      // Центрируем на странице
+      const x = (pageWidth - imgWidth) / 2;
+      const y = (pageHeight - imgHeight) / 2;
 
-      pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pageHeight - 20));
+      pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
 
       const pdfBlob = pdf.output('blob');
       const blobUrl = URL.createObjectURL(pdfBlob);
@@ -340,16 +360,14 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         const newWindow = window.open(blobUrl, '_blank');
         if (newWindow) {
           opened = true;
-          try {
-            newWindow.document.title = fileName;
-          } catch {}
+          try { newWindow.document.title = fileName; } catch {}
         }
       } catch (e) {
         console.error('Window open failed:', e);
       }
 
       if (opened) {
-        setAlertMsg('PDF открыт ✅ Используйте меню браузера для сохранения или отправки');
+        setAlertMsg('PDF открыт ✅ Используйте меню для сохранения');
         setTimeout(() => {
           try { URL.revokeObjectURL(blobUrl); } catch {}
         }, 10 * 60 * 1000);
@@ -368,10 +386,81 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       }
     } catch (error) {
       console.error('Export PDF error:', error);
-      setAlertMsg('Ошибка создания PDF. Попробуйте ещё раз.');
+      setAlertMsg('Ошибка создания PDF');
     }
 
     setIsExporting(false);
+  };
+
+  // 🆕 Печать
+  const handlePrint = async () => {
+    try {
+      const canvas = await generatePreviewCanvas();
+      if (!canvas) return;
+
+      const imgData = canvas.toDataURL('image/png');
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        setAlertMsg('Разрешите всплывающие окна для печати');
+        return;
+      }
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Печать - ${currentProject.name}</title>
+          <style>
+            @page { size: A4 landscape; margin: 10mm; }
+            body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+            img { max-width: 100%; max-height: 100vh; }
+            @media print { body { margin: 0; } }
+          </style>
+        </head>
+        <body>
+          <img src="${imgData}" onload="window.print(); window.close();" />
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } catch (error) {
+      console.error('Print error:', error);
+      setAlertMsg('Ошибка печати');
+    }
+  };
+
+  // 🆕 Поделиться (Web Share API)
+  const handleShare = async () => {
+    try {
+      const canvas = await generatePreviewCanvas();
+      if (!canvas) return;
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          setAlertMsg('Не удалось создать изображение');
+          return;
+        }
+
+        const file = new File([blob], `${currentProject.name}.png`, { type: 'image/png' });
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: currentProject.name,
+              text: 'Визуальное расписание',
+            });
+          } catch (err) {
+            console.error('Share cancelled:', err);
+          }
+        } else {
+          setAlertMsg('Функция «Поделиться» недоступна в этом браузере');
+        }
+      }, 'image/png');
+    } catch (error) {
+      console.error('Share error:', error);
+      setAlertMsg('Ошибка отправки');
+    }
   };
 
   const handleSaveProject = () => {
@@ -414,6 +503,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setShowProjects(false);
   };
 
+  // Рендер ячейки для основного редактора
   const renderCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[currentProject.language] : '');
@@ -436,25 +526,17 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center p-1.5 relative group">
             {cell.type === 'pictogram' && pictogram && (
-              <span className="text-4xl sm:text-5xl select-none flex-shrink-0" style={{ fontFamily: "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif" }}>
-                {pictogram.emoji}
-              </span>
+              <span className="text-4xl sm:text-5xl select-none flex-shrink-0">{pictogram.emoji}</span>
             )}
             {cell.type === 'image' && cell.imageData && (
               <img src={cell.imageData} alt="" className="w-full h-full object-contain rounded-lg" />
             )}
             {label && (
               <p
-                className="text-xs sm:text-sm font-semibold text-gray-700 text-center mt-1 w-full px-1 overflow-hidden"
+                className="text-xs sm:text-sm font-semibold text-gray-700 text-center mt-1 w-full px-1"
                 style={{
-                  display: '-webkit-box',
-                  WebkitLineClamp: 1,
-                  WebkitBoxOrient: 'vertical',
                   wordBreak: 'break-word',
                   overflowWrap: 'break-word',
-                  textOverflow: 'ellipsis',
-                  maxHeight: '1.5em',
-                  lineHeight: '1.2',
                 }}
               >
                 {label}
@@ -490,6 +572,54 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     );
   };
 
+  // 🆕 Рендер ячейки для предпросмотра (с пропорциями A4)
+  const renderPreviewCell = (cell: ScheduleCell) => {
+    const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
+    const label = cell.customLabel || (pictogram ? pictogram[previewLanguage] : '');
+
+    return (
+      <div
+        key={cell.id}
+        className="relative aspect-square rounded-2xl border-4 border-gray-300 bg-white overflow-hidden flex flex-col items-center justify-center p-4 hover:border-purple-500 cursor-pointer transition-colors group"
+        onClick={() => handlePreviewEditLabel(cell.id)}
+      >
+        {cell.type === 'empty' ? (
+          <div className="w-full h-full flex items-center justify-center text-gray-300">
+            <Plus className="w-16 h-16" />
+          </div>
+        ) : (
+          <>
+            {cell.type === 'pictogram' && pictogram && (
+              <span className="text-7xl sm:text-8xl select-none mb-3">{pictogram.emoji}</span>
+            )}
+            {cell.type === 'image' && cell.imageData && (
+              <img src={cell.imageData} alt="" className="w-full h-3/4 object-contain rounded-xl mb-2" />
+            )}
+            {label && (
+              <p
+                className="text-lg sm:text-xl font-semibold text-gray-800 text-center w-full px-2"
+                style={{
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word',
+                }}
+              >
+                {label}
+              </p>
+            )}
+          </>
+        )}
+        
+        {/* Индикатор редактирования */}
+        <div className="preview-controls absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="bg-purple-600 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+            <Edit3 className="w-3 h-3" />
+            Изменить
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderSchedule = () => {
     const gridClass = {
       horizontal: 'grid-cols-4',
@@ -502,11 +632,33 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       <div
         ref={scheduleRef}
         className={`grid ${gridClass} gap-2 p-4 bg-white rounded-2xl shadow-sm`}
-        style={{
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
-        }}
       >
         {currentProject.cells.map(renderCell)}
+      </div>
+    );
+  };
+
+  // 🆕 Рендер предпросмотра (для PDF)
+  const renderPreviewSchedule = () => {
+    const gridClass = {
+      horizontal: 'grid-cols-4',
+      vertical: 'grid-cols-2',
+      grid3: 'grid-cols-3',
+      grid4: 'grid-cols-4',
+    }[currentProject.template];
+
+    return (
+      <div
+        ref={previewRef}
+        className={`grid ${gridClass} gap-6 p-8 bg-white`}
+        style={{
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Noto Sans', sans-serif",
+          width: '100%',
+          maxWidth: '1200px',
+          margin: '0 auto',
+        }}
+      >
+        {currentProject.cells.map(renderPreviewCell)}
       </div>
     );
   };
@@ -547,15 +699,18 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             <Save className="w-5 h-5" />
           </button>
           <button
-            onClick={handleExportPDF}
+            onClick={handleOpenPreview}
             disabled={isExporting}
-            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg shrink-0 disabled:opacity-50"
-            title="Скачать PDF"
+            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg shrink-0 disabled:opacity-50 flex items-center gap-1"
+            title="Предпросмотр и экспорт"
           >
             {isExporting ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
-              <FileDown className="w-5 h-5" />
+              <>
+                <FileDown className="w-5 h-5" />
+                <span className="text-xs font-semibold hidden sm:inline">PDF</span>
+              </>
             )}
           </button>
           <button
@@ -667,10 +822,9 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             <ul className="text-xs text-gray-600 space-y-1">
               <li>• Перетащите пиктограмму из библиотеки в ячейку</li>
               <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
-              <li>• Наведите на ячейку — появятся кнопки действий</li>
-              <li>• Переключайте язык RU/EN в шапке</li>
-              <li>• 📥 Кнопка PDF открывает документ в новой вкладке</li>
-              <li>• 📱 В открывшемся PDF используйте меню для сохранения или отправки</li>
+              <li>• 📥 Кнопка «PDF» откроет режим предпросмотра с редактированием</li>
+              <li>• В предпросмотре кликните на ячейку для изменения подписи</li>
+              <li>• Экспортируйте в PDF, распечатайте или отправьте в мессенджер</li>
             </ul>
           </div>
 
@@ -689,35 +843,15 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <div className="px-4 pb-4 space-y-3 text-sm text-gray-700">
                 <div className="bg-purple-50 rounded-xl p-3">
                   <p className="font-bold text-purple-800 mb-1">🧩 Расписание дня для ребёнка с РАС</p>
-                  <p className="text-xs leading-relaxed">Создайте линейное расписание на 5–7 ячеек: проснулся → завтрак → школа → обед → прогулка → дом → сон.</p>
+                  <p className="text-xs leading-relaxed">Линейное расписание на 5–7 ячеек снижает тревожность и формирует предсказуемость.</p>
                 </div>
                 <div className="bg-blue-50 rounded-xl p-3">
                   <p className="font-bold text-blue-800 mb-1">🏫 Режим дня в детском саду</p>
-                  <p className="text-xs leading-relaxed">Сетка 3×3 для группы. Распечатайте на A4 и ламинируйте.</p>
+                  <p className="text-xs leading-relaxed">Сетка 3×3. Распечатайте на A4 и ламинируйте.</p>
                 </div>
                 <div className="bg-green-50 rounded-xl p-3">
                   <p className="font-bold text-green-800 mb-1">📝 Алгоритм выполнения задания</p>
-                  <p className="text-xs leading-relaxed">Вертикальное расписание на 4–6 шагов. Повесьте над партой.</p>
-                </div>
-                <div className="bg-amber-50 rounded-xl p-3">
-                  <p className="font-bold text-amber-800 mb-1">📅 Расписание уроков на неделю</p>
-                  <p className="text-xs leading-relaxed">Сетка 4×4: по строкам — дни недели, по столбцам — уроки.</p>
-                </div>
-                <div className="bg-pink-50 rounded-xl p-3">
-                  <p className="font-bold text-pink-800 mb-1">💬 Социальная история</p>
-                  <p className="text-xs leading-relaxed">Линейное расписание для подготовки к новому событию.</p>
-                </div>
-                <div className="bg-indigo-50 rounded-xl p-3">
-                  <p className="font-bold text-indigo-800 mb-1">🔄 Адаптация первоклассника</p>
-                  <p className="text-xs leading-relaxed">Создайте «Утро школьника»: ⏰ подъём → 🪥 зубы → 👕 форма → 🥣 завтрак → 🎒 портфель → 🏫 школа.</p>
-                </div>
-                <div className="bg-teal-50 rounded-xl p-3">
-                  <p className="font-bold text-teal-800 mb-1">🎯 Визуальная инструкция для кружка</p>
-                  <p className="text-xs leading-relaxed">Каждый шаг — пиктограмма + подпись. Дети работают по карточке самостоятельно.</p>
-                </div>
-                <div className="bg-orange-50 rounded-xl p-3">
-                  <p className="font-bold text-orange-800 mb-1">😊 Шкала эмоций и самопомощь</p>
-                  <p className="text-xs leading-relaxed">Сетка 3×3 с эмоциями + действия-помощники.</p>
+                  <p className="text-xs leading-relaxed">Вертикальное расписание на 4–6 шагов.</p>
                 </div>
               </div>
             )}
@@ -737,42 +871,145 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             {showFaq && (
               <div className="px-4 pb-4 space-y-3 text-sm">
                 <div>
-                  <p className="font-bold text-gray-800 mb-1">❓ Для какого возраста подходит визуальное расписание?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">От 2–3 лет до 10–12 лет. Для подростков с РАС и ОВЗ остаётся актуальным.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Можно ли использовать свои картинки?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да! Нажмите на ячейку → 🖼 → выберите фото с устройства.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Как распечатать расписание?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → используйте меню браузера для печати или сохранения.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → «Предпросмотр» → «Печать».</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как отправить расписание в родительский чат?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → используйте «Поделиться» в меню браузера.</p>
+                  <p className="font-bold text-gray-800 mb-1">❓ Можно ли изменить подписи перед экспортом?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да! В режиме предпросмотра кликните на любую ячейку — откроется редактор подписи.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Сохраняются ли мои проекты?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да, автоматически. Все проекты хранятся локально в браузере.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Сколько ячеек можно заполнить?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Линейный — до 8, сетка 3×3 — 9, сетка 4×4 — 16 ячеек.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Работает ли раздел без интернета?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да. Все пиктограммы — встроенные эмодзи.</p>
-                </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как использовать на интерактивной доске?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Откройте расписание прямо в браузере на проекторе.</p>
+                  <p className="font-bold text-gray-800 mb-1">❓ Как отправить расписание в чат?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре нажмите «Поделиться» → выберите мессенджер.</p>
                 </div>
               </div>
             )}
           </div>
         </section>
       </main>
+
+      {/* 🆕 ПОЛНОЭКРАННЫЙ РЕЖИМ ПРЕДПРОСМОТРА */}
+      {showPreview && (
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col">
+          {/* Панель управления превью */}
+          <div className="bg-purple-700 px-4 py-3 flex items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center gap-3">
+              <Maximize2 className="w-5 h-5 text-white" />
+              <h2 className="text-white font-bold text-lg">Предпросмотр и экспорт</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPreviewLanguage(previewLanguage === 'ru' ? 'en' : 'ru')}
+                className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-semibold flex items-center gap-1"
+              >
+                <Languages className="w-4 h-4" />
+                {previewLanguage === 'ru' ? 'RU' : 'EN'}
+              </button>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
+                title="Закрыть"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Подсказка */}
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center">
+            <p className="text-sm text-amber-800">
+              💡 <strong>Кликните на любую ячейку</strong>, чтобы изменить подпись перед экспортом
+            </p>
+          </div>
+
+          {/* Область предпросмотра (прокручиваемая) */}
+          <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-start justify-center">
+            <div className="bg-white rounded-2xl shadow-lg w-full max-w-[1200px] p-4">
+              {renderPreviewSchedule()}
+            </div>
+          </div>
+
+          {/* Панель действий */}
+          <div className="bg-white border-t border-gray-200 p-4 shadow-lg">
+            <div className="max-w-[1200px] mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <button
+                onClick={handleExportPDF}
+                disabled={isExporting}
+                className="py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex flex-col items-center justify-center gap-1 disabled:opacity-50 transition-colors"
+              >
+                {isExporting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <FileDown className="w-5 h-5" />
+                )}
+                <span className="text-xs">PDF</span>
+              </button>
+              <button
+                onClick={handlePrint}
+                disabled={isExporting}
+                className="py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex flex-col items-center justify-center gap-1 disabled:opacity-50 transition-colors"
+              >
+                <Printer className="w-5 h-5" />
+                <span className="text-xs">Печать</span>
+              </button>
+              <button
+                onClick={handleShare}
+                disabled={isExporting}
+                className="py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold flex flex-col items-center justify-center gap-1 disabled:opacity-50 transition-colors"
+              >
+                <Upload className="w-5 h-5" />
+                <span className="text-xs">Поделиться</span>
+              </button>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold flex flex-col items-center justify-center gap-1 transition-colors"
+              >
+                <Minimize2 className="w-5 h-5" />
+                <span className="text-xs">Закрыть</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка редактирования подписи в предпросмотре */}
+      {editingPreviewCellId && (
+        <div className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-bold text-purple-700 flex items-center gap-2">
+              <Edit3 className="w-5 h-5" />
+              Редактирование подписи
+            </h3>
+            <input
+              type="text"
+              value={editingLabel}
+              onChange={(e) => setEditingLabel(e.target.value)}
+              placeholder="Введите подпись..."
+              className="w-full px-4 py-3 rounded-xl border-2 border-purple-200 focus:outline-none focus:border-purple-500 text-base"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleSavePreviewLabel()}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setEditingPreviewCellId(null);
+                  setEditingLabel('');
+                }}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSavePreviewLabel}
+                className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
+              >
+                <Check className="w-5 h-5" />
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showProjects && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
