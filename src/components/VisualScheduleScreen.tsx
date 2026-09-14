@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
-  Download,
   Save,
   Upload,
   Image,
@@ -23,8 +22,6 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { PICTOGRAMS, PICTOGRAM_CATEGORIES, type Pictogram } from '@/data/pictograms';
 import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
-
-// ===== ТИПЫ =====
 
 type TemplateType = 'horizontal' | 'vertical' | 'grid3' | 'grid4';
 type Language = 'ru' | 'en';
@@ -54,8 +51,6 @@ interface ConfirmState {
   action: () => void;
 }
 
-// ===== КОНСТАНТЫ =====
-
 const STORAGE_KEY = 'visual-schedule-projects';
 
 const TEMPLATES: { id: TemplateType; label: string; icon: React.ReactNode; maxCells: number }[] = [
@@ -64,8 +59,6 @@ const TEMPLATES: { id: TemplateType; label: string; icon: React.ReactNode; maxCe
   { id: 'grid3', label: '3×3', icon: <Grid3x3 className="w-3 h-3" />, maxCells: 9 },
   { id: 'grid4', label: '4×4', icon: <LayoutGrid className="w-3 h-3" />, maxCells: 16 },
 ];
-
-// ===== УТИЛИТЫ =====
 
 function generateId(): string {
   return `cell-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -92,8 +85,6 @@ function createEmptyCells(template: TemplateType): ScheduleCell[] {
     type: 'empty' as const,
   }));
 }
-
-// ===== КОМПОНЕНТ =====
 
 export default function VisualScheduleScreen({ onBack }: { onBack: () => void }) {
   const [projects, setProjects] = useState<SavedProject[]>(() => loadProjects());
@@ -140,10 +131,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     return () => clearTimeout(timeout);
   }, [currentProject]);
 
-  const currentTemplate = TEMPLATES.find(t => t.id === currentProject.template)!;
-  
   const filteredPictograms = searchQuery
-    ? PICTOGRAMS.filter(p => 
+    ? PICTOGRAMS.filter(p =>
         p.ru.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.en.toLowerCase().includes(searchQuery.toLowerCase())
       )
@@ -201,9 +190,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setCurrentProject(prev => ({
       ...prev,
       cells: prev.cells.map(cell =>
-        cell.id === cellId
-          ? { id: cell.id, type: 'empty' }
-          : cell
+        cell.id === cellId ? { id: cell.id, type: 'empty' } : cell
       ),
     }));
   };
@@ -218,9 +205,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       setCurrentProject(prev => ({
         ...prev,
         cells: prev.cells.map(cell =>
-          cell.id === editingCellId
-            ? { ...cell, customLabel: editingLabel }
-            : cell
+          cell.id === editingCellId ? { ...cell, customLabel: editingLabel } : cell
         ),
       }));
       setEditingCellId(null);
@@ -261,51 +246,67 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     }));
   };
 
+  // ⚡ ИСПРАВЛЕННАЯ функция: БЕЗ foreignObjectRendering, с правильной обработкой шрифтов
   const generateCanvas = async () => {
     if (!scheduleRef.current) return null;
 
-    // Системные шрифты с поддержкой кириллицы и эмодзи
-    const unicodeFontFamily = `
-      -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 
-      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 
-      'Noto Sans', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 
-      'Segoe UI Symbol', sans-serif
+    const UNICODE_FONTS = `
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 
+      'Noto Sans', 'Noto Sans Cyrillic', 'Apple Color Emoji', 'Segoe UI Emoji', 
+      'Segoe UI Symbol', 'Noto Color Emoji', sans-serif
     `;
 
     return await html2canvas(scheduleRef.current, {
       backgroundColor: '#ffffff',
       scale: 3,
       useCORS: true,
-      logging: false,
       allowTaint: true,
-      width: scheduleRef.current.scrollWidth,
-      height: scheduleRef.current.scrollHeight,
-      // КЛЮЧЕВЫЕ ОПЦИИ для корректного рендера Unicode
-      foreignObjectRendering: true,
-      imageTimeout: 0,
-      removeContainer: true,
-      // Принудительно применяем Unicode-шрифты к клону DOM
-      onclone: (clonedDoc: Document) => {
-        const clonedElement = clonedDoc.querySelector('[data-schedule-export]');
-        if (clonedElement) {
-          const allElements = clonedElement.querySelectorAll('*');
-          allElements.forEach((el) => {
-            const htmlEl = el as HTMLElement;
-            htmlEl.style.fontFamily = unicodeFontFamily;
-            // Убираем эффекты, которые могут ломать рендер
-            htmlEl.style.webkitFontSmoothing = 'antialiased';
-            htmlEl.style.mozOsxFontSmoothing = 'grayscale';
-          });
+      logging: false,
+      imageTimeout: 15000,
+      // ВАЖНО: НЕ используем foreignObjectRendering — он создаёт пустой лист в WebView
+      // Скрываем кнопки действий (они не нужны в PDF)
+      ignoreElements: (element) => {
+        // Скрываем кнопки с классом group-hover (действия)
+        if (element.classList && element.classList.contains('export-hide')) {
+          return true;
         }
+        // Скрываем элементы с абсолютным позиционированием и кнопками
+        const style = window.getComputedStyle(element);
+        if (
+          style.position === 'absolute' &&
+          element.tagName === 'DIV' &&
+          element.querySelectorAll('button').length > 0
+        ) {
+          return true;
+        }
+        return false;
+      },
+      // Принудительно применяем шрифты к клону DOM перед рендером
+      onclone: (clonedDoc: Document, element: HTMLElement) => {
+        // Применяем Unicode-шрифт ко всем элементам
+        const allElements = element.querySelectorAll('*');
+        allElements.forEach((el) => {
+          const htmlEl = el as HTMLElement;
+          // Устанавливаем inline-стили для гарантированного применения
+          htmlEl.style.fontFamily = UNICODE_FONTS;
+          // Отключаем webkit-оптимизации, которые могут ломать рендер
+          htmlEl.style.webkitFontSmoothing = 'auto';
+          htmlEl.style.mozOsxFontSmoothing = 'auto';
+        });
+
+        // Скрываем кнопки действий в клоне
+        const actionButtons = element.querySelectorAll('.action-buttons-overlay');
+        actionButtons.forEach((btn) => {
+          (btn as HTMLElement).style.display = 'none';
+        });
       },
     });
   };
 
-  // Универсальный экспорт в PDF — работает везде (VK, браузер, компьютер)
   const handleExportPDF = async () => {
     if (isExporting) return;
     setIsExporting(true);
-    
+
     try {
       const canvas = await generateCanvas();
       if (!canvas) {
@@ -314,27 +315,31 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         return;
       }
 
-      const imgData = canvas.toDataURL('image/png');
+      // Проверяем, что canvas не пустой
+      if (canvas.width === 0 || canvas.height === 0) {
+        setAlertMsg('Пустое изображение. Попробуйте ещё раз.');
+        setIsExporting(false);
+        return;
+      }
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('landscape', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = pageWidth - 20;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
+
       pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pageHeight - 20));
 
-      // Создаём blob и URL для открытия в новой вкладке
       const pdfBlob = pdf.output('blob');
       const blobUrl = URL.createObjectURL(pdfBlob);
       const fileName = `${currentProject.name || 'расписание'}.pdf`;
 
-      // Пробуем открыть в новой вкладке (работает в большинстве WebView, включая VK)
       let opened = false;
       try {
         const newWindow = window.open(blobUrl, '_blank');
         if (newWindow) {
           opened = true;
-          // Пробуем установить заголовок вкладки
           try {
             newWindow.document.title = fileName;
           } catch {}
@@ -345,13 +350,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
       if (opened) {
         setAlertMsg('PDF открыт ✅ Используйте меню браузера для сохранения или отправки');
-        
-        // Освобождаем URL через 10 минут
         setTimeout(() => {
           try { URL.revokeObjectURL(blobUrl); } catch {}
         }, 10 * 60 * 1000);
       } else {
-        // Fallback: скачивание через <a download>
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = fileName;
@@ -359,18 +361,16 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
         setTimeout(() => {
           try { URL.revokeObjectURL(blobUrl); } catch {}
         }, 1000);
-        
         setAlertMsg('PDF скачивается ✅');
       }
     } catch (error) {
       console.error('Export PDF error:', error);
       setAlertMsg('Ошибка создания PDF. Попробуйте ещё раз.');
     }
-    
+
     setIsExporting(false);
   };
 
@@ -436,13 +436,15 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center p-1.5 relative group">
             {cell.type === 'pictogram' && pictogram && (
-              <span className="text-4xl sm:text-5xl select-none flex-shrink-0">{pictogram.emoji}</span>
+              <span className="text-4xl sm:text-5xl select-none flex-shrink-0" style={{ fontFamily: "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif" }}>
+                {pictogram.emoji}
+              </span>
             )}
             {cell.type === 'image' && cell.imageData && (
               <img src={cell.imageData} alt="" className="w-full h-full object-contain rounded-lg" />
             )}
             {label && (
-              <p 
+              <p
                 className="text-xs sm:text-sm font-semibold text-gray-700 text-center mt-1 w-full px-1 overflow-hidden"
                 style={{
                   display: '-webkit-box',
@@ -458,8 +460,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 {label}
               </p>
             )}
-            
-            <div className="absolute top-[50pt] right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+
+            <div className="action-buttons-overlay absolute top-[50pt] right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleEditLabel(cell.id, cell.customLabel)}
                 className="p-1 bg-white rounded-full shadow hover:bg-purple-50"
@@ -499,8 +501,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     return (
       <div
         ref={scheduleRef}
-        data-schedule-export="true"
-        className={`schedule-container grid ${gridClass} gap-2 p-4 bg-white rounded-2xl shadow-sm`}
+        className={`grid ${gridClass} gap-2 p-4 bg-white rounded-2xl shadow-sm`}
+        style={{
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
+        }}
       >
         {currentProject.cells.map(renderCell)}
       </div>
@@ -542,7 +546,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           >
             <Save className="w-5 h-5" />
           </button>
-          {/* Одна кнопка экспорта вместо меню */}
           <button
             onClick={handleExportPDF}
             disabled={isExporting}
@@ -658,7 +661,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
         <section className="space-y-4">
           {renderSchedule()}
-          
+
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <h3 className="text-sm font-bold text-purple-700 mb-2">💡 Подсказки</h3>
             <ul className="text-xs text-gray-600 space-y-1">
@@ -686,35 +689,35 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <div className="px-4 pb-4 space-y-3 text-sm text-gray-700">
                 <div className="bg-purple-50 rounded-xl p-3">
                   <p className="font-bold text-purple-800 mb-1">🧩 Расписание дня для ребёнка с РАС</p>
-                  <p className="text-xs leading-relaxed">Создайте линейное расписание на 5–7 ячеек: проснулся → завтрак → школа → обед → прогулка → дом → сон. Используйте конкретные фото ребёнка и знакомых мест. Повесьте на уровне глаз. Перемещайте «галочку» по мере выполнения — это снижает тревожность и формирует предсказуемость.</p>
+                  <p className="text-xs leading-relaxed">Создайте линейное расписание на 5–7 ячеек: проснулся → завтрак → школа → обед → прогулка → дом → сон.</p>
                 </div>
                 <div className="bg-blue-50 rounded-xl p-3">
                   <p className="font-bold text-blue-800 mb-1">🏫 Режим дня в детском саду</p>
-                  <p className="text-xs leading-relaxed">Сетка 3×3 для группы: завтрак → занятие → прогулка → обед → сон → полдник → игры → родители. Распечатайте на A4 и ламинируйте. Дети сами передвигают маркер-магнит по ячейкам. Воспитатель озвучивает: «Сейчас мы…», ребёнок находит картинку.</p>
+                  <p className="text-xs leading-relaxed">Сетка 3×3 для группы. Распечатайте на A4 и ламинируйте.</p>
                 </div>
                 <div className="bg-green-50 rounded-xl p-3">
                   <p className="font-bold text-green-800 mb-1">📝 Алгоритм выполнения задания</p>
-                  <p className="text-xs leading-relaxed">Вертикальное расписание на 4–6 шагов: прочитай задание → подчеркни главное → реши → проверь → запиши ответ. Используйте для детей с трудностями планирования. Повесьте над партой — ребёнок следует по шагам самостоятельно.</p>
+                  <p className="text-xs leading-relaxed">Вертикальное расписание на 4–6 шагов. Повесьте над партой.</p>
                 </div>
                 <div className="bg-amber-50 rounded-xl p-3">
                   <p className="font-bold text-amber-800 mb-1">📅 Расписание уроков на неделю</p>
-                  <p className="text-xs leading-relaxed">Сетка 4×4: по строкам — дни недели, по столбцам — уроки. Используйте пиктограммы предметов: 📖 чтение, 🔢 математика, 🎨 рисование, ⚽ физкультура. Переключите на EN для билингвального класса. Экспортируйте в PDF и раздайте ученикам.</p>
+                  <p className="text-xs leading-relaxed">Сетка 4×4: по строкам — дни недели, по столбцам — уроки.</p>
                 </div>
                 <div className="bg-pink-50 rounded-xl p-3">
                   <p className="font-bold text-pink-800 mb-1">💬 Социальная история</p>
-                  <p className="text-xs leading-relaxed">Линейное расписание для подготовки к новому событию: «Завтра мы идём в музей» → 🚌 автобус → 🏛 музей → 👀 смотрим → 🤫 ведём себя тихо → 🚌 возвращаемся. Помогает ребёнку с РАС подготовиться к непривычной ситуации и снизить стресс.</p>
+                  <p className="text-xs leading-relaxed">Линейное расписание для подготовки к новому событию.</p>
                 </div>
                 <div className="bg-indigo-50 rounded-xl p-3">
                   <p className="font-bold text-indigo-800 mb-1">🔄 Адаптация первоклассника</p>
-                  <p className="text-xs leading-relaxed">Создайте «Утро школьника»: ⏰ подъём → 🪥 зубы → 👕 форма → 🥣 завтрак → 🎒 портфель → 🏫 школа. Повесьте дома и в классе. Первые 2 недели ребёнок следует по картинкам, затем привыкает. Родители отмечают выполненное наклейками.</p>
+                  <p className="text-xs leading-relaxed">Создайте «Утро школьника»: ⏰ подъём → 🪥 зубы → 👕 форма → 🥣 завтрак → 🎒 портфель → 🏫 школа.</p>
                 </div>
                 <div className="bg-teal-50 rounded-xl p-3">
                   <p className="font-bold text-teal-800 mb-1">🎯 Визуальная инструкция для кружка</p>
-                  <p className="text-xs leading-relaxed">Для кружка «Поделки»: 📋 план → ✂️ вырезать → 🎨 раскрасить → 🧩 собрать → 📷 показать. Каждый шаг — пиктограмма + подпись. Дети работают по карточке самостоятельно, педагог помогает только при необходимости.</p>
+                  <p className="text-xs leading-relaxed">Каждый шаг — пиктограмма + подпись. Дети работают по карточке самостоятельно.</p>
                 </div>
                 <div className="bg-orange-50 rounded-xl p-3">
                   <p className="font-bold text-orange-800 mb-1">😊 Шкала эмоций и самопомощь</p>
-                  <p className="text-xs leading-relaxed">Сетка 3×3 с эмоциями: 😊 рад → 😢 грусть → 😠 злость → 😨 страх → 😴 устал → 😌 спокоен. Рядом — действия-помощники: 💧 попить воды → 🚶 прогуляться → 🗣 поговорить → 🎵 музыка → 🤗 обнять. Ребёнок указывает свою эмоцию и выбирает стратегию.</p>
+                  <p className="text-xs leading-relaxed">Сетка 3×3 с эмоциями + действия-помощники.</p>
                 </div>
               </div>
             )}
@@ -735,35 +738,35 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <div className="px-4 pb-4 space-y-3 text-sm">
                 <div>
                   <p className="font-bold text-gray-800 mb-1">❓ Для какого возраста подходит визуальное расписание?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">От 2–3 лет (простые цепочки из 3 картинок) до 10–12 лет (сетка на неделю с подписями). Для подростков с РАС и ОВЗ расписание остаётся актуальным — меняются только пиктограммы и уровень сложности.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">От 2–3 лет до 10–12 лет. Для подростков с РАС и ОВЗ остаётся актуальным.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Можно ли использовать свои картинки?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да! Нажмите на ячейку → 🖼 → выберите фото с устройства. Это особенно важно для детей с РАС: конкретная фотография понятнее абстрактной пиктограммы.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да! Нажмите на ячейку → 🖼 → выберите фото с устройства.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Как распечатать расписание?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите кнопку 📥 PDF — документ откроется в новой вкладке. В открывшемся PDF используйте меню браузера (⋮ или «Поделиться») → «Печать» или «Сохранить». Ламинируйте для многоразового использования.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → используйте меню браузера для печати или сохранения.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Как отправить расписание в родительский чат?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → в открывшемся документе используйте кнопку «Поделиться» (или меню ⋮ → «Поделиться») → выберите мессенджер.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → используйте «Поделиться» в меню браузера.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Сохраняются ли мои проекты?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да, автоматически. Все проекты хранятся локально в браузере и доступны между сессиями через кнопку 📂 в шапке.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да, автоматически. Все проекты хранятся локально в браузере.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Сколько ячеек можно заполнить?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Зависит от шаблона: линейный — до 8, вертикальный — до 8, сетка 3×3 — 9 ячеек, сетка 4×4 — 16 ячеек. Для ребёнка с РАС рекомендуется начинать с 3–5 ячеек.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Линейный — до 8, сетка 3×3 — 9, сетка 4×4 — 16 ячеек.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Работает ли раздел без интернета?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да. Все пиктограммы — встроенные эмодзи, хранятся в коде приложения. Загрузка фото, сохранение проектов и экспорт работают полностью офлайн.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да. Все пиктограммы — встроенные эмодзи.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Как использовать на интерактивной доске?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Откройте расписание прямо в браузере на проекторе — дети видят процесс заполнения в реальном времени. Используйте линейный шаблон для наглядной последовательности.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Откройте расписание прямо в браузере на проекторе.</p>
                 </div>
               </div>
             )}
@@ -771,7 +774,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         </section>
       </main>
 
-      {/* Модалка проектов */}
       {showProjects && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md max-h-[80vh] rounded-2xl flex flex-col overflow-hidden">
@@ -793,9 +795,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 Новый проект
               </button>
               {projects.length === 0 ? (
-                <p className="text-center text-gray-400 py-8 text-sm">
-                  Пока нет сохранённых проектов
-                </p>
+                <p className="text-center text-gray-400 py-8 text-sm">Пока нет сохранённых проектов</p>
               ) : (
                 projects.map(p => (
                   <div
@@ -825,7 +825,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         </div>
       )}
 
-      {/* Модалка редактирования подписи */}
       {editingCellId && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4">
