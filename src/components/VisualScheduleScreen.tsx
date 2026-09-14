@@ -263,6 +263,15 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
   const generateCanvas = async () => {
     if (!scheduleRef.current) return null;
+
+    // Системные шрифты с поддержкой кириллицы и эмодзи
+    const unicodeFontFamily = `
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 
+      'Noto Sans', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 
+      'Segoe UI Symbol', sans-serif
+    `;
+
     return await html2canvas(scheduleRef.current, {
       backgroundColor: '#ffffff',
       scale: 3,
@@ -271,6 +280,24 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       allowTaint: true,
       width: scheduleRef.current.scrollWidth,
       height: scheduleRef.current.scrollHeight,
+      // КЛЮЧЕВЫЕ ОПЦИИ для корректного рендера Unicode
+      foreignObjectRendering: true,
+      imageTimeout: 0,
+      removeContainer: true,
+      // Принудительно применяем Unicode-шрифты к клону DOM
+      onclone: (clonedDoc: Document) => {
+        const clonedElement = clonedDoc.querySelector('[data-schedule-export]');
+        if (clonedElement) {
+          const allElements = clonedElement.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            htmlEl.style.fontFamily = unicodeFontFamily;
+            // Убираем эффекты, которые могут ломать рендер
+            htmlEl.style.webkitFontSmoothing = 'antialiased';
+            htmlEl.style.mozOsxFontSmoothing = 'grayscale';
+          });
+        }
+      },
     });
   };
 
@@ -472,7 +499,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     return (
       <div
         ref={scheduleRef}
-        className={`grid ${gridClass} gap-2 p-4 bg-white rounded-2xl shadow-sm`}
+        data-schedule-export="true"
+        className={`schedule-container grid ${gridClass} gap-2 p-4 bg-white rounded-2xl shadow-sm`}
       >
         {currentProject.cells.map(renderCell)}
       </div>
