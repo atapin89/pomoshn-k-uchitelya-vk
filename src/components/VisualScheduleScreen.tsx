@@ -14,28 +14,15 @@ import {
   Search,
   X,
   FileDown,
-  FileImage,
   Check,
   ChevronDown,
   HelpCircle,
   Lightbulb,
-  Camera,
-  ExternalLink,
-  Smartphone,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { PICTOGRAMS, PICTOGRAM_CATEGORIES, type Pictogram } from '@/data/pictograms';
 import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
-
-// VK Bridge API
-declare global {
-  interface Window {
-    vkBridge?: {
-      send: (method: string, params?: any) => Promise<any>;
-    };
-  }
-}
 
 // ===== ТИПЫ =====
 
@@ -106,45 +93,6 @@ function createEmptyCells(template: TemplateType): ScheduleCell[] {
   }));
 }
 
-// Надежное определение WebView (VK, Telegram, Instagram и т.д.)
-function isWebView(): boolean {
-  if (typeof window === 'undefined') return false;
-  
-  const ua = navigator.userAgent || '';
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-  
-  // Признаки WebView
-  const webviewIndicators = [
-    'wv',           // Android WebView
-    'WebView',      // Общая метка
-    'vkclient',     // VK клиент
-    'vkandroidapp', // VK Android
-    'Telegram',     // Telegram
-    'Instagram',    // Instagram
-  ];
-  
-  const hasWebviewIndicator = webviewIndicators.some(ind => ua.includes(ind));
-  
-  // VK Bridge доступен
-  const hasVKBridge = !!window.vkBridge;
-  
-  // В мобильном браузере, но без признаков полноценного браузера
-  const isStandalone = (window.navigator as any).standalone === true;
-  const isInAppBrowser = isMobile && (hasWebviewIndicator || hasVKBridge) && !isStandalone;
-  
-  return isInAppBrowser || hasVKBridge;
-}
-
-function isIOS(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent);
-}
-
-function isDesktop(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.innerWidth >= 1024 && !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
 // ===== КОМПОНЕНТ =====
 
 export default function VisualScheduleScreen({ onBack }: { onBack: () => void }) {
@@ -162,14 +110,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [editingCellId, setEditingCellId] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState('');
   const [showProjects, setShowProjects] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [draggedPictogram, setDraggedPictogram] = useState<Pictogram | null>(null);
   const [dragOverCellId, setDragOverCellId] = useState<string | null>(null);
   const [showFaq, setShowFaq] = useState(false);
   const [showScenarios, setShowScenarios] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [showFullscreenPreview, setShowFullscreenPreview] = useState(false);
-  const [showScreenshotGuide, setShowScreenshotGuide] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
@@ -330,95 +274,77 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     });
   };
 
-  const handleExportPNG = async () => {
+  // Универсальный экспорт в PDF — работает везде (VK, браузер, компьютер)
+  const handleExportPDF = async () => {
+    if (isExporting) return;
     setIsExporting(true);
+    
     try {
       const canvas = await generateCanvas();
       if (!canvas) {
         setAlertMsg('Не удалось создать изображение');
         setIsExporting(false);
-        setShowExportMenu(false);
         return;
       }
-      const dataUrl = canvas.toDataURL('image/png');
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('landscape', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
-      // Если в WebView (VK, Telegram и т.д.) — сразу показываем модалку с инструкцией
-      if (isWebView()) {
-        setPreviewImage(dataUrl);
-        setShowFullscreenPreview(true);
-        setAlertMsg('Для сохранения используйте скриншот экрана');
-        setIsExporting(false);
-        setShowExportMenu(false);
-        return;
-      }
-      
-      // На десктопе/обычном браузере — пробуем скачать
+      pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pageHeight - 20));
+
+      // Создаём blob и URL для открытия в новой вкладке
+      const pdfBlob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const fileName = `${currentProject.name || 'расписание'}.pdf`;
+
+      // Пробуем открыть в новой вкладке (работает в большинстве WebView, включая VK)
+      let opened = false;
       try {
+        const newWindow = window.open(blobUrl, '_blank');
+        if (newWindow) {
+          opened = true;
+          // Пробуем установить заголовок вкладки
+          try {
+            newWindow.document.title = fileName;
+          } catch {}
+        }
+      } catch (e) {
+        console.error('Window open failed:', e);
+      }
+
+      if (opened) {
+        setAlertMsg('PDF открыт ✅ Используйте меню браузера для сохранения или отправки');
+        
+        // Освобождаем URL через 10 минут
+        setTimeout(() => {
+          try { URL.revokeObjectURL(blobUrl); } catch {}
+        }, 10 * 60 * 1000);
+      } else {
+        // Fallback: скачивание через <a download>
         const link = document.createElement('a');
-        link.download = `${currentProject.name}.png`;
-        link.href = dataUrl;
+        link.href = blobUrl;
+        link.download = fileName;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        setAlertMsg('PNG сохранён ✅');
-      } catch (e) {
-        console.error('Download failed:', e);
-        // Если скачивание не сработало — показываем модалку
-        setPreviewImage(dataUrl);
-        setShowFullscreenPreview(true);
-        setAlertMsg('Не удалось скачать. Используйте скриншот.');
-      }
-    } catch (error) {
-      console.error('Export PNG error:', error);
-      setAlertMsg('Ошибка экспорта. Попробуйте ещё раз.');
-    }
-    setIsExporting(false);
-    setShowExportMenu(false);
-  };
-
-  const handleExportPDF = async () => {
-    setIsExporting(true);
-    try {
-      const canvas = await generateCanvas();
-      if (!canvas) {
-        setAlertMsg('Не удалось создать изображение');
-        setIsExporting(false);
-        setShowExportMenu(false);
-        return;
-      }
-      const imgData = canvas.toDataURL('image/png');
-      
-      // В WebView показываем модалку
-      if (isWebView()) {
-        setPreviewImage(imgData);
-        setShowFullscreenPreview(true);
-        setAlertMsg('Для сохранения используйте скриншот экрана');
-      } else {
-        // На десктопе создаём PDF
-        try {
-          const pdf = new jsPDF('landscape', 'mm', 'a4');
-          const pageWidth = pdf.internal.pageSize.getWidth();
-          const pageHeight = pdf.internal.pageSize.getHeight();
-          const imgWidth = pageWidth - 20;
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
-          
-          pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, Math.min(imgHeight, pageHeight - 20));
-          pdf.save(`${currentProject.name}.pdf`);
-          setAlertMsg('PDF сохранён ✅');
-        } catch (e) {
-          console.error('PDF creation failed:', e);
-          setPreviewImage(imgData);
-          setShowFullscreenPreview(true);
-          setAlertMsg('Не удалось создать PDF. Используйте скриншот.');
-        }
+        
+        setTimeout(() => {
+          try { URL.revokeObjectURL(blobUrl); } catch {}
+        }, 1000);
+        
+        setAlertMsg('PDF скачивается ✅');
       }
     } catch (error) {
       console.error('Export PDF error:', error);
-      setAlertMsg('Ошибка экспорта');
+      setAlertMsg('Ошибка создания PDF. Попробуйте ещё раз.');
     }
+    
     setIsExporting(false);
-    setShowExportMenu(false);
   };
 
   const handleSaveProject = () => {
@@ -506,7 +432,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               </p>
             )}
             
-            {/* Кнопки действий */}
             <div className="absolute top-[50pt] right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleEditLabel(cell.id, cell.customLabel)}
@@ -556,7 +481,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-indigo-50 flex flex-col">
-      {/* Header */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
           <button
@@ -590,40 +514,19 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           >
             <Save className="w-5 h-5" />
           </button>
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
-              title="Экспорт"
-              disabled={isExporting}
-            >
-              {isExporting ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Download className="w-5 h-5" />
-              )}
-            </button>
-            {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-purple-200 py-1 z-30">
-                <button
-                  onClick={handleExportPNG}
-                  disabled={isExporting}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2 disabled:opacity-50"
-                >
-                  <FileImage className="w-4 h-4 text-purple-600" />
-                  Скачать PNG
-                </button>
-                <button
-                  onClick={handleExportPDF}
-                  disabled={isExporting}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2 disabled:opacity-50"
-                >
-                  <FileDown className="w-4 h-4 text-purple-600" />
-                  Скачать PDF
-                </button>
-              </div>
+          {/* Одна кнопка экспорта вместо меню */}
+          <button
+            onClick={handleExportPDF}
+            disabled={isExporting}
+            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg shrink-0 disabled:opacity-50"
+            title="Скачать PDF"
+          >
+            {isExporting ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <FileDown className="w-5 h-5" />
             )}
-          </div>
+          </button>
           <button
             onClick={() => setShowProjects(!showProjects)}
             className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg shrink-0"
@@ -635,7 +538,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
-        {/* Левая панель */}
         <aside className="bg-white rounded-2xl p-4 shadow-sm space-y-4 h-fit lg:sticky lg:top-20">
           <div>
             <h2 className="text-sm font-bold text-purple-700 mb-2">Шаблон</h2>
@@ -726,7 +628,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </button>
         </aside>
 
-        {/* Правая панель */}
         <section className="space-y-4">
           {renderSchedule()}
           
@@ -737,165 +638,110 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
               <li>• Наведите на ячейку — появятся кнопки действий</li>
               <li>• Переключайте язык RU/EN в шапке</li>
-              <li>• 📱 В мини-апе: откроется картинка для скриншота</li>
-              <li>• 💻 На компьютере: PNG/PDF скачиваются автоматически</li>
+              <li>• 📥 Кнопка PDF открывает документ в новой вкладке</li>
+              <li>• 📱 В открывшемся PDF используйте меню для сохранения или отправки</li>
             </ul>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowScenarios(!showScenarios)}
+              className="w-full px-4 py-3 flex items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-5 h-5 text-amber-500" />
+                <h3 className="font-bold text-purple-700 text-sm">Сценарии использования</h3>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showScenarios ? 'rotate-180' : ''}`} />
+            </button>
+            {showScenarios && (
+              <div className="px-4 pb-4 space-y-3 text-sm text-gray-700">
+                <div className="bg-purple-50 rounded-xl p-3">
+                  <p className="font-bold text-purple-800 mb-1">🧩 Расписание дня для ребёнка с РАС</p>
+                  <p className="text-xs leading-relaxed">Создайте линейное расписание на 5–7 ячеек: проснулся → завтрак → школа → обед → прогулка → дом → сон. Используйте конкретные фото ребёнка и знакомых мест. Повесьте на уровне глаз. Перемещайте «галочку» по мере выполнения — это снижает тревожность и формирует предсказуемость.</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3">
+                  <p className="font-bold text-blue-800 mb-1">🏫 Режим дня в детском саду</p>
+                  <p className="text-xs leading-relaxed">Сетка 3×3 для группы: завтрак → занятие → прогулка → обед → сон → полдник → игры → родители. Распечатайте на A4 и ламинируйте. Дети сами передвигают маркер-магнит по ячейкам. Воспитатель озвучивает: «Сейчас мы…», ребёнок находит картинку.</p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-3">
+                  <p className="font-bold text-green-800 mb-1">📝 Алгоритм выполнения задания</p>
+                  <p className="text-xs leading-relaxed">Вертикальное расписание на 4–6 шагов: прочитай задание → подчеркни главное → реши → проверь → запиши ответ. Используйте для детей с трудностями планирования. Повесьте над партой — ребёнок следует по шагам самостоятельно.</p>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-3">
+                  <p className="font-bold text-amber-800 mb-1">📅 Расписание уроков на неделю</p>
+                  <p className="text-xs leading-relaxed">Сетка 4×4: по строкам — дни недели, по столбцам — уроки. Используйте пиктограммы предметов: 📖 чтение, 🔢 математика, 🎨 рисование, ⚽ физкультура. Переключите на EN для билингвального класса. Экспортируйте в PDF и раздайте ученикам.</p>
+                </div>
+                <div className="bg-pink-50 rounded-xl p-3">
+                  <p className="font-bold text-pink-800 mb-1">💬 Социальная история</p>
+                  <p className="text-xs leading-relaxed">Линейное расписание для подготовки к новому событию: «Завтра мы идём в музей» → 🚌 автобус → 🏛 музей → 👀 смотрим → 🤫 ведём себя тихо → 🚌 возвращаемся. Помогает ребёнку с РАС подготовиться к непривычной ситуации и снизить стресс.</p>
+                </div>
+                <div className="bg-indigo-50 rounded-xl p-3">
+                  <p className="font-bold text-indigo-800 mb-1">🔄 Адаптация первоклассника</p>
+                  <p className="text-xs leading-relaxed">Создайте «Утро школьника»: ⏰ подъём → 🪥 зубы → 👕 форма → 🥣 завтрак → 🎒 портфель → 🏫 школа. Повесьте дома и в классе. Первые 2 недели ребёнок следует по картинкам, затем привыкает. Родители отмечают выполненное наклейками.</p>
+                </div>
+                <div className="bg-teal-50 rounded-xl p-3">
+                  <p className="font-bold text-teal-800 mb-1">🎯 Визуальная инструкция для кружка</p>
+                  <p className="text-xs leading-relaxed">Для кружка «Поделки»: 📋 план → ✂️ вырезать → 🎨 раскрасить → 🧩 собрать → 📷 показать. Каждый шаг — пиктограмма + подпись. Дети работают по карточке самостоятельно, педагог помогает только при необходимости.</p>
+                </div>
+                <div className="bg-orange-50 rounded-xl p-3">
+                  <p className="font-bold text-orange-800 mb-1">😊 Шкала эмоций и самопомощь</p>
+                  <p className="text-xs leading-relaxed">Сетка 3×3 с эмоциями: 😊 рад → 😢 грусть → 😠 злость → 😨 страх → 😴 устал → 😌 спокоен. Рядом — действия-помощники: 💧 попить воды → 🚶 прогуляться → 🗣 поговорить → 🎵 музыка → 🤗 обнять. Ребёнок указывает свою эмоцию и выбирает стратегию.</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowFaq(!showFaq)}
+              className="w-full px-4 py-3 flex items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-purple-600" />
+                <h3 className="font-bold text-purple-700 text-sm">Частые вопросы</h3>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showFaq ? 'rotate-180' : ''}`} />
+            </button>
+            {showFaq && (
+              <div className="px-4 pb-4 space-y-3 text-sm">
+                <div>
+                  <p className="font-bold text-gray-800 mb-1">❓ Для какого возраста подходит визуальное расписание?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">От 2–3 лет (простые цепочки из 3 картинок) до 10–12 лет (сетка на неделю с подписями). Для подростков с РАС и ОВЗ расписание остаётся актуальным — меняются только пиктограммы и уровень сложности.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Можно ли использовать свои картинки?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да! Нажмите на ячейку → 🖼 → выберите фото с устройства. Это особенно важно для детей с РАС: конкретная фотография понятнее абстрактной пиктограммы.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Как распечатать расписание?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите кнопку 📥 PDF — документ откроется в новой вкладке. В открывшемся PDF используйте меню браузера (⋮ или «Поделиться») → «Печать» или «Сохранить». Ламинируйте для многоразового использования.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Как отправить расписание в родительский чат?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → в открывшемся документе используйте кнопку «Поделиться» (или меню ⋮ → «Поделиться») → выберите мессенджер.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Сохраняются ли мои проекты?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да, автоматически. Все проекты хранятся локально в браузере и доступны между сессиями через кнопку 📂 в шапке.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Сколько ячеек можно заполнить?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Зависит от шаблона: линейный — до 8, вертикальный — до 8, сетка 3×3 — 9 ячеек, сетка 4×4 — 16 ячеек. Для ребёнка с РАС рекомендуется начинать с 3–5 ячеек.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Работает ли раздел без интернета?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да. Все пиктограммы — встроенные эмодзи, хранятся в коде приложения. Загрузка фото, сохранение проектов и экспорт работают полностью офлайн.</p>
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="font-bold text-gray-800 mb-1">❓ Как использовать на интерактивной доске?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Откройте расписание прямо в браузере на проекторе — дети видят процесс заполнения в реальном времени. Используйте линейный шаблон для наглядной последовательности.</p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </main>
-
-      {/* Полноэкранная модалка превью */}
-      {showFullscreenPreview && previewImage && (
-        <div className="fixed inset-0 z-[60] bg-black flex flex-col">
-          <div className="flex items-center justify-between p-4 bg-black/80">
-            <h2 className="text-white font-bold text-lg">Сохранить расписание</h2>
-            <button
-              onClick={() => setShowFullscreenPreview(false)}
-              className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          
-          <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-100">
-            <img 
-              src={previewImage} 
-              alt="Расписание" 
-              className="max-w-full max-h-full object-contain shadow-2xl"
-            />
-          </div>
-
-          <div className="p-4 bg-white border-t border-gray-200 space-y-3">
-            <button
-              onClick={() => setShowScreenshotGuide(true)}
-              className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
-            >
-              <Camera className="w-5 h-5" />
-              Как сохранить (инструкция)
-            </button>
-            
-            <button
-              onClick={() => {
-                try {
-                  const newWindow = window.open(previewImage || '', '_blank');
-                  if (!newWindow) {
-                    window.location.href = previewImage || '';
-                  }
-                } catch (e) {
-                  console.error('Open failed:', e);
-                }
-              }}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
-            >
-              <ExternalLink className="w-5 h-5" />
-              Открыть в браузере
-            </button>
-            
-            <button
-              onClick={() => setShowFullscreenPreview(false)}
-              className="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold"
-            >
-              Закрыть
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Модалка инструкции по скриншоту */}
-      {showScreenshotGuide && (
-        <div className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-purple-700 flex items-center gap-2">
-                <Smartphone className="w-5 h-5" />
-                Как сохранить изображение
-              </h3>
-              <button
-                onClick={() => setShowScreenshotGuide(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                <p className="font-bold text-amber-800 mb-2">⚠️ Важно:</p>
-                <p className="text-sm text-gray-700">
-                  Встроенный браузер ВК не позволяет напрямую скачивать файлы. Используйте один из способов ниже:
-                </p>
-              </div>
-
-              {isIOS() ? (
-                <div className="bg-blue-50 rounded-xl p-4">
-                  <p className="font-bold text-blue-800 mb-2">📱 Способ 1: Скриншот на iPhone</p>
-                  <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
-                    <li>Нажмите <strong>боковую кнопку</strong> и <strong>кнопку громкости вверх</strong> одновременно</li>
-                    <li>Отпустите обе кнопки</li>
-                    <li>Нажмите на появившийся скриншот в левом нижнем углу</li>
-                    <li>Обрежьте лишние края</li>
-                    <li>Нажмите «Готово» → «Сохранить в Фото»</li>
-                  </ol>
-                </div>
-              ) : (
-                <div className="bg-green-50 rounded-xl p-4">
-                  <p className="font-bold text-green-800 mb-2">📱 Способ 1: Скриншот на Android</p>
-                  <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
-                    <li>Нажмите <strong>кнопку питания</strong> и <strong>кнопку громкости вниз</strong> одновременно</li>
-                    <li>Отпустите обе кнопки</li>
-                    <li>Нажмите на появившийся скриншот</li>
-                    <li>Обрежьте лишние края</li>
-                    <li>Нажмите «Сохранить»</li>
-                  </ol>
-                </div>
-              )}
-
-              <div className="bg-purple-50 rounded-xl p-4">
-                <p className="font-bold text-purple-800 mb-2">💡 Способ 2: Открыть в браузере</p>
-                <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
-                  <li>Нажмите кнопку «Открыть в браузере» ниже</li>
-                  <li>Изображение откроется в новой вкладке</li>
-                  <li>Долгое нажатие на картинку → «Сохранить изображение»</li>
-                </ol>
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-4">
-                <p className="font-bold text-gray-800 mb-2">📤 Способ 3: Отправить себе</p>
-                <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside">
-                  <li>Сделайте скриншот</li>
-                  <li>Отправьте его себе в «Сообщения» ВК</li>
-                  <li>Откройте сообщение и сохраните изображение</li>
-                </ol>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  try {
-                    const newWindow = window.open(previewImage || '', '_blank');
-                    if (!newWindow) {
-                      window.location.href = previewImage || '';
-                    }
-                  } catch (e) {
-                    console.error('Open failed:', e);
-                  }
-                }}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2"
-              >
-                <ExternalLink className="w-5 h-5" />
-                Открыть
-              </button>
-              <button
-                onClick={() => setShowScreenshotGuide(false)}
-                className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold"
-              >
-                Понятно
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Модалка проектов */}
       {showProjects && (
