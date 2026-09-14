@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   ArrowLeft,
   Plus,
+  Minus,
   Trash2,
   Save,
   Upload,
@@ -21,6 +22,8 @@ import {
   Edit3,
   Maximize2,
   Minimize2,
+  Type,
+  Smile,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -47,6 +50,11 @@ interface SavedProject {
   updatedAt: number;
 }
 
+interface CellSize {
+  emojiScale: number;
+  textScale: number;
+}
+
 interface ConfirmState {
   title: string;
   message?: string;
@@ -63,6 +71,10 @@ const TEMPLATES: { id: TemplateType; label: string; icon: React.ReactNode; maxCe
   { id: 'grid3', label: '3×3', icon: <Grid3x3 className="w-3 h-3" />, maxCells: 9 },
   { id: 'grid4', label: '4×4', icon: <LayoutGrid className="w-3 h-3" />, maxCells: 16 },
 ];
+
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 2.0;
+const SCALE_STEP = 0.15;
 
 function generateId(): string {
   return `cell-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -115,6 +127,9 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [showPreview, setShowPreview] = useState(false);
   const [previewLanguage, setPreviewLanguage] = useState<Language>('ru');
   const [editingPreviewCellId, setEditingPreviewCellId] = useState<string | null>(null);
+  
+  // 🆕 Размеры для каждой ячейки (эмодзи и текст отдельно)
+  const [cellSizes, setCellSizes] = useState<Record<string, CellSize>>({});
 
   const scheduleRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -148,6 +163,47 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       )
     : PICTOGRAMS.filter(p => p.category === selectedCategory);
 
+  // 🆕 Получить размер ячейки (с дефолтом 1.0)
+  const getCellSize = (cellId: string): CellSize => {
+    return cellSizes[cellId] || { emojiScale: 1.0, textScale: 1.0 };
+  };
+
+  // 🆕 Изменить размер эмодзи
+  const handleEmojiScale = (cellId: string, delta: number) => {
+    setCellSizes(prev => {
+      const current = prev[cellId] || { emojiScale: 1.0, textScale: 1.0 };
+      const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, current.emojiScale + delta));
+      return { ...prev, [cellId]: { ...current, emojiScale: newScale } };
+    });
+  };
+
+  // 🆕 Изменить размер текста
+  const handleTextScale = (cellId: string, delta: number) => {
+    setCellSizes(prev => {
+      const current = prev[cellId] || { emojiScale: 1.0, textScale: 1.0 };
+      const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, current.textScale + delta));
+      return { ...prev, [cellId]: { ...current, textScale: newScale } };
+    });
+  };
+
+  // 🆕 Сбросить размер ячейки
+  const handleResetSize = (cellId: string) => {
+    setCellSizes(prev => ({ ...prev, [cellId]: { emojiScale: 1.0, textScale: 1.0 } }));
+  };
+
+  // 🆕 Применить один размер ко всем ячейкам
+  const handleApplyToAll = (cellId: string) => {
+    const source = cellSizes[cellId] || { emojiScale: 1.0, textScale: 1.0 };
+    setCellSizes(prev => {
+      const updated = { ...prev };
+      currentProject.cells.forEach(c => {
+        updated[c.id] = { ...source };
+      });
+      return updated;
+    });
+    setAlertMsg('Размеры применены ко всем ячейкам ✅');
+  };
+
   const handleTemplateChange = (template: TemplateType) => {
     setConfirmState({
       title: 'Сменить шаблон?',
@@ -160,6 +216,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           template,
           cells: createEmptyCells(template),
         }));
+        setCellSizes({});
       },
     });
   };
@@ -418,39 +475,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     }
   };
 
-  const handleShare = async () => {
-    try {
-      const canvas = await generatePreviewCanvas();
-      if (!canvas) return;
-
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          setAlertMsg('Не удалось создать изображение');
-          return;
-        }
-
-        const file = new File([blob], `${currentProject.name}.png`, { type: 'image/png' });
-
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: currentProject.name,
-              text: 'Визуальное расписание',
-            });
-          } catch (err) {
-            console.error('Share cancelled:', err);
-          }
-        } else {
-          setAlertMsg('Функция «Поделиться» недоступна в этом браузере');
-        }
-      }, 'image/png');
-    } catch (error) {
-      console.error('Share error:', error);
-      setAlertMsg('Ошибка отправки');
-    }
-  };
-
   const handleSaveProject = () => {
     setProjects(prev => {
       const existing = prev.find(p => p.id === currentProject.id);
@@ -488,10 +512,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       language: 'ru',
       updatedAt: Date.now(),
     });
+    setCellSizes({});
     setShowProjects(false);
   };
 
-  // ✅ ИСПРАВЛЕНО: Разделение на зоны картинка/текст
   const renderCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[currentProject.language] : '');
@@ -513,7 +537,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </div>
         ) : (
           <>
-            {/* ЗОНА 1: Картинка/эмодзи (70% высоты) */}
             <div className="flex-[7] flex items-center justify-center overflow-hidden px-1 pt-1 relative group">
               {cell.type === 'pictogram' && pictogram && (
                 <span 
@@ -535,7 +558,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               )}
             </div>
 
-            {/* ЗОНА 2: Текст подписи (30% высоты) */}
             {label && (
               <div className="flex-[3] flex items-center justify-center px-1.5 pb-1.5 border-t border-gray-100">
                 <p
@@ -555,7 +577,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               </div>
             )}
 
-            {/* Кнопки действий */}
             <div className="action-buttons-overlay absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
               <button
                 onClick={(e) => {
@@ -594,16 +615,23 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     );
   };
 
-  // ✅ ИСПРАВЛЕНО: Разделение на зоны картинка/текст для предпросмотра
+  // 🆕 Рендер ячейки для предпросмотра с индивидуальными размерами и кнопками управления
   const renderPreviewCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[previewLanguage] : '');
+    const size = getCellSize(cell.id);
+
+    // Базовые размеры для предпросмотра
+    const baseEmojiSize = 80; // px
+    const baseTextSize = 18; // px
+
+    const emojiSize = baseEmojiSize * size.emojiScale;
+    const textSize = baseTextSize * size.textScale;
 
     return (
       <div
         key={cell.id}
-        className="relative aspect-square rounded-2xl border-4 border-gray-300 bg-white overflow-hidden hover:border-purple-500 cursor-pointer transition-colors group flex flex-col"
-        onClick={() => handlePreviewEditLabel(cell.id)}
+        className="relative aspect-square rounded-2xl border-4 border-gray-300 bg-white overflow-hidden hover:border-purple-500 transition-colors group flex flex-col"
       >
         {cell.type === 'empty' ? (
           <div className="w-full h-full flex items-center justify-center text-gray-300">
@@ -611,13 +639,16 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </div>
         ) : (
           <>
-            {/* ЗОНА 1: Картинка/эмодзи (70% высоты) */}
-            <div className="flex-[7] flex items-center justify-center overflow-hidden px-2 pt-2">
+            {/* ЗОНА 1: Картинка/эмодзи с учётом scale */}
+            <div
+              className="flex-[7] flex items-center justify-center overflow-hidden px-2 pt-2 cursor-pointer"
+              onClick={() => handlePreviewEditLabel(cell.id)}
+            >
               {cell.type === 'pictogram' && pictogram && (
                 <span 
-                  className="select-none leading-none"
+                  className="select-none leading-none transition-all duration-200"
                   style={{ 
-                    fontSize: 'clamp(48px, 8vw, 96px)',
+                    fontSize: `${emojiSize}px`,
                     lineHeight: 1,
                   }}
                 >
@@ -628,17 +659,24 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 <img 
                   src={cell.imageData} 
                   alt="" 
-                  className="max-w-full max-h-full object-contain rounded-lg"
+                  className="max-w-full max-h-full object-contain rounded-lg transition-all duration-200"
+                  style={{
+                    transform: `scale(${size.emojiScale})`,
+                  }}
                 />
               )}
             </div>
 
-            {/* ЗОНА 2: Текст подписи (30% высоты) */}
+            {/* ЗОНА 2: Текст с учётом scale */}
             {label && (
-              <div className="flex-[3] flex items-center justify-center px-3 pb-3 pt-1 border-t border-gray-100">
+              <div
+                className="flex-[3] flex items-center justify-center px-3 pb-3 pt-1 border-t border-gray-100 cursor-pointer"
+                onClick={() => handlePreviewEditLabel(cell.id)}
+              >
                 <p
-                  className="text-base sm:text-lg font-semibold text-gray-800 text-center w-full leading-tight"
+                  className="font-semibold text-gray-800 text-center w-full leading-tight transition-all duration-200"
                   style={{
+                    fontSize: `${textSize}px`,
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical',
@@ -655,13 +693,109 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </>
         )}
 
-        {/* Индикатор редактирования */}
-        <div className="preview-controls absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="bg-purple-600 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow-md">
-            <Edit3 className="w-3 h-3" />
-            Изменить
+        {/* 🆕 Панель управления размерами */}
+        <div className="preview-controls absolute top-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-start gap-1">
+          {/* Кнопки размера эмодзи */}
+          <div className="flex flex-col gap-1 bg-white/95 rounded-xl shadow-lg p-1 backdrop-blur">
+            <div className="flex items-center justify-center text-[10px] font-bold text-purple-700 pb-0.5 border-b border-gray-200">
+              <Smile className="w-3 h-3 mr-0.5" />
+              Иконка
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEmojiScale(cell.id, SCALE_STEP);
+              }}
+              disabled={size.emojiScale >= MAX_SCALE}
+              className="p-1 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Увеличить иконку"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEmojiScale(cell.id, -SCALE_STEP);
+              }}
+              disabled={size.emojiScale <= MIN_SCALE}
+              className="p-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Уменьшить иконку"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Кнопки размера текста */}
+          <div className="flex flex-col gap-1 bg-white/95 rounded-xl shadow-lg p-1 backdrop-blur">
+            <div className="flex items-center justify-center text-[10px] font-bold text-purple-700 pb-0.5 border-b border-gray-200">
+              <Type className="w-3 h-3 mr-0.5" />
+              Текст
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTextScale(cell.id, SCALE_STEP);
+              }}
+              disabled={size.textScale >= MAX_SCALE}
+              className="p-1 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Увеличить текст"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTextScale(cell.id, -SCALE_STEP);
+              }}
+              disabled={size.textScale <= MIN_SCALE}
+              className="p-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Уменьшить текст"
+            >
+              <Minus className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
+
+        {/* 🆕 Индикатор редактирования и кнопки действий */}
+        <div className="preview-controls absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePreviewEditLabel(cell.id);
+            }}
+            className="flex-1 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 shadow-md"
+          >
+            <Edit3 className="w-3 h-3" />
+            Изменить
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleResetSize(cell.id);
+            }}
+            className="px-2 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-[10px] font-semibold shadow-md"
+            title="Сбросить размер"
+          >
+            ↺
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleApplyToAll(cell.id);
+            }}
+            className="px-2 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-[10px] font-semibold shadow-md"
+            title="Применить ко всем"
+          >
+            ✦
+          </button>
+        </div>
+
+        {/* Индикатор текущего масштаба */}
+        {(size.emojiScale !== 1.0 || size.textScale !== 1.0) && (
+          <div className="preview-controls absolute top-2 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-md">
+            🎯 {Math.round(size.emojiScale * 100)}% / {Math.round(size.textScale * 100)}%
+          </div>
+        )}
       </div>
     );
   };
@@ -867,9 +1001,9 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             <ul className="text-xs text-gray-600 space-y-1">
               <li>• Перетащите пиктограмму из библиотеки в ячейку</li>
               <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
-              <li>• 📥 Кнопка «PDF» откроет режим предпросмотра с редактированием</li>
-              <li>• В предпросмотре кликните на ячейку для изменения подписи</li>
-              <li>• Экспортируйте в PDF, распечатайте или отправьте в мессенджер</li>
+              <li>• 📥 Кнопка «PDF» откроет режим предпросмотра с настройкой размеров</li>
+              <li>• В предпросмотре: наведите на плитку → измените размер иконки и текста</li>
+              <li>• Экспортируйте в PDF или распечатайте</li>
             </ul>
           </div>
 
@@ -920,12 +1054,12 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                   <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → «Предпросмотр» → «Печать».</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Можно ли изменить подписи перед экспортом?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Да! В режиме предпросмотра кликните на любую ячейку — откроется редактор подписи.</p>
+                  <p className="font-bold text-gray-800 mb-1">❓ Как настроить размер иконки и текста?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">В режиме предпросмотра наведите на плитку — появятся кнопки «Иконка» и «Текст» с +/−. Кнопка ✦ применит настройки ко всем плиткам.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как отправить расписание в чат?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре нажмите «Поделиться» → выберите мессенджер.</p>
+                  <p className="font-bold text-gray-800 mb-1">❓ Можно ли изменить подписи?</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Да! Кликните на плитку или кнопку «Изменить» — откроется редактор подписи.</p>
                 </div>
               </div>
             )}
@@ -961,7 +1095,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center">
             <p className="text-sm text-amber-800">
-              💡 <strong>Кликните на любую ячейку</strong>, чтобы изменить подпись перед экспортом
+              💡 <strong>Наведите на плитку</strong> — настройте размер иконки и текста, кликните для изменения подписи. Кнопка ✦ применит настройки ко всем.
             </p>
           </div>
 
@@ -971,8 +1105,9 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             </div>
           </div>
 
+          {/* 🆕 Панель действий: убрана кнопка "Поделиться" */}
           <div className="bg-white border-t border-gray-200 p-4 shadow-lg">
-            <div className="max-w-[1200px] mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="max-w-[1200px] mx-auto grid grid-cols-3 gap-3">
               <button
                 onClick={handleExportPDF}
                 disabled={isExporting}
@@ -992,14 +1127,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               >
                 <Printer className="w-5 h-5" />
                 <span className="text-xs">Печать</span>
-              </button>
-              <button
-                onClick={handleShare}
-                disabled={isExporting}
-                className="py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold flex flex-col items-center justify-center gap-1 disabled:opacity-50 transition-colors"
-              >
-                <Upload className="w-5 h-5" />
-                <span className="text-xs">Поделиться</span>
               </button>
               <button
                 onClick={() => setShowPreview(false)}
