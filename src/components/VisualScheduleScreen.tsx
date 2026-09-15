@@ -76,6 +76,10 @@ const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.0;
 const SCALE_STEP = 0.15;
 
+// 🆕 Стек Unicode-шрифтов для корректного рендера кириллицы и эмодзи
+const UNICODE_FONTS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'Noto Sans', 'Noto Sans Cyrillic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', Arial, sans-serif";
+const EMOJI_FONTS = "'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif";
+
 function generateId(): string {
   return `cell-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -123,12 +127,9 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [showScenarios, setShowScenarios] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   
-  // Режим предпросмотра
   const [showPreview, setShowPreview] = useState(false);
   const [previewLanguage, setPreviewLanguage] = useState<Language>('ru');
   const [editingPreviewCellId, setEditingPreviewCellId] = useState<string | null>(null);
-  
-  // 🆕 Размеры для каждой ячейки (эмодзи и текст отдельно)
   const [cellSizes, setCellSizes] = useState<Record<string, CellSize>>({});
 
   const scheduleRef = useRef<HTMLDivElement>(null);
@@ -163,12 +164,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       )
     : PICTOGRAMS.filter(p => p.category === selectedCategory);
 
-  // 🆕 Получить размер ячейки (с дефолтом 1.0)
   const getCellSize = (cellId: string): CellSize => {
     return cellSizes[cellId] || { emojiScale: 1.0, textScale: 1.0 };
   };
 
-  // 🆕 Изменить размер эмодзи
   const handleEmojiScale = (cellId: string, delta: number) => {
     setCellSizes(prev => {
       const current = prev[cellId] || { emojiScale: 1.0, textScale: 1.0 };
@@ -177,7 +176,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     });
   };
 
-  // 🆕 Изменить размер текста
   const handleTextScale = (cellId: string, delta: number) => {
     setCellSizes(prev => {
       const current = prev[cellId] || { emojiScale: 1.0, textScale: 1.0 };
@@ -186,12 +184,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     });
   };
 
-  // 🆕 Сбросить размер ячейки
   const handleResetSize = (cellId: string) => {
     setCellSizes(prev => ({ ...prev, [cellId]: { emojiScale: 1.0, textScale: 1.0 } }));
   };
 
-  // 🆕 Применить один размер ко всем ячейкам
   const handleApplyToAll = (cellId: string) => {
     const source = cellSizes[cellId] || { emojiScale: 1.0, textScale: 1.0 };
     setCellSizes(prev => {
@@ -340,11 +336,15 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setShowPreview(true);
   };
 
+  // 🆕 ИСПРАВЛЕННАЯ функция генерации canvas с Unicode-шрифтами
   const generatePreviewCanvas = async () => {
     if (!previewRef.current) return null;
 
     const originalTransform = previewRef.current.style.transform;
     previewRef.current.style.transform = 'scale(1)';
+
+    // Ждём загрузки всех шрифтов
+    await document.fonts.ready;
 
     const canvas = await html2canvas(previewRef.current, {
       backgroundColor: '#ffffff',
@@ -353,6 +353,35 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       allowTaint: true,
       logging: false,
       imageTimeout: 15000,
+      // 🆕 КЛЮЧЕВОЕ: применяем Unicode-шрифты к клону DOM перед рендером
+      onclone: (_clonedDoc: Document, element: HTMLElement) => {
+        // Применяем Unicode-шрифт ко ВСЕМ элементам в клоне
+        const allElements = element.querySelectorAll('*');
+        allElements.forEach((el) => {
+          const htmlEl = el as HTMLElement;
+          // Определяем, это эмодзи или текст
+          const isEmojiSpan = htmlEl.dataset.emoji === 'true';
+          
+          if (isEmojiSpan) {
+            // Для эмодзи — специальные emoji-шрифты
+            htmlEl.style.fontFamily = EMOJI_FONTS;
+          } else {
+            // Для текста — полный стек Unicode-шрифтов
+            const currentFont = htmlEl.style.fontFamily;
+            if (!currentFont || currentFont.trim() === '') {
+              htmlEl.style.fontFamily = UNICODE_FONTS;
+            }
+          }
+          
+          // Отключаем webkit-оптимизации, ломающие рендер
+          htmlEl.style.webkitFontSmoothing = 'auto';
+          (htmlEl.style as any).mozOsxFontSmoothing = 'auto';
+        });
+
+        // Принудительно применяем Unicode-шрифт к корневому элементу
+        element.style.fontFamily = UNICODE_FONTS;
+      },
+      // Скрываем элементы управления в превью
       ignoreElements: (element) => {
         return element.classList?.contains('preview-controls') || false;
       },
@@ -544,6 +573,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                   style={{ 
                     fontSize: 'clamp(28px, 5vw, 48px)',
                     lineHeight: 1,
+                    fontFamily: EMOJI_FONTS,
                   }}
                 >
                   {pictogram.emoji}
@@ -570,6 +600,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                     wordBreak: 'break-word',
                     overflowWrap: 'break-word',
                     textOverflow: 'ellipsis',
+                    fontFamily: UNICODE_FONTS,
                   }}
                 >
                   {label}
@@ -615,15 +646,14 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     );
   };
 
-  // 🆕 Рендер ячейки для предпросмотра с индивидуальными размерами и кнопками управления
+  // 🆕 ИСПРАВЛЕННЫЙ рендер с Unicode-шрифтами и data-атрибутом для эмодзи
   const renderPreviewCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[previewLanguage] : '');
     const size = getCellSize(cell.id);
 
-    // Базовые размеры для предпросмотра
-    const baseEmojiSize = 80; // px
-    const baseTextSize = 18; // px
+    const baseEmojiSize = 80;
+    const baseTextSize = 18;
 
     const emojiSize = baseEmojiSize * size.emojiScale;
     const textSize = baseTextSize * size.textScale;
@@ -632,6 +662,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       <div
         key={cell.id}
         className="relative aspect-square rounded-2xl border-4 border-gray-300 bg-white overflow-hidden hover:border-purple-500 transition-colors group flex flex-col"
+        style={{ fontFamily: UNICODE_FONTS }}
       >
         {cell.type === 'empty' ? (
           <div className="w-full h-full flex items-center justify-center text-gray-300">
@@ -641,15 +672,17 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           <>
             {/* ЗОНА 1: Картинка/эмодзи с учётом scale */}
             <div
-              className="flex-[7] flex items-center justify-center overflow-hidden px-2 pt-2 cursor-pointer"
+              className="flex-[7] flex items-center justify-center overflow-hidden p-0 min-w-0 min-h-0 cursor-pointer"
               onClick={() => handlePreviewEditLabel(cell.id)}
             >
               {cell.type === 'pictogram' && pictogram && (
                 <span 
+                  data-emoji="true"
                   className="select-none leading-none transition-all duration-200"
                   style={{ 
                     fontSize: `${emojiSize}px`,
                     lineHeight: 1,
+                    fontFamily: EMOJI_FONTS,
                   }}
                 >
                   {pictogram.emoji}
@@ -659,9 +692,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 <img 
                   src={cell.imageData} 
                   alt="" 
-                  className="max-w-full max-h-full object-contain rounded-lg transition-all duration-200"
+                  className="max-w-full max-h-full object-contain transition-all duration-200"
                   style={{
                     transform: `scale(${size.emojiScale})`,
+                    transformOrigin: 'center center',
                   }}
                 />
               )}
@@ -670,11 +704,11 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             {/* ЗОНА 2: Текст с учётом scale */}
             {label && (
               <div
-                className="flex-[3] flex items-center justify-center px-3 pb-3 pt-1 border-t border-gray-100 cursor-pointer"
+                className="flex-[3] flex items-center justify-center p-0 min-w-0 min-h-0 border-t border-gray-100 cursor-pointer"
                 onClick={() => handlePreviewEditLabel(cell.id)}
               >
                 <p
-                  className="font-semibold text-gray-800 text-center w-full leading-tight transition-all duration-200"
+                  className="font-semibold text-gray-800 text-center w-full leading-tight transition-all duration-200 px-2"
                   style={{
                     fontSize: `${textSize}px`,
                     display: '-webkit-box',
@@ -684,6 +718,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                     wordBreak: 'break-word',
                     overflowWrap: 'break-word',
                     textOverflow: 'ellipsis',
+                    fontFamily: UNICODE_FONTS,
                   }}
                 >
                   {label}
@@ -693,9 +728,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </>
         )}
 
-        {/* 🆕 Панель управления размерами */}
         <div className="preview-controls absolute top-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-start gap-1">
-          {/* Кнопки размера эмодзи */}
           <div className="flex flex-col gap-1 bg-white/95 rounded-xl shadow-lg p-1 backdrop-blur">
             <div className="flex items-center justify-center text-[10px] font-bold text-purple-700 pb-0.5 border-b border-gray-200">
               <Smile className="w-3 h-3 mr-0.5" />
@@ -725,7 +758,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             </button>
           </div>
 
-          {/* Кнопки размера текста */}
           <div className="flex flex-col gap-1 bg-white/95 rounded-xl shadow-lg p-1 backdrop-blur">
             <div className="flex items-center justify-center text-[10px] font-bold text-purple-700 pb-0.5 border-b border-gray-200">
               <Type className="w-3 h-3 mr-0.5" />
@@ -756,7 +788,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </div>
         </div>
 
-        {/* 🆕 Индикатор редактирования и кнопки действий */}
         <div className="preview-controls absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
           <button
             onClick={(e) => {
@@ -790,7 +821,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </button>
         </div>
 
-        {/* Индикатор текущего масштаба */}
         {(size.emojiScale !== 1.0 || size.textScale !== 1.0) && (
           <div className="preview-controls absolute top-2 left-1/2 -translate-x-1/2 bg-amber-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-md">
             🎯 {Math.round(size.emojiScale * 100)}% / {Math.round(size.textScale * 100)}%
@@ -831,7 +861,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         ref={previewRef}
         className={`grid ${gridClass} gap-6 p-8 bg-white`}
         style={{
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, 'Noto Sans', sans-serif",
+          fontFamily: UNICODE_FONTS,
           width: '100%',
           maxWidth: '1200px',
           margin: '0 auto',
@@ -975,7 +1005,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                   className="aspect-square rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 flex flex-col items-center justify-center p-0.5 cursor-grab active:cursor-grabbing transition-colors"
                   title={`${p.ru} / ${p.en}`}
                 >
-                  <span className="text-xl">{p.emoji}</span>
+                  <span className="text-xl" style={{ fontFamily: EMOJI_FONTS }}>{p.emoji}</span>
                   <span className="text-[9px] text-gray-600 text-center line-clamp-1 mt-0.5">
                     {p[currentProject.language]}
                   </span>
@@ -1067,7 +1097,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         </section>
       </main>
 
-      {/* ПОЛНОЭКРАННЫЙ РЕЖИМ ПРЕДПРОСМОТРА */}
       {showPreview && (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col">
           <div className="bg-purple-700 px-4 py-3 flex items-center justify-between gap-3 shadow-md">
@@ -1105,7 +1134,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             </div>
           </div>
 
-          {/* 🆕 Панель действий: убрана кнопка "Поделиться" */}
           <div className="bg-white border-t border-gray-200 p-4 shadow-lg">
             <div className="max-w-[1200px] mx-auto grid grid-cols-3 gap-3">
               <button
@@ -1140,7 +1168,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
         </div>
       )}
 
-      {/* Модалка редактирования подписи в предпросмотре */}
       {editingPreviewCellId && (
         <div className="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4">
