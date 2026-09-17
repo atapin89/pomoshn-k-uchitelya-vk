@@ -168,9 +168,9 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [previewLanguage, setPreviewLanguage] = useState<Language>('ru');
   const [editingPreviewCellId, setEditingPreviewCellId] = useState<string | null>(null);
 
-  // 🆕 Единое хранилище стилей для всех ячеек
+  // Единое хранилище стилей для всех ячеек
   const [cellStyles, setCellStyles] = useState<Record<string, CellStyle>>({});
-  // 🆕 Выбранная ячейка в превью
+  // Выбранная ячейка в превью
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
@@ -205,12 +205,10 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       )
     : PICTOGRAMS.filter(p => p.category === selectedCategory);
 
-  // 🆕 Получение стиля ячейки (с дефолтом)
   const getCellStyle = (cellId: string): CellStyle => {
     return cellStyles[cellId] || DEFAULT_STYLE;
   };
 
-  // 🆕 Обновление стиля выбранной ячейки
   const updateSelectedStyle = (updates: Partial<CellStyle>) => {
     if (!selectedCellId) return;
     setCellStyles(prev => {
@@ -219,7 +217,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     });
   };
 
-  // 🆕 Применить стиль выбранной ячейки ко всем
   const applyStyleToAll = () => {
     if (!selectedCellId) return;
     const source = getCellStyle(selectedCellId);
@@ -233,7 +230,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setAlertMsg('Настройки применены ко всем ячейкам ✅');
   };
 
-  // 🆕 Сбросить стиль выбранной ячейки
   const resetSelectedStyle = () => {
     if (!selectedCellId) return;
     setCellStyles(prev => ({ ...prev, [selectedCellId]: DEFAULT_STYLE }));
@@ -647,7 +643,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     );
   };
 
-  // 🆕 УПРОЩЁННЫЙ рендер ячейки предпросмотра — только выделение, стили через общий инструмент
+  // ✅ ИСПРАВЛЕНО: клик по картинке — выделение плитки для настройки,
+  // клик по подписи — редактирование текста
   const renderPreviewCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[previewLanguage] : '');
@@ -669,7 +666,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
       <div
         key={cell.id}
         onClick={() => setSelectedCellId(cell.id)}
-        className={`relative aspect-square rounded-2xl border-4 bg-white overflow-hidden transition-all cursor-pointer flex flex-col ${
+        className={`group relative aspect-square rounded-2xl border-4 bg-white overflow-hidden transition-all cursor-pointer flex flex-col ${
           isSelected
             ? 'border-purple-600 ring-4 ring-purple-300 scale-[1.02] shadow-xl'
             : 'border-gray-300 hover:border-purple-400'
@@ -682,10 +679,14 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </div>
         ) : (
           <>
-            {/* ЗОНА 1: Картинка/эмодзи с позиционированием */}
+            {/* ЗОНА 1: картинка/эмодзи — клик выделяет плитку для настройки */}
             <div
-              className={`flex-[7] flex overflow-hidden p-0 min-w-0 min-h-0 ${emojiAlignClasses}`}
-              onClick={(e) => { e.stopPropagation(); handlePreviewEditLabel(cell.id); }}
+              className={`flex-[7] flex overflow-hidden p-0 min-w-0 min-h-0 cursor-pointer ${emojiAlignClasses}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedCellId(cell.id);
+              }}
+              title="Клик по картинке — настройка плитки"
             >
               {cell.type === 'pictogram' && pictogram && (
                 <span
@@ -713,11 +714,15 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               )}
             </div>
 
-            {/* ЗОНА 2: Текст с выравниванием */}
+            {/* ЗОНА 2: подпись — клик редактирует её */}
             {label && (
               <div
-                className={`flex-[3] flex p-0 min-w-0 min-h-0 border-t border-gray-100 ${textAlignClass}`}
-                onClick={(e) => { e.stopPropagation(); handlePreviewEditLabel(cell.id); }}
+                className={`flex-[3] flex p-0 min-w-0 min-h-0 border-t border-gray-100 cursor-text ${textAlignClass}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePreviewEditLabel(cell.id);
+                }}
+                title="Клик по тексту — редактирование подписи"
               >
                 <p
                   className="font-semibold text-gray-800 w-full leading-tight transition-all duration-200 px-2"
@@ -737,6 +742,23 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 </p>
               </div>
             )}
+
+            {/* Если подписи нет — кнопка добавления (не попадает в PDF-экспорт) */}
+            {!label && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePreviewEditLabel(cell.id);
+                }}
+                className={`preview-controls absolute bottom-1 left-1/2 -translate-x-1/2 bg-purple-600 hover:bg-purple-700 text-white rounded-full px-2 py-1 text-[10px] font-semibold flex items-center gap-1 shadow-md transition-opacity ${
+                  isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}
+                title="Добавить подпись"
+              >
+                <Edit3 className="w-3 h-3" />
+                Подпись
+              </button>
+            )}
           </>
         )}
 
@@ -746,22 +768,11 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             <Check className="w-3 h-3" />
           </div>
         )}
-
-        {/* Кнопка редактирования подписи — появляется при наведении */}
-        {cell.type !== 'empty' && (
-          <button
-            onClick={(e) => { e.stopPropagation(); handlePreviewEditLabel(cell.id); }}
-            className="preview-controls absolute bottom-1 left-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-2 py-1 text-[10px] font-semibold flex items-center gap-1 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <Edit3 className="w-3 h-3" />
-            Изменить
-          </button>
-        )}
       </div>
     );
   };
 
-  // 🆕 ЕДИНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ размерами и позиционированием
+  // ЕДИНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ размерами и позиционированием
   const renderStyleToolbar = () => {
     if (!selectedCellId) return null;
 
@@ -995,7 +1006,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-indigo-50 flex flex-col">
-      {/* 🆕 РАСШИРЕННАЯ ШАПКА с отступом от верхней границы (safe-area для мобильных) */}
+      {/* РАСШИРЕННАЯ ШАПКА с отступом от верхней границы (safe-area для мобильных) */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-20 pt-[env(safe-area-inset-top)]">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
           <button
@@ -1044,7 +1055,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               </>
             )}
           </button>
-          {/* 🆕 ИКОНКА ПРОЕКТОВ заменена на более информативную FolderOpen */}
           <button
             onClick={() => setShowProjects(!showProjects)}
             className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg shrink-0"
@@ -1155,7 +1165,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <li>• Перетащите пиктограмму из библиотеки в ячейку</li>
               <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
               <li>• 📥 Кнопка «PDF» откроет режим предпросмотра с настройкой</li>
-              <li>• 🎯 В предпросмотре кликните на плитку для выделения</li>
+              <li>• 🎯 В предпросмотре: клик по картинке — выделение, клик по подписи — правка текста</li>
               <li>• 🛠️ Сверху появится панель с регуляторами размера и позиции</li>
               <li>• ✨ «Ко всем» — применить текущие настройки ко всем плиткам</li>
             </ul>
@@ -1205,7 +1215,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <div className="px-4 pb-4 space-y-3 text-sm">
                 <div>
                   <p className="font-bold text-gray-800 mb-1">❓ Как настроить размер и положение?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре кликните на плитку — она выделится. Сверху появится панель с регуляторами размера иконки/текста, матрицей позиций 3×3 и выравниванием текста.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре кликните на картинку в плитке — она выделится, сверху появится панель с регуляторами размера иконки/текста, матрицей позиций 3×3 и выравниванием текста. Клик по подписи открывает её редактирование.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Как применить ко всем плиткам?</p>
@@ -1217,7 +1227,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Как изменить подписи?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре кликните на текст плитки — откроется редактор подписи.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре кликните на текст плитки — откроется редактор подписи. Если подписи нет — выделите плитку и нажмите кнопку «Подпись» внизу плитки.</p>
                 </div>
               </div>
             )}
@@ -1253,19 +1263,19 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center">
             <p className="text-sm text-amber-800">
-              💡 <strong>Кликните на плитку</strong>, чтобы выделить её — сверху появится панель настройки размера и позиции
+              💡 <strong>Клик по картинке</strong> — выбор плитки для настройки, <strong>клик по подписи</strong> — редактирование текста
             </p>
           </div>
 
           <div className="flex-1 overflow-auto bg-gray-100 p-4 flex flex-col items-center">
             <div className="w-full max-w-[1200px]">
-              {/* 🆕 ЕДИНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ (показывается только при выделении) */}
+              {/* ЕДИНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ (показывается только при выделении) */}
               {renderStyleToolbar()}
 
               {!selectedCellId && (
                 <div className="bg-blue-50 border-2 border-dashed border-blue-300 rounded-xl p-4 mb-4 text-center">
                   <p className="text-sm text-blue-800">
-                    👆 Кликните на любую плитку ниже, чтобы настроить её размер и позицию
+                    👆 Кликните на картинку в любой плитке ниже, чтобы настроить её размер и позицию
                   </p>
                 </div>
               )}
