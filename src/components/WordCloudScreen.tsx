@@ -20,10 +20,11 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw as ResetIcon,
+  AlertTriangle,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
-import { AlertDialog } from './ConfirmDialog';
+import { AlertDialog, ConfirmDialog } from './ConfirmDialog';
 
 interface WordItem {
   text: string;
@@ -54,6 +55,14 @@ interface ProjectData {
   lineMode: boolean;
   stopWords: string;
   settings: CloudSettings;
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
 }
 
 const PROJECT_KEY = 'wordcloud-project';
@@ -457,6 +466,12 @@ function layoutWords(
   return items;
 }
 
+// 🆕 Определение мобильного устройства
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 const CloudSVG = ({ items, settings, fontFamily, id, width, height }: {
   items: WordItem[];
   settings: CloudSettings;
@@ -501,8 +516,8 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
   const [showScen, setShowScen] = useState(false);
   const [openFaqItem, setOpenFaqItem] = useState<number | null>(null);
 
-  // ===== Внутренние диалоги (замена alert) =====
   const [alertMsg, setAlertMsg] = useState<string | null>(null);
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -688,6 +703,22 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
     if (jsonInputRef.current) jsonInputRef.current.value = '';
   };
 
+  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед скачиванием PNG (проблема кракозябр с кириллицей)
+  const handleExportPNGRequest = (resolution: 1 | 2 | 4) => {
+    const mobile = isMobileDevice();
+    setConfirmState({
+      title: '⚠️ Скачивание PNG',
+      message: mobile
+        ? 'Вы работаете с мобильного устройства. Скачивание PNG с кириллическими символами стабильно работает только при работе с компьютера. В мобильном браузере или мини-апе ВКонтакте кириллица может отобразиться кракозябрами. Для гарантированного результата откройте приложение на компьютере. Всё равно продолжить?'
+        : 'На мобильных устройствах и в мини-апе ВКонтакте кириллица в PNG может отобразиться некорректно. Для стабильного результата используйте компьютер. Продолжить скачивание?',
+      confirmLabel: 'Скачать PNG',
+      danger: false,
+      action: () => {
+        handleExportPNG(resolution);
+      },
+    });
+  };
+
   const renderPreview = () => (
     <div
       ref={previewContainerRef}
@@ -728,20 +759,35 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-blue-50 flex flex-col">
-      <header className="bg-gradient-to-r from-purple-700 to-violet-600 shadow-md sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-white truncate">Облако слов</h1>
-            <p className="text-xs text-purple-200">
-              {stats.unique} уник. · {stats.total} слов
-            </p>
           </div>
-          <Cloud className="w-6 h-6 text-white/70" />
+          <Cloud className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl mx-auto w-full p-3 space-y-3 pb-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+        {/* 🆕 Информационная плашка: инструмент + статистика */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Инструмент</p>
+            <p className="text-sm font-bold text-purple-700 truncate">Облако слов</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-xs text-gray-500">Слов</p>
+            <p className="text-sm font-bold text-purple-700">
+              {stats.unique} уник. / {stats.total}
+            </p>
+          </div>
+          <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+            <Cloud className="w-5 h-5" />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3">
           <div className="space-y-3">
             <div className="bg-white rounded-2xl p-3 shadow-sm">
@@ -824,13 +870,13 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
             <div className="bg-white rounded-2xl p-3 shadow-sm space-y-2">
               <label className="text-sm font-semibold text-purple-700">Экспорт</label>
               <div className="grid grid-cols-3 gap-2">
-                <button onClick={() => handleExportPNG(1)} className="py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold flex flex-col items-center gap-1">
+                <button onClick={() => handleExportPNGRequest(1)} className="py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold flex flex-col items-center gap-1">
                   <ImageIcon className="w-4 h-4" /> PNG 1×
                 </button>
-                <button onClick={() => handleExportPNG(2)} className="py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold flex flex-col items-center gap-1">
+                <button onClick={() => handleExportPNGRequest(2)} className="py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold flex flex-col items-center gap-1">
                   <ImageIcon className="w-4 h-4" /> PNG 2×
                 </button>
-                <button onClick={() => handleExportPNG(4)} className="py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold flex flex-col items-center gap-1">
+                <button onClick={() => handleExportPNGRequest(4)} className="py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold flex flex-col items-center gap-1">
                   <ImageIcon className="w-4 h-4" /> PNG 4K
                 </button>
               </div>
@@ -846,6 +892,11 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
                 <input ref={jsonInputRef} type="file" accept=".json" onChange={handleImportJSON} className="hidden" />
                 📁 Загрузить проект
               </label>
+              {/* 🆕 Постоянное предупреждение о кракозябрах в PNG */}
+              <p className="text-center text-[11px] text-gray-500 flex items-center justify-center gap-1 px-2 leading-relaxed pt-1">
+                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                Скачивание PNG с кириллицей стабильно работает только с компьютера.
+              </p>
             </div>
           </div>
 
@@ -1127,11 +1178,22 @@ export default function WordCloudScreen({ onBack }: { onBack: () => void }) {
         </div>
       </main>
 
-      {/* ===== Внутренний информационный диалог ===== */}
       <AlertDialog
         isOpen={alertMsg !== null}
         message={alertMsg ?? ''}
         onClose={() => setAlertMsg(null)}
+      />
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
       />
     </div>
   );
