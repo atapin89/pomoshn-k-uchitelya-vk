@@ -782,18 +782,43 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   // ===== ОСНОВНОЙ ЭКРАН =====
   return (
     <div className="min-h-[100dvh] flex flex-col bg-gray-50">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-30">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-white truncate">Телесуфлер</h1>
-            <p className="text-xs text-purple-200">{activeScript.name}</p>
           </div>
-          <Monitor className="w-5 h-5 text-white/70" />
+          <Monitor className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full p-4 space-y-4 pb-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+        {/* 🆕 Информационная плашка: название сценария + статистика + иконка */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Сценарий</p>
+            <p className="text-sm font-bold text-purple-700 truncate">{activeScript.name}</p>
+          </div>
+          <div className="shrink-0 flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Слов</p>
+              <p className="text-sm font-bold text-purple-700">{wordCount}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Минут</p>
+              <p className="text-sm font-bold text-purple-700">{readingTime}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Прогресс</p>
+              <p className="text-sm font-bold text-purple-700">{progress}%</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+              <Monitor className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between gap-2">
             <button
@@ -835,21 +860,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
               className="w-full accent-purple-600"
             />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className="bg-purple-50 rounded-lg p-2 text-center">
-              <p className="font-bold text-purple-700">{wordCount}</p>
-              <p className="text-gray-500">слов</p>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-2 text-center">
-              <p className="font-bold text-purple-700">{readingTime}</p>
-              <p className="text-gray-500">мин</p>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-2 text-center">
-              <p className="font-bold text-purple-700">{progress}%</p>
-              <p className="text-gray-500">прогресс</p>
-            </div>
           </div>
         </div>
 
