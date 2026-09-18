@@ -23,11 +23,10 @@ import {
   Save,
   Library,
   BookMarked,
-  FileSpreadsheet,
-  ScrollText,
   File,
   Book,
   AlertTriangle,
+  ChevronDown,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -235,7 +234,7 @@ function parseAuthors(authors: string): { full: string; inverted: string; count:
 }
 
 function formatSource(fields: SourceFields, type: SourceType, standard: GostStandard): string {
-  const useLong = standard === 'gost-2018'; // Развёрнутая форма
+  const useLong = standard === 'gost-2018';
   const sep = useLong ? ' — ' : ' / ';
 
   const authorsInfo = parseAuthors(fields.authors);
@@ -415,7 +414,6 @@ function sortByAuthors(a: SavedSource, b: SavedSource): number {
   return aKey.localeCompare(bKey, 'ru');
 }
 
-// 🆕 Определение мобильного устройства
 function isMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -484,7 +482,6 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
   const [sortAlpha, setSortAlpha] = useState(true);
   const [showFaq, setShowFaq] = useState(false);
 
-  // Диалоги
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
@@ -643,7 +640,6 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
     triggerHaptic('heavy');
   };
 
-  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед скачиванием .txt
   const handleExportTxtRequest = () => {
     if (sources.length === 0) {
       setAlertMsg('Список пуст. Добавьте хотя бы один источник.');
@@ -663,7 +659,6 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
     });
   };
 
-  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед скачиванием .doc (Word ещё капризнее, чем TXT)
   const handleExportDocxRequest = () => {
     if (sources.length === 0) {
       setAlertMsg('Список пуст. Добавьте хотя бы один источник.');
@@ -700,7 +695,6 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
 
   const currentTypeInfo = SOURCE_TYPES.find((t) => t.id === currentType)!;
 
-  // Поля для текущего типа
   const renderFields = () => {
     const common = (
       <>
@@ -961,7 +955,6 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
         );
 
       case 'abstract':
-        // уже обработано в кейсе dissertation
         return null;
 
       default:
@@ -971,12 +964,12 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-indigo-50 flex flex-col">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-white truncate">Источники по ГОСТу</h1>
-            <p className="text-xs text-purple-200 truncate">Библиографическое оформление</p>
           </div>
           <FileText className="w-6 h-6 text-white/70 shrink-0" />
         </div>
@@ -1212,7 +1205,6 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
                   <Download className="w-3 h-3" /> .doc
                 </button>
               </div>
-              {/* 🆕 Постоянное предупреждение о стабильности скачивания */}
               <p className="text-center text-[11px] text-gray-500 flex items-center justify-center gap-1 px-2 leading-relaxed">
                 <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
                 Скачивание файлов стабильно работает только с компьютера. На мобильных используйте кнопку «Все» для копирования.
@@ -1227,7 +1219,7 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
-        {/* FAQ */}
+        {/* 🆕 УЛУЧШЕННЫЙ FAQ с анимацией */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
             onClick={() => setShowFaq(!showFaq)}
@@ -1237,23 +1229,41 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
               <HelpCircle className="w-5 h-5 text-purple-600" />
               <h3 className="font-bold text-purple-700">Как пользоваться</h3>
             </div>
-            {showFaq ? <X className="w-5 h-5 text-purple-600" /> : <Plus className="w-5 h-5 text-purple-600" />}
+            <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showFaq ? 'rotate-180' : ''}`} />
           </button>
           {showFaq && (
-            <div className="px-5 pb-5 space-y-2 text-sm text-gray-700">
-              <p><b>1.</b> Выберите ГОСТ. По умолчанию — действующий ГОСТ Р 7.0.100–2018 для списков литературы.</p>
-              <p><b>2.</b> Выберите тип источника из 12 доступных вариантов.</p>
-              <p><b>3.</b> Заполните поля. Нажимайте <b>?</b> рядом с каждым — там точный пункт ГОСТа.</p>
-              <p><b>4.</b> Результат формируется автоматически внизу формы. Скопируйте одним нажатием.</p>
-              <p><b>5.</b> Нажмите «Сохранить» — запись добавится в список.</p>
-              <p><b>6.</b> Когда список готов — экспортируйте в Word (.doc) или текст (.txt).</p>
+            <div className="px-5 pb-5 space-y-3 text-sm">
+              <div>
+                <p className="font-bold text-gray-800 mb-1">❓ Какой ГОСТ выбрать?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">Для списков литературы в дипломах и диссертациях — ГОСТ Р 7.0.100–2018 (действующий). Для внутритекстовых ссылок — ГОСТ Р 7.0.5–2008. ГОСТ 7.1–2003 устарел, но встречается в некоторых вузах.</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Как указать несколько авторов?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">Вводите через запятую: «Иванов И. И., Петров П. П., Сидоров С. С.». До 4 авторов указываются перед заглавием, более 4 — автоматически добавляется «[и др.]».</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Как оформить электронную статью?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">Выберите тип «Интернет-ресурс», заполните URL (с https://) и дату обращения. Формат: «Название [Электронный ресурс] // URL: https://... (дата обращения: 15.01.2024)».</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Можно ли редактировать запись?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">Да! В списке источников нажмите на иконку карандаша — запись загрузится в форму для редактирования. После исправлений нажмите «Обновить».</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Почему сортировка по алфавиту?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">По ГОСТу список литературы должен быть упорядочен по алфавиту фамилий авторов. Кнопка сортировки справа от заголовка переключает между алфавитным порядком и порядком добавления.</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Как экспортировать в Word?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">Нажмите кнопку .doc в списке источников. Файл откроется в Word с правильным форматированием: Times New Roman 14pt, выравнивание по ширине, абзацный отступ 1.25 см.</p>
+              </div>
               <div className="pt-2 border-t border-gray-100 space-y-2">
                 <p className="text-xs text-gray-500 flex items-start gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                   <span><b>Важно:</b> скачивание .doc и .txt стабильно работает только при работе с компьютера. В мини-апе ВКонтакте или мобильном браузере файлы могут не скачаться или открыться с ошибками. Используйте кнопку «Все» для копирования списка в буфер — она работает на любом устройстве.</span>
                 </p>
                 <p className="text-xs text-gray-500">
-                  💡 <b>Совет:</b> в списке литературы источники должны идти по алфавиту — включите эту сортировку кнопкой справа от заголовка.
+                  💡 <b>Совет:</b> нажимайте на иконку ? рядом с каждым полем — там точный пункт ГОСТа с примерами заполнения.
                 </p>
               </div>
             </div>
