@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft,
   Maximize2,
   Minimize2,
   Users,
@@ -12,6 +11,9 @@ import {
   Download,
   Plus,
   RotateCcw,
+  Monitor,
+  HelpCircle,
+  ChevronDown,
 } from 'lucide-react';
 import type { EduGame, EduPlayer, EduQuestion, EduRound } from '@/types/eduGame';
 import {
@@ -21,6 +23,7 @@ import {
   sanitizeFileName,
 } from '@/lib/eduGameStorage';
 import { ConfirmDialog } from './ConfirmDialog';
+import BackButton from './BackButton';
 
 interface EduGameProjectorScreenProps {
   game: EduGame;
@@ -84,15 +87,14 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
   const [showResults, setShowResults] = useState(false);
   const [newPlayersText, setNewPlayersText] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showFaq, setShowFaq] = useState(false);
 
-  // ===== Внутренний диалог (замена window.confirm) =====
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
   const usedSet = useMemo(() => new Set(used), [used]);
 
-  // Сохранение сессии
   useEffect(() => {
     try {
       localStorage.setItem(sessionKey(game.id), JSON.stringify({ used, players, rating }));
@@ -101,14 +103,12 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
     }
   }, [used, players, rating, game.id]);
 
-  // Fullscreen
   useEffect(() => {
     const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
 
-  // Закрытие по Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -125,7 +125,6 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
     return () => window.removeEventListener('keydown', handler);
   }, [active, showPlayers, showResults]);
 
-  // Блокировка прокрутки фона
   useEffect(() => {
     if (active || showPlayers || showResults) {
       document.body.style.overflow = 'hidden';
@@ -231,24 +230,14 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
 
   return (
     <div className="min-h-[100dvh] bg-gray-900 flex flex-col">
-      {/* Шапка */}
-      <header className="bg-gray-800/90 sticky top-0 z-20 shadow-lg">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-2">
-          <button 
-            onClick={handleBack} 
-            className="text-gray-300 hover:text-white p-2 transition-colors" 
-            aria-label="Выход из проектора"
-            title="Выйти из проектора"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-gray-800/90 sticky top-0 z-20 shadow-lg pt-[env(safe-area-inset-top)]">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton onClick={handleBack} variant="light" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-white truncate">{game.title}</h1>
-            <p className="text-xs text-gray-400">
-              Табло · раундов: {game.rounds.length}
-              {rating && players.length > 0 && ` · участников: ${players.length}`}
-            </p>
+            <h1 className="text-lg font-bold text-white truncate">Проектор игры</h1>
           </div>
+          {/* Функциональные кнопки справа (специфика проектора) */}
           <button
             onClick={() => setShowPlayers(true)}
             className={`p-2 ${rating ? 'text-purple-400' : 'text-gray-300'} hover:text-white transition-colors`}
@@ -281,11 +270,35 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
           >
             {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
           </button>
+          <Monitor className="w-6 h-6 text-white/50 shrink-0" />
         </div>
       </header>
 
       {/* Табло */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6">
+        {/* 🆕 Информационная плашка с названием игры и статистикой */}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-3 mb-4 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-400">Игра</p>
+            <p className="text-sm font-bold text-white truncate">{game.title}</p>
+          </div>
+          <div className="shrink-0 flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-gray-400">Раундов</p>
+              <p className="text-sm font-bold text-purple-400">{game.rounds.length}</p>
+            </div>
+            {rating && players.length > 0 && (
+              <div className="text-right">
+                <p className="text-xs text-gray-400">Участников</p>
+                <p className="text-sm font-bold text-purple-400">{players.length}</p>
+              </div>
+            )}
+            <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-600/30 flex items-center justify-center text-purple-400">
+              <Monitor className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
         <div className="overflow-x-auto pb-2">
           <div
             className="grid gap-3"
@@ -326,6 +339,52 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
         <p className="text-center text-gray-500 text-sm mt-4">
           Нажмите на баллы — откроется вопрос. После обсуждения закройте клетку — она погаснет.
         </p>
+
+        {/* 🆕 FAQ секция со сценариями использования */}
+        <div className="mt-6 bg-gray-800/50 border border-gray-700 rounded-2xl overflow-hidden">
+          <button
+            onClick={() => setShowFaq(!showFaq)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-purple-400" />
+              <h3 className="font-bold text-white">Как использовать проектор</h3>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-purple-400 transition-transform duration-200 ${showFaq ? 'rotate-180' : ''}`} />
+          </button>
+          {showFaq && (
+            <div className="px-5 pb-5 space-y-3 text-sm">
+              <div>
+                <p className="font-bold text-gray-200 mb-1">❓ Как начать игру?</p>
+                <p className="text-xs text-gray-400 leading-relaxed">Подключите проектор или выведите изображение на интерактивную доску. Нажмите «Во весь экран» для максимального обзора. Добавьте участников через иконку 👥 и включите «Индивидуальный рейтинг» для начисления баллов.</p>
+              </div>
+              <div className="border-t border-gray-700 pt-3">
+                <p className="font-bold text-gray-200 mb-1">❓ Как вести игру?</p>
+                <p className="text-xs text-gray-400 leading-relaxed">Нажмите на клетку с баллами — откроется вопрос. Нажмите «Показать вопрос» для демонстрации. После обсуждения ответа начислите баллы правильному ответившему кнопкой «+». Закройте клетку — она погаснет и станет недоступной.</p>
+              </div>
+              <div className="border-t border-gray-700 pt-3">
+                <p className="font-bold text-gray-200 mb-1">❓ Можно ли снимать баллы?</p>
+                <p className="text-xs text-gray-400 leading-relaxed">Да, кнопка «−» снимает баллы за неправильный ответ. Это полезно для штрафных санкций или исправления ошибок начисления.</p>
+              </div>
+              <div className="border-t border-gray-700 pt-3">
+                <p className="font-bold text-gray-200 mb-1">❓ Что делать, если игра прервалась?</p>
+                <p className="text-xs text-gray-400 leading-relaxed">Прогресс сохраняется автоматически в localStorage. При следующем входе в проектор игра продолжится с того же места: использованные вопросы останутся погашенными, баллы участников сохранятся.</p>
+              </div>
+              <div className="border-t border-gray-700 pt-3">
+                <p className="font-bold text-gray-200 mb-1">❓ Как экспортировать результаты?</p>
+                <p className="text-xs text-gray-400 leading-relaxed">Нажмите 🏆 Результаты → «Экспорт» или 👥 Участники → «Экспорт результатов». Скачается .txt файл с итоговым рейтингом. Используйте кнопку «Новая игра» (🔄) для полного сброса перед следующим уроком.</p>
+              </div>
+              <div className="border-t border-gray-700 pt-3">
+                <p className="font-bold text-gray-200 mb-1">💡 Сценарий: Обобщающий урок-игра</p>
+                <p className="text-xs text-gray-400 leading-relaxed">1) Заранее создайте игру в редакторе с 4-6 раундами по теме. 2) Добавьте всех учеников класса через импорт .txt (каждое имя с новой строки). 3) Включите рейтинг. 4) Командная игра: вызывайте учеников по очереди, начисляйте баллы за правильные ответы. 5) В конце урока экспортируйте рейтинг и объявите победителей.</p>
+              </div>
+              <div className="border-t border-gray-700 pt-3">
+                <p className="font-bold text-gray-200 mb-1">💡 Сценарий: Интеллектуальный турнир</p>
+                <p className="text-xs text-gray-400 leading-relaxed">Используйте режим проектора для параллели или нескольких классов. Подготовьте сложные вопросы с разными баллами (10-50). Ведите индивидуальный рейтинг, экспортируйте результаты после каждого тура. Финалисты определяются по сумме баллов за все игры.</p>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Оверлей вопроса */}
@@ -611,7 +670,6 @@ export default function EduGameProjectorScreen({ game, onBack }: EduGameProjecto
         </div>
       )}
 
-      {/* ===== Внутренний диалог подтверждения ===== */}
       <ConfirmDialog
         isOpen={confirmState !== null}
         title={confirmState?.title ?? ''}
