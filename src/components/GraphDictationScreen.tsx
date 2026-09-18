@@ -25,6 +25,7 @@ import {
   Pencil,
   Image as ImageIcon,
   Inbox,
+  AlertTriangle,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
@@ -236,6 +237,12 @@ function drawGridAndLines(
   return { cx, cy };
 }
 
+// 🆕 Определение мобильного устройства
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 export default function GraphDictationScreen({ onBack }: { onBack: () => void }) {
   const [dictations, setDictations] = useState<Dictation[]>(() => {
     try {
@@ -270,7 +277,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   const [printClass, setPrintClass] = useState('');
   const [printDate, setPrintDate] = useState('');
 
-  // ===== Внутренние диалоги (замена confirm/alert) =====
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
@@ -527,6 +533,27 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
     });
   };
 
+  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед пакетной печатью
+  const handleBatchPrintRequest = () => {
+    const selected = dictations.filter((d) => selectedForPrint.has(d.id));
+    if (selected.length === 0) {
+      setAlertMsg('Выберите хотя бы один диктант для печати');
+      return;
+    }
+    const mobile = isMobileDevice();
+    setConfirmState({
+      title: '⚠️ Пакетная печать',
+      message: mobile
+        ? 'Вы работаете с мобильного устройства. Печать стабильно работает только при работе с компьютера. В мини-апе ВКонтакте или мобильном браузере окно печати может не открыться. Для гарантированного результата откройте приложение на компьютере. Всё равно продолжить?'
+        : 'Печать стабильно работает только при работе с компьютера. В мини-апе ВКонтакте или мобильном браузере окно печати может не открыться. Продолжить?',
+      confirmLabel: 'Открыть печать',
+      danger: false,
+      action: () => {
+        handleBatchPrint();
+      },
+    });
+  };
+
   const handleBatchPrint = () => {
     const selected = dictations.filter((d) => selectedForPrint.has(d.id));
     if (selected.length === 0) {
@@ -675,18 +702,18 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
   if (editorMode && editingDictation) {
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+        {/* 🆕 ЕДИНАЯ ШАПКА РЕДАКТОРА */}
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={handleCancelEditor} variant="light" />
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-bold text-white truncate">Редактор диктанта</h1>
-              <p className="text-xs text-purple-200">Рисуйте прямо на поле</p>
             </div>
             <Pencil className="w-6 h-6 text-white/70" />
           </div>
         </header>
 
-        <main className="flex-1 max-w-4xl mx-auto w-full p-3 space-y-3 pb-8">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3">
             <div className="space-y-3">
               <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -854,7 +881,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
           </div>
         </main>
 
-        {/* Информационный диалог в редакторе */}
         <AlertDialog
           isOpen={alertMsg !== null}
           message={alertMsg ?? ''}
@@ -866,18 +892,18 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
 
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+      {/* 🆕 ЕДИНАЯ ШАПКА ОСНОВНОГО ЭКРАНА */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-white truncate">Графический диктант</h1>
-            <p className="text-xs text-purple-200">Развитие пространственного мышления</p>
           </div>
           <BookOpen className="w-6 h-6 text-white/70" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full p-3 space-y-3 pb-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
         {dictations.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 shadow-sm text-center space-y-4">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full">
@@ -1239,6 +1265,12 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
                   ))}
                 </div>
               </div>
+
+              {/* 🆕 Постоянное предупреждение о стабильности печати */}
+              <p className="text-center text-[11px] text-gray-500 flex items-center justify-center gap-1 px-2 leading-relaxed">
+                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                Печать стабильно работает только с компьютера. На мобильных используйте «Картинка» для сохранения PNG.
+              </p>
             </div>
 
             <div className="p-4 border-t border-gray-200 flex gap-2">
@@ -1246,7 +1278,7 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
                 Отмена
               </button>
               <button
-                onClick={handleBatchPrint}
+                onClick={handleBatchPrintRequest}
                 disabled={selectedForPrint.size === 0}
                 className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
               >
@@ -1258,7 +1290,6 @@ export default function GraphDictationScreen({ onBack }: { onBack: () => void })
         </div>
       )}
 
-      {/* ===== Внутренние диалоги ===== */}
       <ConfirmDialog
         isOpen={confirmState !== null}
         title={confirmState?.title ?? ''}
