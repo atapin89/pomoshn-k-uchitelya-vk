@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
 import { helpTexts } from '@/data/helpTexts';
+import { UserAvatar } from './UserAvatar';
 
 // ===== Типы =====
 
@@ -393,6 +394,8 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
               >
                 Классический вид
               </button>
+              {/* 🆕 Аватар пользователя в верхнем правом углу */}
+              <UserAvatar size="sm" showName />
             </div>
           </div>
 
