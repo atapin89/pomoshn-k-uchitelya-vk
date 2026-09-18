@@ -33,6 +33,7 @@ import {
 import { HelpModal } from './HelpModal';
 import { helpTexts } from '@/data/helpTexts';
 import ModernHomeScreen from './ModernHomeScreen';
+import { UserAvatar } from './UserAvatar';
 
 // ===== Типы =====
 
@@ -257,9 +258,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           return new Set(arr);
         }
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
     return new Set(SECTIONS.map(s => s.id));
   });
 
@@ -274,13 +273,10 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
           return [...arr, ...missing];
         }
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
     return SECTIONS.map(s => s.id);
   });
 
-  // Drag & Drop состояния
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
@@ -293,17 +289,13 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   useEffect(() => {
     try {
       localStorage.setItem(VISIBILITY_KEY, JSON.stringify([...visibleSections]));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [visibleSections]);
 
   useEffect(() => {
     try {
       localStorage.setItem(ORDER_KEY, JSON.stringify(sectionOrder));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, [sectionOrder]);
 
   const handleGearClick = () => {
@@ -312,9 +304,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       setGearSeen(true);
       try {
         localStorage.setItem(GEAR_SEEN_KEY, 'true');
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   };
 
@@ -323,9 +313,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       setManualSeen(true);
       try {
         localStorage.setItem(MANUAL_SEEN_KEY, 'true');
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
     onNavigate('manual');
   };
@@ -354,7 +342,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     });
   };
 
-  // Drag & Drop обработчики
   const handleDragStart = (e: React.DragEvent, idx: number) => {
     setDraggedIndex(idx);
     e.dataTransfer.effectAllowed = 'move';
@@ -426,7 +413,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       .filter((s): s is Section => !!s && visibleSections.has(s.id));
   }, [sectionOrder, visibleSections]);
 
-  // Если выбран современный стиль - рендерим ModernHomeScreen
   if (homeStyle === 'modern') {
     return (
       <ModernHomeScreen
@@ -436,15 +422,12 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     );
   }
 
-  // Классический стиль
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
-        {/* Шапка: левая колонка иконок | логотип */}
         <div className="flex items-start gap-3">
-          {/* Левая колонка: шестерёнка СВЕРХУ, руководство СНИЗУ */}
+          {/* Левая колонка: шестерёнка и руководство */}
           <div className="shrink-0 flex flex-col items-center gap-2">
-            {/* Шестерёнка */}
             <div className="group relative">
               <button
                 onClick={handleGearClick}
@@ -468,14 +451,12 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                 />
               </button>
               
-              {/* Tooltip справа от иконки */}
               <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                 <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
                 Настройка разделов
               </div>
             </div>
 
-            {/* Руководство */}
             <div className="group relative">
               <button
                 onClick={handleManualClick}
@@ -492,7 +473,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                 <BookOpen className="relative z-10 w-6 h-6 transition-transform duration-300 group-hover:scale-x-[-1]" />
               </button>
               
-              {/* Tooltip справа от иконки */}
               <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                 <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
                 Руководство
@@ -500,7 +480,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </div>
           </div>
 
-          {/* Логотип (flex-1) */}
+          {/* Логотип */}
           <div className="flex-1 flex flex-col items-center min-w-0">
             <h1 className="sr-only">Помощник учителя</h1>
             <a
@@ -521,6 +501,11 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                 }}
               />
             </a>
+          </div>
+
+          {/* 🆕 Правая колонка: аватар пользователя */}
+          <div className="shrink-0 flex flex-col items-center gap-2">
+            <UserAvatar />
           </div>
         </div>
       </header>
@@ -582,7 +567,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         )}
       </main>
 
-      {/* ===== Нижний правый угол: подпись проекта ===== */}
       <footer className="max-w-md mx-auto w-full px-5 pb-4 flex justify-end">
         <p className="text-[10px] sm:text-[11px] text-gray-500 leading-tight text-right">
           Проект{' '}
@@ -597,7 +581,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         </p>
       </footer>
 
-      {/* ===== МОДАЛКА НАСТРОЕК: сетка 2 столбца с Drag & Drop ===== */}
       {showSettings && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md max-h-[85vh] rounded-t-3xl sm:rounded-3xl flex flex-col overflow-hidden">
@@ -616,7 +599,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
-              {/* Переключатель стиля */}
               <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border-2 border-purple-200">
                 <h3 className="font-bold text-purple-900 mb-2">Внешний вид</h3>
                 <p className="text-xs text-purple-700 mb-3">
@@ -646,7 +628,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                 </div>
               </div>
 
-              {/* Сетка 2 столбца с Drag & Drop */}
               <div className="grid grid-cols-2 gap-2">
                 {sectionOrder.map((id, idx) => {
                   const section = SECTIONS.find(s => s.id === id);
@@ -677,7 +658,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                           : ''
                       }`}
                     >
-                      {/* Верх: ручка + иконка + название */}
                       <div className="flex items-center gap-1.5">
                         <div className="shrink-0 text-gray-400 cursor-grab active:cursor-grabbing">
                           <GripVertical className="w-3.5 h-3.5" />
@@ -701,7 +681,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                         </button>
                       </div>
 
-                      {/* Низ: стрелки порядка + переключатель видимости */}
                       <div className="flex items-center justify-between">
                         <div className="flex gap-0.5">
                           <button
@@ -741,7 +720,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
                 })}
               </div>
 
-              {/* Кнопки массовых действий */}
               <div className="grid grid-cols-3 gap-2 mt-4">
                 <button
                   onClick={showAll}
