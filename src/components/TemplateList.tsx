@@ -21,35 +21,25 @@ export default function TemplateList({
   onBack,
 }: TemplateListProps) {
   return (
-    <div className="min-h-[100dvh] notebook-bg">
-      {/* НОВАЯ КОМПАКТНАЯ ШАПКА */}
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          {/* Кнопка назад (не сжимается) */}
-          <div className="shrink-0">
-            <BackButton onClick={onBack} variant="light" />
+    <div className="min-h-[100dvh] notebook-bg flex flex-col">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton onClick={onBack} variant="light" />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Шаблоны уроков</h1>
           </div>
-          
-          {/* Заголовок и описание (занимают все свободное место, текст обрезается если не влезает) */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">Таймер урока</h1>
-            <p className="text-xs text-purple-200 leading-tight">Выберите шаблон занятия</p>
-          </div>
-          
-          {/* Иконка раздела справа (не сжимается) */}
-          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-            <BookOpen className="w-5 h-5 text-white" />
-          </div>
+          <BookOpen className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-5 py-6 space-y-4 pb-28">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-3 pb-8">
         {templates.map((t) => {
           const total = totalDurationSeconds(t.stages);
           return (
             <div
               key={t.id}
-              className="w-full bg-white shadow-md rounded-2xl p-5 flex items-center gap-3 active:scale-[0.98] transition-transform border-l-4 border-purple-500"
+              className="w-full bg-white shadow-md rounded-2xl p-4 flex items-center gap-3 active:scale-[0.98] transition-transform border-l-4 border-purple-500"
             >
               <button
                 onClick={() => onSelect(t)}
@@ -96,7 +86,11 @@ export default function TemplateList({
         })}
 
         {templates.length === 0 && (
-          <p className="text-center text-gray-400 py-12">Нет сохранённых шаблонов</p>
+          <div className="text-center py-12">
+            <BookOpen className="w-16 h-16 text-purple-200 mx-auto mb-4" />
+            <p className="text-gray-400">Нет сохранённых шаблонов</p>
+            <p className="text-sm text-gray-400 mt-1">Создайте свой первый шаблон ниже</p>
+          </div>
         )}
 
         <button
@@ -111,7 +105,6 @@ export default function TemplateList({
             <p className="text-sm text-gray-500 mt-0.5">Настройте этапы и длительность</p>
           </div>
         </button>
-
       </main>
     </div>
   );
