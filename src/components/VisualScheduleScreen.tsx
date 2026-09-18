@@ -32,6 +32,7 @@ import {
   AlignEndVertical,
   Sparkles,
   RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -141,6 +142,12 @@ function getEmojiAlignClasses(pos: AlignPosition): string {
     'bottom-right':  'items-end justify-end',
   };
   return map[pos];
+}
+
+// 🆕 Определение мобильного устройства
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
 export default function VisualScheduleScreen({ onBack }: { onBack: () => void }) {
@@ -479,6 +486,22 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setIsExporting(false);
   };
 
+  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед скачиванием PDF: стабильно работает только с компьютера
+  const handleExportPDFRequest = () => {
+    const mobile = isMobileDevice();
+    setConfirmState({
+      title: '⚠️ Скачивание PDF',
+      message: mobile
+        ? 'Вы работаете с мобильного устройства. Функция скачивания PDF стабильно работает только при работе с компьютера. На телефоне или в мини-апе ВКонтакте файл может не сохраниться. Для гарантированного результата откройте приложение на компьютере. Всё равно продолжить?'
+        : 'Функция скачивания PDF стабильно работает только при работе с компьютера. На мобильных устройствах и в мини-апе ВКонтакте файл может не сохраниться. Продолжить скачивание?',
+      confirmLabel: 'Скачать PDF',
+      danger: false,
+      action: () => {
+        handleExportPDF();
+      },
+    });
+  };
+
   const handlePrint = async () => {
     try {
       const canvas = await generatePreviewCanvas();
@@ -643,8 +666,9 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     );
   };
 
-  // ✅ ИСПРАВЛЕНО: клик по картинке — выделение плитки для настройки,
-  // клик по подписи — редактирование текста
+  // Рендер ячейки предпросмотра:
+  // • клик по картинке/эмодзи — выделение плитки для настройки
+  // • клик по подписи — редактирование подписи
   const renderPreviewCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[previewLanguage] : '');
@@ -1168,6 +1192,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               <li>• 🎯 В предпросмотре: клик по картинке — выделение, клик по подписи — правка текста</li>
               <li>• 🛠️ Сверху появится панель с регуляторами размера и позиции</li>
               <li>• ✨ «Ко всем» — применить текущие настройки ко всем плиткам</li>
+              <li>• ⚠️ Скачивание PDF стабильно работает только с компьютера</li>
             </ul>
           </div>
 
@@ -1223,7 +1248,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Как распечатать?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → «Печать» в панели предпросмотра.</p>
+                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → «Печать» в панели предпросмотра. Внимание: скачивание PDF стабильно работает только при работе с компьютера — на телефоне файл может не сохраниться.</p>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="font-bold text-gray-800 mb-1">❓ Как изменить подписи?</p>
@@ -1289,7 +1314,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           <div className="bg-white border-t border-gray-200 p-4 shadow-lg">
             <div className="max-w-[1200px] mx-auto grid grid-cols-3 gap-3">
               <button
-                onClick={handleExportPDF}
+                onClick={handleExportPDFRequest}
                 disabled={isExporting}
                 className="py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold flex flex-col items-center justify-center gap-1 disabled:opacity-50 transition-colors"
               >
@@ -1316,6 +1341,11 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 <span className="text-xs">Закрыть</span>
               </button>
             </div>
+            {/* 🆕 Постоянное предупреждение под кнопками */}
+            <p className="mt-3 text-center text-[11px] text-gray-500 flex items-center justify-center gap-1">
+              <AlertTriangle className="w-3 h-3 text-amber-500" />
+              Скачивание PDF стабильно работает только при работе с компьютера. На мобильных устройствах файл может не сохраниться.
+            </p>
           </div>
         </div>
       )}
