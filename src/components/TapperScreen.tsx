@@ -6,11 +6,9 @@ import {
   Plus,
   Upload,
   Download,
-  Save,
   Trash2,
   Pencil,
   Check,
-  X,
   RotateCcw,
   UserCheck,
   UserX,
@@ -21,6 +19,7 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  BarChart3,
 } from 'lucide-react';
 import type { TapperList, TapperStudent } from '@/types/tapper';
 import { generateTapperId, createEmptyTapperList } from '@/types/tapper';
@@ -487,21 +486,39 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
     </>
   );
 
-  // ===== ЭКРАН РЕЗУЛЬТАТОВ =====
+  // ===== 🆕 ЭКРАН РЕЗУЛЬТАТОВ =====
   if (showResults && activeList && stats) {
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+        {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка */}
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={() => setShowResults(false)} variant="light" />
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-white">Результаты</h1>
-              <p className="text-xs text-purple-200">{activeList.name}</p>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">Результаты</h1>
             </div>
+            <BarChart3 className="w-6 h-6 text-white/70 shrink-0" />
           </div>
         </header>
 
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+          {/* 🆕 Информационная плашка с названием списка */}
+          <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500">Список</p>
+              <p className="text-sm font-bold text-purple-700 truncate">{activeList.name}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-xs text-gray-500">Дата</p>
+              <p className="text-sm font-bold text-purple-700">
+                {new Date().toLocaleDateString('ru-RU')}
+              </p>
+            </div>
+            <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+          </div>
+
           <div className="grid grid-cols-3 gap-2">
             <div className="bg-white rounded-2xl p-3 text-center shadow-sm">
               <UserCheck className="w-5 h-5 text-green-600 mx-auto mb-1" />
@@ -592,22 +609,22 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
     );
   }
 
-  // ===== ЭКРАН СПИСКОВ =====
+  // ===== 🆕 ЭКРАН СПИСКОВ =====
   if (!activeList) {
     return (
       <div className="min-h-[100dvh] notebook-bg flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+        {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка */}
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={onBack} variant="light" />
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-white">Счётчик активности</h1>
-              <p className="text-xs text-purple-200">Отслеживание опросов</p>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">Счётчик активности</h1>
             </div>
-            <Users className="w-6 h-6 text-white/70" />
+            <Users className="w-6 h-6 text-white/70 shrink-0" />
           </div>
         </header>
 
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handleCreateList}
@@ -798,33 +815,48 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
     );
   }
 
-  // ===== ОСНОВНОЙ ЭКРАН =====
+  // ===== 🆕 ОСНОВНОЙ ЭКРАН (ТАППЕР) =====
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка (кнопка «Итоги» убрана — дублировала «Сводку») */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={() => {
             setActiveList(null);
             setShowResults(false);
           }} variant="light" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-white truncate">{activeList.name}</h1>
-            <p className="text-xs text-purple-200">
-              {activeList.students.length} учеников
-              {stats && ` · ответили: ${stats.answered}/${stats.present}`}
-            </p>
+            <h1 className="text-lg font-bold text-white truncate">Счётчик активности</h1>
           </div>
-          <button
-            onClick={() => setShowResults(true)}
-            className="bg-white/20 hover:bg-white/30 text-white rounded-xl px-3 py-2 text-sm font-semibold flex items-center gap-1.5 transition-colors"
-          >
-            <List className="w-4 h-4" /> Итоги
-          </button>
+          <Users className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-4 py-4 pb-8">
-        <div className="bg-white rounded-2xl p-3 shadow-sm mb-4">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+        {/* 🆕 Информационная плашка: название списка + живая статистика */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Список</p>
+            <p className="text-sm font-bold text-purple-700 truncate">{activeList.name}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-xs text-gray-500">Учеников</p>
+            <p className="text-sm font-bold text-purple-700">{activeList.students.length}</p>
+          </div>
+          {stats && (
+            <div className="shrink-0 text-right">
+              <p className="text-xs text-gray-500">Ответили</p>
+              <p className="text-sm font-bold text-green-600">
+                {stats.answered}/{stats.present}
+              </p>
+            </div>
+          )}
+          <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+            <Users className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-3 shadow-sm">
           <textarea
             placeholder={'Добавьте учеников (по одному на строку):\nИван\nАня\nПетр'}
             className="w-full min-h-[60px] rounded-xl border border-gray-200 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y"
@@ -844,7 +876,8 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        {/* 🆕 Адаптивная сетка: больше колонок на широких экранах */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
           {activeList.students.map((student) => {
             const count = results[student.id] || 0;
             const hasAnswered = count > 0;
@@ -891,11 +924,11 @@ export default function TapperScreen({ onBack }: TapperScreenProps) {
           </p>
         )}
 
-        <p className="text-xs text-gray-400 text-center mt-4">
+        <p className="text-xs text-gray-400 text-center">
           Нажмите на ученика — добавить ответ. ПКМ (долгое нажатие) — сбросить.
         </p>
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2">
           <button
             onClick={() => setShowResults(true)}
             className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
