@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, X, ArrowRight, Shuffle } from 'lucide-react';
+import { Check, X, ArrowRight, Shuffle, Settings, Award, Link, Target, HelpCircle, ChevronDown } from 'lucide-react';
 import type { Deck } from '@/types';
 import { loadDecks } from '@/lib/storage';
 import { triggerHaptic } from '@/lib/haptic';
@@ -24,9 +24,34 @@ interface AssignPair {
   right: string;
 }
 
+const FAQ_ITEMS = [
+  {
+    q: 'Как работает тест с выбором ответа?',
+    a: 'Для каждого вопроса показываются 4 варианта ответа — один правильный и три случайных из других карточек колоды. Нажмите на правильный вариант. После выбора ответа правильный подсвечивается зелёным, неправильный — красным. Нажмите «Далее» для перехода к следующему вопросу.',
+  },
+  {
+    q: 'Как оценивается ввод текста?',
+    a: 'Ответ проверяется по вхождению: если ваш текст содержит правильный ответ (без учёта регистра и пробелов), он считается верным. Например, если ответ «Париж», подойдут «париж», «г. Париж», «Париж — столица». Это удобно для проверки терминов и понятий.',
+  },
+  {
+    q: 'Как работает режим «Соответствие»?',
+    a: 'Слева — вопросы (сторона 1 карточек), справа — перемешанные ответы (сторона 2). Нажмите на элемент слева, затем на соответствующий ему справа. Правильные пары подсвечиваются зелёным и исчезают из игры. Тест завершается, когда все пары найдены.',
+  },
+  {
+    q: 'Как выбрать количество вопросов?',
+    a: 'На экране настройки переместите ползунок «Количество вопросов» — от 2 до 20 (или меньше, если в колоде меньше карточек). Для быстрой разминки на уроке достаточно 5–7 вопросов, для контрольной проверки — 15–20.',
+  },
+  {
+    q: 'Можно ли пройти тест несколько раз?',
+    a: 'Да! После завершения теста нажмите «Пройти ещё раз» — вопросы перемешаются заново, и вы сможете улучшить результат. Это полезно для закрепления материала: каждый проход тренирует память с новым порядком карточек.',
+  },
+  {
+    q: 'Как использовать тест с классом?',
+    a: 'Сценарий 1: выводите колоду на проектор, весь класс выбирает ответ голосованием (поднятие рук). Сценарий 2: ученики проходят тест индивидуально на планшетах. Сценарий 3: командная игра — один представитель команды отвечает за всех. Сценарий 4: парная работа — один читает вопрос, другой отвечает.',
+  },
+];
+
 export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
-  // Загружаем колоду СРАЗУ (включая временную колоду ошибок),
-  // чтобы первый рендер не падал
   const [deck, setDeck] = useState<Deck | null>(() => {
     try {
       if (deckId === 'mistakes-temp') {
@@ -53,6 +78,7 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [matchedPairs, setMatchedPairs] = useState<string[]>([]);
   const [quizComplete, setQuizComplete] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const generateQuestions = (type: QuizType): Question[] => {
     if (!deck) return [];
@@ -170,18 +196,31 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
     );
   }
 
-  // ЭКРАН ВЫБОРА ТИПА ТЕСТА
+  // 🆕 ЭКРАН ВЫБОРА ТИПА ТЕСТА
   if (!quizType) {
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-5 py-4">
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={onBack} variant="light" />
-            <h1 className="text-xl font-bold text-white mt-3">Настройка теста</h1>
-            <p className="text-white/70 text-sm">{deck.title}</p>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">Настройка теста</h1>
+            </div>
+            <Settings className="w-6 h-6 text-white/70 shrink-0" />
           </div>
         </header>
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-6 flex flex-col gap-4">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+          {/* 🆕 Информационная плашка с названием колоды */}
+          <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500">Колода</p>
+              <p className="text-sm font-bold text-purple-700 truncate">{deck.title}</p>
+            </div>
+            <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+              <Target className="w-5 h-5" />
+            </div>
+          </div>
+
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <label className="block text-sm font-semibold text-purple-700 mb-2">
               Количество вопросов: {questionCount}
@@ -218,24 +257,54 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
             <h3 className="text-lg font-bold text-purple-700 mb-1">Соответствие</h3>
             <p className="text-sm text-gray-600">Соедините пары понятий</p>
           </button>
+
+          {/* 🆕 FAQ секция */}
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
+              <HelpCircle className="w-5 h-5" />
+              Частые вопросы
+            </h2>
+            <div className="space-y-2">
+              {FAQ_ITEMS.map((item, index) => (
+                <div key={index} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                    className="w-full px-4 py-3 text-left flex items-center justify-between gap-2 hover:bg-purple-50 transition-colors"
+                  >
+                    <span className="text-sm font-semibold text-gray-800">{item.q}</span>
+                    <ChevronDown className={`w-4 h-4 text-purple-600 shrink-0 transition-transform duration-200 ${openFaq === index ? 'rotate-180' : ''}`} />
+                  </button>
+                  {openFaq === index && (
+                    <div className="px-4 py-3 bg-purple-50 border-t border-purple-100">
+                      <p className="text-sm text-gray-700 leading-relaxed">{item.a}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </main>
       </div>
     );
   }
 
-  // ЭКРАН ЗАВЕРШЕНИЯ
+  // 🆕 ЭКРАН ЗАВЕРШЕНИЯ
   if (quizComplete) {
     const total = quizType === 'assign' ? assignPairs.length : quizQuestions.length;
     const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-5 py-4">
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={onBack} variant="light" />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">Результаты</h1>
+            </div>
+            <Award className="w-6 h-6 text-white/70 shrink-0" />
           </div>
         </header>
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-6 flex flex-col items-center justify-center text-center">
-          <div className="bg-white rounded-3xl p-8 shadow-xl w-full">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 pb-8 flex flex-col items-center justify-center text-center">
+          <div className="bg-white rounded-3xl p-8 shadow-xl w-full max-w-md">
             <h2 className="text-3xl font-bold text-purple-700 mb-2">Тест завершен!</h2>
             <p className="text-gray-600 mb-6">{deck?.title}</p>
 
@@ -266,23 +335,38 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
     );
   }
 
-  // РЕЖИМ ASSIGN (СООТВЕТСТВИЕ)
+  // 🆕 РЕЖИМ ASSIGN (СООТВЕТСТВИЕ)
   if (quizType === 'assign') {
     const shuffledRights = [...assignPairs].sort(() => Math.random() - 0.5);
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-5 py-4">
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={onBack} variant="light" />
-            <div className="flex items-center justify-between mt-3">
-              <h1 className="text-lg font-bold text-white">Соответствие</h1>
-              <span className="text-white/80 text-sm font-semibold">
-                {matchedPairs.length} / {assignPairs.length}
-              </span>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">Соответствие</h1>
             </div>
+            <Link className="w-6 h-6 text-white/70 shrink-0" />
           </div>
         </header>
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-6">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+          {/* 🆕 Плашка со счётчиком пар */}
+          <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500">Колода</p>
+              <p className="text-sm font-bold text-purple-700 truncate">{deck?.title}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-xs text-gray-500">Совпало</p>
+              <p className="text-sm font-bold text-purple-700">
+                {matchedPairs.length} / {assignPairs.length}
+              </p>
+            </div>
+            <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+              <Link className="w-5 h-5" />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               {assignPairs.map((pair) => {
@@ -334,7 +418,7 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
     );
   }
 
-  // РЕЖИМЫ CHOICE И TEXT
+  // 🆕 РЕЖИМЫ CHOICE И TEXT
   const question = quizQuestions[currentQuestion];
 
   if (!question) {
@@ -350,19 +434,34 @@ export default function QuizScreen({ deckId, onBack }: QuizScreenProps) {
 
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-5 py-4">
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
-          <div className="flex items-center justify-between mt-3">
-            <h1 className="text-lg font-bold text-white">{deck?.title}</h1>
-            <span className="text-white/80 text-sm font-semibold">
-              {currentQuestion + 1} / {quizQuestions.length}
-            </span>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Вопросы</h1>
           </div>
+          <Target className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-6 flex flex-col gap-6">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+        {/* 🆕 Плашка с названием колоды и номером вопроса */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Колода</p>
+            <p className="text-sm font-bold text-purple-700 truncate">{deck?.title}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-xs text-gray-500">Вопрос</p>
+            <p className="text-sm font-bold text-purple-700">
+              {currentQuestion + 1} / {quizQuestions.length}
+            </p>
+          </div>
+          <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+            <Target className="w-5 h-5" />
+          </div>
+        </div>
+
         <div className="bg-white rounded-2xl p-6 shadow-sm">
           <p className="text-sm text-gray-500 mb-2">Вопрос:</p>
           <p className="text-xl font-bold text-purple-900">{question.question}</p>
