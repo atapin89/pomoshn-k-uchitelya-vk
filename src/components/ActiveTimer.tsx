@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Play, Pause, RotateCcw, SkipForward, Check, Plus } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipForward, Check, Plus, Timer, HelpCircle, ChevronDown } from 'lucide-react';
 import type { LessonTemplate } from '@/types';
 import { formatTime } from '@/lib/format';
 import { playBell } from '@/lib/sound';
@@ -43,6 +43,7 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
   const [isRunning, setIsRunning] = useState(true);
   const [endAt, setEndAt] = useState(() => Date.now() + totalSeconds * 1000);
   const [now, setNow] = useState(() => Date.now());
+  const [showFaq, setShowFaq] = useState(false);
   const intervalRef = useRef<number | null>(null);
 
   const remainingMs = Math.max(0, endAt - now);
@@ -74,16 +75,13 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
         : 'stroke-purple-800';
   const pulse = fraction < 0.15;
 
-  // Таймер с setInterval + requestAnimationFrame для плавности
   useEffect(() => {
     if (!isRunning) return;
     
-    // Основной таймер
     const interval = setInterval(() => {
       setNow(Date.now());
     }, TICK_MS);
     
-    // Дополнительный RAF для плавности
     let rafId: number;
     const raf = () => {
       setNow(Date.now());
@@ -97,7 +95,6 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
     };
   }, [isRunning]);
 
-  // Wake Lock
   useEffect(() => {
     if (!isRunning) return;
     void requestWakeLock();
@@ -108,7 +105,6 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
     };
   }, [isRunning]);
 
-  // Отслеживание смены этапа
   const prevStageIdxRef = useRef(stageIdx);
   useEffect(() => {
     if (prevStageIdxRef.current !== stageIdx) {
@@ -121,7 +117,6 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
     }
   }, [stageIdx]);
 
-  // Завершение урока
   const finishedRef = useRef(false);
   useEffect(() => {
     if (remainingSec <= 0 && !finishedRef.current) {
@@ -132,7 +127,6 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
     }
   }, [remainingSec]);
 
-  // Сброс при смене шаблона
   useEffect(() => {
     finishedRef.current = false;
     prevStageIdxRef.current = stageIdx;
@@ -212,17 +206,29 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-5 py-4">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={handleReset} variant="light" />
-          <div className="mt-3">
-            <p className="text-sm text-white/70">Урок</p>
-            <h1 className="text-xl font-bold text-white truncate">{template.name}</h1>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Таймер урока</h1>
           </div>
+          <Timer className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-6 flex flex-col">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-6 flex flex-col">
+        {/* Подзаголовок с названием шаблона вынесен в контент */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 mb-4 flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Шаблон урока</p>
+            <p className="text-sm font-bold text-purple-700 truncate">{template.name}</p>
+          </div>
+          <div className="shrink-0 w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
+            <Timer className="w-4 h-4" />
+          </div>
+        </div>
+
         <div className="text-center mb-5">
           <h2 className="text-2xl font-bold text-purple-700">{currentStage.name}</h2>
           <p className="text-sm text-gray-400 mt-1">
@@ -393,10 +399,52 @@ export default function ActiveTimer({ template, onReset }: ActiveTimerProps) {
           </div>
         )}
 
+        {/* 🆕 СЕКЦИЯ FAQ с актуальными вопросами о работе таймера */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden mt-5">
+          <button
+            onClick={() => setShowFaq(!showFaq)}
+            className="w-full px-5 py-4 flex items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700">Как пользоваться таймером</h3>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showFaq ? 'rotate-180' : ''}`} />
+          </button>
+          {showFaq && (
+            <div className="px-5 pb-5 space-y-3 text-sm">
+              <div>
+                <p className="font-bold text-gray-800 mb-1">❓ Как работает кнопка «+1 мин»?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">Добавляет 1 минуту к выбранному этапу, забирая её у ближайшего будущего этапа с достаточным запасом времени. Общее время урока не меняется.</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Что делает кнопка «Далее»?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">Завершает текущий этап и распределяет его неиспользованное время равномерно по всем оставшимся этапам. Удобно, если этап прошёл быстрее плана.</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Таймер работает в фоне?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">Да. Во время работы включается Wake Lock API — экран не гаснет, пока идёт урок. Звуковой сигнал и вибрация срабатывают при смене этапов даже при свёрнутом приложении.</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Что означают цвета индикатора?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">🟣 Фиолетовый — больше 35% времени осталось. 🟣 Светло-фиолетовый — осталось 15–35%. ⚫ Тёмно-фиолетовый с пульсацией — меньше 15%, скоро смена этапа.</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Можно ли использовать на проекторе?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">Да! Откройте таймер на компьютере и выведите изображение на проектор. Крупные цифры и контрастные цвета хорошо видны всему классу. Звуковой сигнал оповещает о смене этапов.</p>
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <p className="font-bold text-gray-800 mb-1">❓ Что будет, если закрыть приложение?</p>
+                <p className="text-xs text-gray-600 leading-relaxed">При возврате таймер продолжит работу с учётом прошедшего времени — расчёт идёт по абсолютным меткам времени, а не по тикам.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
         <YandexAdBlock />
       </main>
 
-      <footer className="max-w-md mx-auto w-full px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+      <footer className="max-w-3xl mx-auto w-full px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         <div className="flex items-center gap-3">
           <button
             onClick={handleReset}
