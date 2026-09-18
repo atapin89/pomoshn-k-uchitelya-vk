@@ -12,7 +12,8 @@ import {
   RotateCcw,
   Copy,
   Check,
-  BookOpen,
+  HelpCircle,
+  ChevronDown,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import BackButton from './BackButton';
@@ -77,6 +78,7 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const generateQRContent = (): string => {
@@ -180,22 +182,55 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
     return content.length >= 2;
   };
 
+  const faqItems = [
+    {
+      q: 'Что такое QR-код и как его считать?',
+      a: 'QR-код (Quick Response) — двумерный штрихкод, который содержит закодированную информацию. Считывается камерой смартфона или специальным приложением-сканером. Большинство современных телефонов распознают QR-коды автоматически при наведении камеры.',
+    },
+    {
+      q: 'Какой тип QR-кода выбрать?',
+      a: 'Текст — для любой информации (объявления, инструкции). URL — для ссылок на сайты, статьи, видео. WiFi — для быстрого подключения гостей к сети (не нужно диктовать пароль). Email — для обратной связи (открывает почтовый клиент с заполненным адресом). Телефон — для быстрого звонка. Визитка (vCard) — для обмена контактами.',
+    },
+    {
+      q: 'Как создать QR-код для WiFi?',
+      a: 'Выберите тип «WiFi», введите название сети (SSID) точно как в настройках роутера, пароль и выберите тип шифрования (обычно WPA/WPA2). Отметьте «Скрытая сеть», если SSID не виден в списке доступных сетей. После сканирования телефон предложит подключиться автоматически.',
+    },
+    {
+      q: 'Что такое коррекция ошибок?',
+      a: 'Уровень коррекции ошибок определяет, сколько данных можно восстановить при повреждении QR-кода. L (7%) — максимум данных, но уязвимость к повреждениям. M (15%) — баланс. Q (25%) — высокая устойчивость. H (30%) — максимальная защита, подходит если планируете добавить логотип в центр кода.',
+    },
+    {
+      q: 'Какой формат выбрать: PNG или SVG?',
+      a: 'PNG — растровое изображение, подходит для веба, соцсетей, экранов. SVG — векторное, масштабируется без потери качества, идеально для печати (листовки, плакаты, визитки). Для школьных материалов используйте SVG.',
+    },
+    {
+      q: 'Можно ли добавить логотип в QR-код?',
+      a: 'Да, но только при высоком уровне коррекции ошибок (Q или H). Логотип закрывает часть кода, и коррекция должна компенсировать это. В этом генераторе логотип не поддерживается, но вы можете наложить его в графическом редакторе после скачивания.',
+    },
+    {
+      q: 'Как использовать QR-коды в школе?',
+      a: 'Сценарий 1: QR на парте со ссылкой на дополнительные материалы. Сценарий 2: квест — ученики сканируют коды с подсказками. Сценарий 3: WiFi для гостей школы. Сценарий 4: визитка учителя на родительском собрании. Сценарий 5: ссылки на видеоуроки в рабочей тетради.',
+    },
+    {
+      q: 'Безопасно ли создавать QR-коды онлайн?',
+      a: 'Этот генератор работает полностью локально в вашем браузере. Данные никуда не отправляются, QR-код генерируется на вашем устройстве. Это безопасно для конфиденциальной информации. Всегда проверяйте содержимое QR-кода перед использованием, особенно если получили его от других.',
+    },
+  ];
+
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-indigo-50 flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-white truncate">Генератор QR-кодов</h1>
-            <p className="text-xs text-purple-200">Создание кодов для любых задач</p>
           </div>
-          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-            <QrCode className="w-5 h-5 text-white" />
-          </div>
+          <QrCode className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full p-3 space-y-3 pb-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3">
           {/* Левая колонка: настройки */}
           <div className="space-y-3">
@@ -474,6 +509,32 @@ export default function QRCodeScreen({ onBack }: { onBack: () => void }) {
                   <option value="Q">Высокая (25%) — устойчивость</option>
                   <option value="H">Максимальная (30%) — для логотипов</option>
                 </select>
+              </div>
+            </div>
+
+            {/* 🆕 FAQ секция */}
+            <div className="bg-white rounded-2xl shadow-sm p-5">
+              <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
+                <HelpCircle className="w-5 h-5" />
+                Частые вопросы
+              </h2>
+              <div className="space-y-2">
+                {faqItems.map((item, index) => (
+                  <div key={index} className="border border-purple-100 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                      className="w-full px-4 py-3 text-left flex items-center justify-between gap-2 hover:bg-purple-50 transition-colors"
+                    >
+                      <span className="text-sm font-semibold text-gray-800">{item.q}</span>
+                      <ChevronDown className={`w-4 h-4 text-purple-600 shrink-0 transition-transform duration-200 ${openFaq === index ? 'rotate-180' : ''}`} />
+                    </button>
+                    {openFaq === index && (
+                      <div className="px-4 py-3 bg-purple-50 border-t border-purple-100">
+                        <p className="text-sm text-gray-700 leading-relaxed">{item.a}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
