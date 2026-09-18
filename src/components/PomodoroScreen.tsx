@@ -133,7 +133,6 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
   const [openHow, setOpenHow] = useState<number | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  // ===== Внутренний диалог (замена alert) =====
   const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -155,7 +154,6 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
     intervalRef.current = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
-          // Таймер завершён
           clearInterval(intervalRef.current!);
           setIsRunning(false);
           handleTimerComplete();
@@ -175,18 +173,15 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
     triggerHaptic('heavy');
     
     if (mode === 'focus') {
-      // Завершена "помидорка"
       addCompletedPomodoro(activeTaskId, settings.focusDuration);
       setCompletedToday((prev) => prev + 1);
       
-      // Обновляем задачу
       if (activeTaskId) {
         setTasks((prev) => prev.map((t) =>
           t.id === activeTaskId ? { ...t, completedPomodoros: t.completedPomodoros + 1 } : t
         ));
       }
       
-      // Проверяем длинный перерыв
       if (currentPomodoro >= settings.longBreakInterval) {
         setMode('longBreak');
         setSecondsLeft(settings.longBreakDuration * 60);
@@ -197,16 +192,13 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
         setCurrentPomodoro((prev) => prev + 1);
       }
       
-      // Автозапуск перерыва
       if (settings.autoStartBreaks) {
         setIsRunning(true);
       }
     } else {
-      // Перерыв завершён
       setMode('focus');
       setSecondsLeft(settings.focusDuration * 60);
       
-      // Автозапуск фокуса
       if (settings.autoStartPomodoros) {
         setIsRunning(true);
       }
@@ -240,8 +232,6 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
     setIsRunning((prev) => !prev);
     triggerHaptic('light');
   };
-
-  // ===== ЗАДАЧИ =====
 
   const handleAddTask = () => {
     if (!newTaskTitle.trim()) return;
@@ -289,18 +279,13 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
     triggerHaptic('medium');
   };
 
-  // ===== НАСТРОЙКИ =====
-
   const handleSaveSettings = () => {
     savePomodoroSettings(settings);
     setShowSettings(false);
     triggerHaptic('light');
-    // Перезапускаем таймер с новыми настройками
     setIsRunning(false);
     switchMode(mode);
   };
-
-  // ===== ЭКСПОРТ / ИМПОРТ =====
 
   const handleExportJSON = () => {
     downloadTextFile(
@@ -349,7 +334,6 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
     });
   }, [tasks]);
 
-  // ===== Общий рендер внутреннего диалога =====
   const renderAlert = () => (
     <AlertDialog
       isOpen={alertMsg !== null}
@@ -362,17 +346,18 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
   if (showSettings) {
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+        {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка */}
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={() => setShowSettings(false)} variant="light" />
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-white">Настройки</h1>
-              <p className="text-xs text-purple-200">Таймер Помодоро</p>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">Настройки</h1>
             </div>
+            <Settings className="w-6 h-6 text-white/70 shrink-0" />
           </div>
         </header>
 
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
           {/* Длительности */}
           <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
             <h3 className="font-bold text-purple-700">Длительность (минуты)</h3>
@@ -534,17 +519,18 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
     
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+        {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка */}
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={() => setShowStats(false)} variant="light" />
-            <div className="flex-1">
-              <h1 className="text-lg font-bold text-white">Статистика</h1>
-              <p className="text-xs text-purple-200">Последние 7 дней</p>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">Статистика</h1>
             </div>
+            <BarChart3 className="w-6 h-6 text-white/70 shrink-0" />
           </div>
         </header>
 
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
           {/* Общая сводка */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white rounded-2xl p-4 text-center shadow-sm">
@@ -620,35 +606,49 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
 
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка (правый угол свободен) */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
-          <div className="flex-1">
-            <h1 className="text-lg font-bold text-white">Таймер Помодоро</h1>
-            <p className="text-xs text-purple-200">
-              {activeTask ? `Задача: ${activeTask.title}` : 'Нет активной задачи'}
-            </p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Таймер Помодоро</h1>
           </div>
-          <button
-            onClick={() => setShowStats(true)}
-            className="p-2 text-white/80 hover:text-white transition-colors"
-            aria-label="Статистика"
-            title="Статистика"
-          >
-            <BarChart3 className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-2 text-white/80 hover:text-white transition-colors"
-            aria-label="Настройки"
-            title="Настройки"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
+          <Clock className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+        {/* 🆕 ПАНЕЛЬ УПРАВЛЕНИЯ (перенесена из шапки — кнопки "Статистика" и "Настройки") */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setShowStats(true)}
+            className="bg-white hover:bg-gray-50 text-gray-700 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold transition-colors shadow-sm"
+          >
+            <BarChart3 className="w-5 h-5" />
+            Статистика
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="bg-white hover:bg-gray-50 text-gray-700 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold transition-colors shadow-sm"
+          >
+            <Settings className="w-5 h-5" />
+            Настройки
+          </button>
+        </div>
+
+        {/* 🆕 Информационная плашка с активной задачей */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Активная задача</p>
+            <p className="text-sm font-bold text-purple-700 truncate">
+              {activeTask ? activeTask.title : 'Нет активной задачи'}
+            </p>
+          </div>
+          <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+            <ModeIcon className="w-5 h-5" />
+          </div>
+        </div>
+
         {/* Переключатель режимов */}
         <div className="grid grid-cols-3 gap-2">
           {(['focus', 'shortBreak', 'longBreak'] as PomodoroMode[]).map((m) => (
@@ -674,9 +674,6 @@ export default function PomodoroScreen({ onBack }: PomodoroScreenProps) {
           </p>
           <p className="text-6xl font-extrabold text-purple-800 tabular-nums tracking-tight">
             {formatPomodoroTime(secondsLeft)}
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            {activeTask ? activeTask.title : 'Нет активной задачи'}
           </p>
           
           {/* Прогресс-бар */}
