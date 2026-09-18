@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  ArrowLeft,
   Plus,
   Trash2,
   ChevronUp,
@@ -8,10 +7,12 @@ import {
   Save,
   AlertTriangle,
   Check,
+  Edit,
 } from 'lucide-react';
 import type { EduGame, EduRound, EduQuestion } from '@/types/eduGame';
 import { generateEduId, DEFAULT_POINTS, gameQuestionsCount } from '@/types/eduGame';
 import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
+import BackButton from './BackButton';
 
 interface EduGameEditorScreenProps {
   game: EduGame;
@@ -34,11 +35,9 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
   const [expandedRound, setExpandedRound] = useState<string | null>(rounds[0]?.id || null);
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
 
-  // ===== Внутренние диалоги (замена window.confirm / alert) =====
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
-  // Автосохранение при изменении
   useEffect(() => {
     const timer = setTimeout(() => {
       handleSave();
@@ -63,8 +62,6 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
       setTimeout(() => setSaveMsg(null), 2000);
     }
   };
-
-  // ===== Раунды =====
 
   const addRound = () => {
     const newRound: EduRound = {
@@ -106,8 +103,6 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
     [newRounds[index], newRounds[newIndex]] = [newRounds[newIndex], newRounds[index]];
     setRounds(newRounds);
   };
-
-  // ===== Вопросы =====
 
   const addQuestion = (roundId: string) => {
     const round = rounds.find((r) => r.id === roundId);
@@ -210,8 +205,6 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
     );
   };
 
-  // ===== Валидация =====
-
   const validateGame = (): string[] => {
     const errors: string[] = [];
     
@@ -277,37 +270,55 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
 
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-      {/* Шапка */}
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={handleBack}
-            className="text-white hover:text-purple-200 p-2 transition-colors"
-            aria-label="Назад"
-            title="Назад"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton onClick={handleBack} variant="light" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-white truncate">Редактор игры</h1>
-            <p className="text-xs text-purple-200">
-              раундов: {rounds.length} · вопросов: {totalQuestions}
-            </p>
           </div>
-          {saveMsg === 'saved' && (
-            <span className="text-green-300 text-sm font-semibold flex items-center gap-1">
-              <Check className="w-4 h-4" /> Сохранено
-            </span>
-          )}
-          {saveMsg === 'error' && (
-            <span className="text-red-300 text-sm font-semibold flex items-center gap-1">
-              <AlertTriangle className="w-4 h-4" /> Ошибка
-            </span>
-          )}
+          <Edit className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-10">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+        {/* 🆕 Информационная плашка с названием игры и статистикой */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Игра</p>
+            <p className="text-sm font-bold text-purple-700 truncate">
+              {title.trim() || 'Без названия'}
+            </p>
+          </div>
+          <div className="shrink-0 flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Раундов</p>
+              <p className="text-sm font-bold text-purple-700">{rounds.length}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Вопросов</p>
+              <p className="text-sm font-bold text-purple-700">{totalQuestions}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+              <Edit className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* 🆕 Статус сохранения */}
+        {saveMsg === 'saved' && (
+          <div className="bg-green-50 border-2 border-green-200 rounded-xl p-3 flex items-center gap-2 text-green-800">
+            <Check className="w-5 h-5 text-green-600" />
+            <span className="text-sm font-semibold">Игра сохранена</span>
+          </div>
+        )}
+        {saveMsg === 'error' && (
+          <div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 flex items-center gap-2 text-red-800">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <span className="text-sm font-semibold">Ошибка сохранения</span>
+          </div>
+        )}
+
         {/* Название игры */}
         <div className="bg-white rounded-2xl shadow-sm p-4">
           <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -533,7 +544,6 @@ export default function EduGameEditorScreen({ game, onBack, onSave }: EduGameEdi
         </button>
       </main>
 
-      {/* ===== Внутренние диалоги ===== */}
       <ConfirmDialog
         isOpen={confirmState !== null}
         title={confirmState?.title ?? ''}
