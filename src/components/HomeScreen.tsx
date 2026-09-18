@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
 import { helpTexts } from '@/data/helpTexts';
+import ModernHomeScreen from './ModernHomeScreen';
 
 // ===== Типы =====
 
@@ -57,6 +58,8 @@ type SectionId =
   | 'bibliography'
   | 'visualschedule';
 
+type HomeStyle = 'classic' | 'modern';
+
 interface Section {
   id: SectionId;
   title: string;
@@ -74,6 +77,7 @@ const VISIBILITY_KEY = 'home-visible-sections';
 const ORDER_KEY = 'home-section-order';
 const GEAR_SEEN_KEY = 'home-gear-seen';
 const MANUAL_SEEN_KEY = 'home-manual-seen';
+const HOME_STYLE_KEY = 'home-style';
 
 // ===== Данные =====
 
@@ -216,6 +220,14 @@ const SECTIONS: Section[] = [
 // ===== Компонент =====
 
 export default function HomeScreen({ onNavigate }: HomeScreenProps) {
+  const [homeStyle, setHomeStyle] = useState<HomeStyle>(() => {
+    try {
+      const saved = localStorage.getItem(HOME_STYLE_KEY);
+      if (saved === 'modern' || saved === 'classic') return saved;
+    } catch {}
+    return 'classic';
+  });
+
   const [activeHelpModal, setActiveHelpModal] = useState<SectionId | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [gearActive, setGearActive] = useState(false);
@@ -271,6 +283,12 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   // Drag & Drop состояния
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(HOME_STYLE_KEY, homeStyle);
+    } catch {}
+  }, [homeStyle]);
 
   useEffect(() => {
     try {
@@ -408,6 +426,17 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       .filter((s): s is Section => !!s && visibleSections.has(s.id));
   }, [sectionOrder, visibleSections]);
 
+  // Если выбран современный стиль - рендерим ModernHomeScreen
+  if (homeStyle === 'modern') {
+    return (
+      <ModernHomeScreen
+        onNavigate={onNavigate}
+        onSwitchToClassic={() => setHomeStyle('classic')}
+      />
+    );
+  }
+
+  // Классический стиль
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
@@ -587,6 +616,36 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
+              {/* Переключатель стиля */}
+              <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border-2 border-purple-200">
+                <h3 className="font-bold text-purple-900 mb-2">Внешний вид</h3>
+                <p className="text-xs text-purple-700 mb-3">
+                  Выберите стиль отображения домашней страницы
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setHomeStyle('classic')}
+                    className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                      homeStyle === 'classic'
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'bg-white text-purple-700 hover:bg-purple-100 border-2 border-purple-300'
+                    }`}
+                  >
+                    Классический
+                  </button>
+                  <button
+                    onClick={() => setHomeStyle('modern')}
+                    className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all ${
+                      homeStyle === 'modern'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md'
+                        : 'bg-white text-purple-700 hover:bg-purple-100 border-2 border-purple-300'
+                    }`}
+                  >
+                    Современный
+                  </button>
+                </div>
+              </div>
+
               {/* Сетка 2 столбца с Drag & Drop */}
               <div className="grid grid-cols-2 gap-2">
                 {sectionOrder.map((id, idx) => {
