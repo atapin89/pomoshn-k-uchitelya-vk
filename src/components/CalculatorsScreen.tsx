@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calculator, TrendingUp, Award, BookOpen, Target, Users, PieChart, Plus, Minus, HelpCircle } from 'lucide-react';
+import { Calculator, TrendingUp, Award, BookOpen, Target, Users, PieChart, Plus, Minus, HelpCircle, ChevronDown } from 'lucide-react';
 import BackButton from './BackButton';
 import YandexAdBlock from './YandexAdBlock';
 import { triggerHaptic } from '@/lib/haptic';
@@ -20,22 +20,18 @@ export default function CalculatorsScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="shrink-0">
-            <BackButton onClick={onBack} variant="light" />
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton onClick={onBack} variant="light" />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Калькуляторы</h1>
           </div>
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">Калькуляторы</h1>
-            <p className="text-xs text-purple-200 leading-tight">Баллы, СОУ, тесты</p>
-          </div>
-          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-            <Calculator className="w-5 h-5 text-white" />
-          </div>
+          <Calculator className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-5 overflow-y-auto">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 overflow-y-auto pb-8">
         <div className="grid grid-cols-3 gap-2">
           {calculators.map((calc) => {
             const Icon = calc.icon;
@@ -349,7 +345,7 @@ function TestCalculator() {
   );
 }
 
-// ===== 5. КАЛЬКУЛЯТОР КАЧЕСТВА ЗНАНИЙ (ОБНОВЛЕННЫЙ) =====
+// ===== 5. КАЛЬКУЛЯТОР КАЧЕСТВА ЗНАНИЙ =====
 function QualityCalculator() {
   const [counts, setCounts] = useState({ '5': 0, '4': 0, '3': 0, '2': 0 });
 
@@ -405,7 +401,7 @@ function QualityCalculator() {
   );
 }
 
-// ===== 6. КАЛЬКУЛЯТОР СОУ (ОБНОВЛЕННЫЙ) =====
+// ===== 6. КАЛЬКУЛЯТОР СОУ =====
 function SOUCalculator() {
   const [counts, setCounts] = useState({ '5': 0, '4': 0, '3': 0, '2': 0 });
 
@@ -453,30 +449,42 @@ function SOUCalculator() {
   );
 }
 
-// ===== FAQ =====
+// ===== 🆕 УЛУЧШЕННЫЙ FAQ с анимированными стрелками и дополненными вопросами =====
 function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const faqs = [
     {
       q: 'Как считается средний балл?',
-      a: 'Средний балл = сумма (оценка × вес) ÷ сумма весов. Пустые оценки не учитываются.',
+      a: 'Средний балл = сумма (оценка × вес) ÷ сумма весов. Пустые оценки не учитываются. Например: «5» с весом 100 и «3» с весом 50 → (5×100 + 3×50) / 150 = 4.33.',
     },
     {
       q: 'Что такое вес оценки?',
-      a: 'Вес показывает значимость: контрольная = 100%, домашняя = 50%. Чем выше вес, тем больше влияние на итог.',
+      a: 'Вес показывает значимость оценки. Стандартно: контрольная работа = 100%, самостоятельная = 75%, домашняя = 50%, ответ на уроке = 25%. В электронных журналах (МЭШ, РЭШ, Дневник.ру) веса настраиваются учителем.',
     },
     {
-      q: 'Что такое СОУ?',
-      a: 'СОУ (степень обученности) — доля учащихся с оценками 3, 4, 5 от общего числа. Показывает, сколько учеников усвоили программу.',
+      q: 'Что такое СОУ и чем отличается от качества знаний?',
+      a: 'СОУ (степень обученности) — доля учащихся с оценками 3, 4, 5 от общего числа (то есть всех, кто усвоил программу). Качество знаний — доля только отличников и хорошистов (4 и 5). Например: из 25 учеников 5 получили «2» → СОУ = 80%, а качество = 60%.',
     },
     {
       q: 'Как считается качество знаний?',
-      a: 'Качество знаний = (кол-во «4» + «5») ÷ (общее кол-во учащихся) × 100%.',
+      a: 'Качество знаний = (кол-во «4» + «5») ÷ (общее кол-во учащихся) × 100%. «Двойки» в числителе не учитываются, но участвуют в знаменателе. Это основной показатель работы учителя при аттестации.',
+    },
+    {
+      q: 'Как округляются оценки в четверти?',
+      a: 'Калькулятор показывает точное математическое значение. В реальности школы используют спорные случаи: обычно 3.50 округляется до «4», 4.50 — до «5», но правила могут отличаться. Учитывайте локальный акт школы.',
     },
     {
       q: 'Почему результат отличается от журнала?',
-      a: 'Школы используют разные правила оценивания. Калькулятор даёт ориентировочное значение по стандартной формуле.',
+      a: 'Школы используют разные правила оценивания: где-то веса, где-то простое среднее, где-то медиана. Электронные журналы могут учитывать последнюю оценку сильнее. Калькулятор даёт ориентир по стандартной формуле.',
+    },
+    {
+      q: 'Можно ли использовать для ЕГЭ и ОГЭ?',
+      a: 'Калькулятор «Оценка за тест» подходит для любых тестов с процентной шкалой. Стандартная шкала: 90-100% = «5», 75-89% = «4», 60-74% = «3», 0-59% = «2». Для итоговых экзаменов шкалы перевода баллов отличаются — используйте официальные таблицы ФИПИ.',
+    },
+    {
+      q: 'Как применять на практике?',
+      a: 'Сценарий 1: перед родительским собранием быстро рассчитайте СОУ и качество по классу. Сценарий 2: покажите ученику, какую оценку нужно получить на следующей работе для «5» в четверти. Сценарий 3: для отчёта завучу — экспортируйте показатели качества знаний по параллели.',
     },
   ];
 
@@ -491,14 +499,14 @@ function FAQSection() {
           <div key={index} className="border border-purple-100 rounded-xl overflow-hidden">
             <button
               onClick={() => setOpenIndex(openIndex === index ? null : index)}
-              className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-purple-50 transition-colors"
+              className="w-full px-4 py-3 text-left flex items-center justify-between gap-2 hover:bg-purple-50 transition-colors"
             >
               <span className="text-sm font-semibold text-gray-800">{faq.q}</span>
-              <span className={`transform transition-transform text-purple-600 ${openIndex === index ? 'rotate-180' : ''}`}>▼</span>
+              <ChevronDown className={`w-4 h-4 text-purple-600 shrink-0 transition-transform duration-200 ${openIndex === index ? 'rotate-180' : ''}`} />
             </button>
             {openIndex === index && (
               <div className="px-4 py-3 bg-purple-50 border-t border-purple-100">
-                <p className="text-sm text-gray-700">{faq.a}</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{faq.a}</p>
               </div>
             )}
           </div>
