@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, FileText, Monitor, RotateCcw } from 'lucide-react';
+import { Download, FileText, Monitor, RotateCcw, Grid3x3 } from 'lucide-react';
 import type { BingoCard, BingoGame } from '@/types/bingo';
 import { GRID_SIZES } from '@/types/bingo';
 import { resetCard, toggleCell } from '@/lib/bingoGenerator';
@@ -25,22 +25,35 @@ export default function BingoPreviewScreen({
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="shrink-0">
-            <BackButton onClick={onBack} variant="light" />
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton onClick={onBack} variant="light" />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Просмотр карточек</h1>
           </div>
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">{game.config.name}</h1>
-            <p className="text-xs text-purple-200 leading-tight">Карточек: {cards.length}</p>
-          </div>
-          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-            <Monitor className="w-5 h-5 text-white" />
-          </div>
+          <Monitor className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 overflow-y-auto pb-10">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 overflow-y-auto pb-8">
+        {/* 🆕 Информационная плашка с названием игры и количеством карточек */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Игра</p>
+            <p className="text-sm font-bold text-purple-700 truncate">{game.config.name}</p>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Карточек</p>
+              <p className="text-sm font-bold text-purple-700">{cards.length}</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+              <Grid3x3 className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
         {/* Управление PDF и проектором */}
         <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
