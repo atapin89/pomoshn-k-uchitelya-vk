@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import bridge from '@vkontakte/vk-bridge';
 import type { LessonTemplate } from '@/types';
 import { presetTemplates } from '@/data/templates';
 import { loadCustomTemplates, saveCustomTemplates } from '@/lib/storage';
@@ -29,6 +30,7 @@ import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 import QRCodeScreen from '@/components/QRCodeScreen';
 import BibliographyScreen from '@/components/BibliographyScreen';
 import VisualScheduleScreen from '@/components/VisualScheduleScreen';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 type Route = 
   | 'home' 
@@ -73,6 +75,17 @@ export default function App() {
 
   useEffect(() => {
     const init = async () => {
+      // 🆕 Инициализация VK Bridge ДО всего остального
+      // Обязательно для работы в мини-приложениях ВКонтакте
+      try {
+        await bridge.send('VKWebAppInit');
+        console.log('✅ VK Bridge initialized');
+      } catch (err) {
+        console.warn('⚠️ VK Bridge init failed (возможно, вне VK):', err);
+        // В DEV-режиме (вне VK) приложение продолжит работу
+      }
+
+      // Синхронизация данных и загрузка шаблонов
       await fullSync();
       setCustomTemplates(loadCustomTemplates());
     };
@@ -164,41 +177,55 @@ export default function App() {
 
   if (activeTemplate) {
     return (
-      <ActiveTimer
-        key={activeTemplate.id}
-        template={activeTemplate}
-        onReset={() => setActiveTemplate(null)}
-      />
+      <AuthProvider>
+        <ActiveTimer
+          key={activeTemplate.id}
+          template={activeTemplate}
+          onReset={() => setActiveTemplate(null)}
+        />
+      </AuthProvider>
     );
   }
 
   if (route === 'study' && !studyDeckId) {
-    return <FlashcardsScreen
-      onBack={navigateHome}
-      onStudy={(deckId: string) => { setStudyDeckId(deckId); setRoute('study'); }}
-      onQuiz={(deckId: string) => { setQuizDeckId(deckId); setRoute('quiz'); }}
-      initialState={flashcardsState}
-      onStateChange={setFlashcardsState}
-    />;
+    return (
+      <AuthProvider>
+        <FlashcardsScreen
+          onBack={navigateHome}
+          onStudy={(deckId: string) => { setStudyDeckId(deckId); setRoute('study'); }}
+          onQuiz={(deckId: string) => { setQuizDeckId(deckId); setRoute('quiz'); }}
+          initialState={flashcardsState}
+          onStateChange={setFlashcardsState}
+        />
+      </AuthProvider>
+    );
   }
 
   if (route === 'quiz' && !quizDeckId) {
-    return <FlashcardsScreen
-      onBack={navigateHome}
-      onStudy={(deckId: string) => { setStudyDeckId(deckId); setRoute('study'); }}
-      onQuiz={(deckId: string) => { setQuizDeckId(deckId); setRoute('quiz'); }}
-      initialState={flashcardsState}
-      onStateChange={setFlashcardsState}
-    />;
+    return (
+      <AuthProvider>
+        <FlashcardsScreen
+          onBack={navigateHome}
+          onStudy={(deckId: string) => { setStudyDeckId(deckId); setRoute('study'); }}
+          onQuiz={(deckId: string) => { setQuizDeckId(deckId); setRoute('quiz'); }}
+          initialState={flashcardsState}
+          onStateChange={setFlashcardsState}
+        />
+      </AuthProvider>
+    );
   }
 
   const currentRoute = routes[route];
   if (currentRoute !== null) {
-    return <div className="animate-fadeIn">{currentRoute}</div>;
+    return (
+      <AuthProvider>
+        <div className="animate-fadeIn">{currentRoute}</div>
+      </AuthProvider>
+    );
   }
 
   return (
-    <>
+    <AuthProvider>
       <div className="animate-fadeIn">
         <TemplateList
           templates={allTemplates}
@@ -219,6 +246,6 @@ export default function App() {
           onSave={handleEditSave}
         />
       )}
-    </>
+    </AuthProvider>
   );
 }
