@@ -15,8 +15,10 @@ import {
   X,
   Minus,
   Plus,
+  AlertTriangle,
 } from 'lucide-react';
 import BackButton from './BackButton';
+import { ConfirmDialog } from './ConfirmDialog';
 
 type SphereKey =
   | 'professional'
@@ -37,6 +39,14 @@ interface Sphere {
   highSigns: string[];
   lowSigns: string[];
   tips: string[];
+}
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
 }
 
 const SPHERES: Sphere[] = [
@@ -135,18 +145,17 @@ function polarToCartesian(angle: number, radius: number): { x: number; y: number
   };
 }
 
-function getScoreColor(score: number): string {
-  if (score <= 3) return '#ef4444';
-  if (score <= 5) return '#f59e0b';
-  if (score <= 7) return '#84cc16';
-  return '#10b981';
-}
-
 function getBalanceLabel(avg: number, balance: number): { label: string; color: string; description: string } {
   if (balance <= 1.5 && avg >= 7) return { label: 'Гармония', color: '#10b981', description: 'Отличный баланс! Все сферы жизни наполнены. Продолжайте поддерживать этот ритм.' };
   if (balance <= 2 && avg >= 5) return { label: 'Устойчивость', color: '#84cc16', description: 'Хороший баланс с небольшими перекосами. Есть над чем поработать, но фундамент прочный.' };
   if (balance <= 2.5) return { label: 'Дисбаланс', color: '#f59e0b', description: 'Есть заметные перекосы. Некоторые сферы проседают — они забирают энергию у других.' };
   return { label: 'Кризис', color: '#ef4444', description: 'Серьёзный дисбаланс. Нужно срочно уделить внимание самым низким сферам, чтобы избежать выгорания.' };
+}
+
+// 🆕 Определение мобильного устройства
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
 export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
@@ -165,6 +174,9 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
   const [showExport, setShowExport] = useState(false);
   const [exportName, setExportName] = useState('');
   const wheelRef = useRef<HTMLDivElement>(null);
+
+  // 🆕 Диалог подтверждения
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const stats = useMemo(() => {
     const values = Object.values(scores);
@@ -212,19 +224,19 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
 
     // Заголовок
     ctx.fillStyle = '#7c3aed';
-    ctx.font = 'bold 36px Arial';
+    ctx.font = 'bold 36px Arial, "Noto Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Колесо жизненного баланса педагога', 500, 60);
 
     if (exportName) {
       ctx.fillStyle = '#6b7280';
-      ctx.font = '18px Arial';
+      ctx.font = '18px Arial, "Noto Sans", sans-serif';
       ctx.fillText(exportName, 500, 90);
     }
 
     // Дата
     ctx.fillStyle = '#9ca3af';
-    ctx.font = '14px Arial';
+    ctx.font = '14px Arial, "Noto Sans", sans-serif';
     ctx.fillText(new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }), 500, 115);
 
     const cx = 500;
@@ -278,7 +290,7 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
       const ly = cy + labelR * Math.sin(labelAngle);
 
       ctx.fillStyle = '#374151';
-      ctx.font = 'bold 14px Arial';
+      ctx.font = 'bold 14px Arial, "Noto Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
@@ -291,7 +303,7 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
       }
 
       ctx.fillStyle = sphere.color;
-      ctx.font = 'bold 18px Arial';
+      ctx.font = 'bold 18px Arial, "Noto Sans", sans-serif';
       const scoreR = (maxR * score) / 10 - 25;
       const sr = (i + 0.5) * angleStep - 90;
       const sx = cx + scoreR * Math.cos((sr * Math.PI) / 180);
@@ -307,13 +319,13 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
     ctx.strokeRect(50, statsY, 900, 110);
 
     ctx.fillStyle = '#7c3aed';
-    ctx.font = 'bold 18px Arial';
+    ctx.font = 'bold 18px Arial, "Noto Sans", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(`Средний балл: ${stats.avg.toFixed(1)} / 10`, 80, statsY + 35);
     ctx.fillText(`Баланс: ${balanceInfo.label}`, 80, statsY + 70);
 
     ctx.fillStyle = balanceInfo.color;
-    ctx.font = 'bold 24px Arial';
+    ctx.font = 'bold 24px Arial, "Noto Sans", sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(`Δ ${stats.balance.toFixed(2)}`, 920, statsY + 55);
 
@@ -325,12 +337,12 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
     ctx.strokeRect(50, recY, 900, 350);
 
     ctx.fillStyle = '#7c3aed';
-    ctx.font = 'bold 20px Arial';
+    ctx.font = 'bold 20px Arial, "Noto Sans", sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('🎯 Анализ и рекомендации', 80, recY + 35);
 
     ctx.fillStyle = '#374151';
-    ctx.font = '16px Arial';
+    ctx.font = '16px Arial, "Noto Sans", sans-serif';
     const wrapText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
       const words = text.split(' ');
       let line = '';
@@ -352,18 +364,18 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
     const line1 = wrapText(balanceInfo.description, 80, recY + 75, 840, 24);
 
     ctx.fillStyle = '#10b981';
-    ctx.font = 'bold 16px Arial';
+    ctx.font = 'bold 16px Arial, "Noto Sans", sans-serif';
     ctx.fillText(`✅ Самая сильная сфера: ${stats.maxSphere.title} (${stats.max} / 10)`, 80, line1 + 45);
 
     ctx.fillStyle = '#ef4444';
     ctx.fillText(`⚠️ Точка роста: ${stats.minSphere.title} (${stats.min} / 10)`, 80, line1 + 75);
 
     ctx.fillStyle = '#7c3aed';
-    ctx.font = 'bold 16px Arial';
+    ctx.font = 'bold 16px Arial, "Noto Sans", sans-serif';
     ctx.fillText('💡 Первые шаги:', 80, line1 + 115);
 
     ctx.fillStyle = '#374151';
-    ctx.font = '15px Arial';
+    ctx.font = '15px Arial, "Noto Sans", sans-serif';
     const tips = stats.minSphere.tips;
     let tipY = line1 + 145;
     tips.forEach((tip, i) => {
@@ -372,7 +384,7 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
     });
 
     ctx.fillStyle = '#9ca3af';
-    ctx.font = '13px Arial';
+    ctx.font = '13px Arial, "Noto Sans", sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Проект Алексея Атапина · topteach.ru', 500, 1380);
 
@@ -388,22 +400,38 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
     });
   };
 
+  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед скачиванием PNG
+  const handleExportRequest = () => {
+    const mobile = isMobileDevice();
+    setConfirmState({
+      title: '⚠️ Скачивание картинки',
+      message: mobile
+        ? 'Вы работаете с мобильного устройства. Скачивание PNG-файлов стабильно работает только при работе с компьютера. В мини-апе ВКонтакте или мобильном браузере файл может не сохраниться или кириллица может отобразиться некорректно. Для гарантированного результата откройте приложение на компьютере. Всё равно продолжить?'
+        : 'Скачивание PNG стабильно работает при работе с компьютера. В мини-апе ВКонтакте или мобильном браузере файл может не сохраниться. Продолжить скачивание?',
+      confirmLabel: 'Скачать PNG',
+      danger: false,
+      action: () => {
+        setShowExport(true);
+      },
+    });
+  };
+
   const selected = selectedSphere ? SPHERES.find(s => s.key === selectedSphere) : null;
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-violet-50 flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-white truncate">Колесо жизненного баланса</h1>
-            <p className="text-xs text-purple-200">Саморефлексия педагога</p>
+            <h1 className="text-lg font-bold text-white truncate">Колесо баланса</h1>
           </div>
           <BookOpen className="w-6 h-6 text-white/70" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full p-3 space-y-3 pb-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
         {/* Интро */}
         <div className="bg-white rounded-2xl p-4 shadow-sm flex gap-3 items-start">
           <div className="shrink-0 w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
@@ -710,12 +738,18 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
             </div>
 
             <button
-              onClick={() => setShowExport(true)}
+              onClick={handleExportRequest}
               className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-md"
             >
               <Download className="w-4 h-4" />
               Скачать картинку
             </button>
+
+            {/* 🆕 Постоянное предупреждение о стабильности скачивания */}
+            <p className="text-center text-[11px] text-gray-500 flex items-center justify-center gap-1 px-2 leading-relaxed">
+              <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+              Скачивание PNG стабильно работает только с компьютера.
+            </p>
           </div>
         </div>
       </main>
@@ -874,6 +908,11 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
                 />
               </div>
               <p className="text-xs text-gray-500">Скачается PNG с вашим колесом, статистикой и персональными рекомендациями.</p>
+              {/* 🆕 Предупреждение в модалке экспорта */}
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 flex items-start gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>Скачивание PNG стабильно работает с компьютера. В мобильном приложении файл может не сохраниться.</span>
+              </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowExport(false)}
@@ -892,6 +931,19 @@ export default function LifeBalanceScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }
