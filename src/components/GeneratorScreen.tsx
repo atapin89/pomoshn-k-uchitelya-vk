@@ -419,22 +419,18 @@ export default function GeneratorScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="shrink-0">
-            <BackButton onClick={onBack} variant="light" />
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton onClick={onBack} variant="light" />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Жеребьёвка</h1>
           </div>
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">Жеребьёвка</h1>
-            <p className="text-xs text-purple-200 leading-tight">Случайный выбор и группы</p>
-          </div>
-          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-            <Dices className="w-5 h-5 text-white" />
-          </div>
+          <Dices className="w-6 h-6 text-white/70" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-6 space-y-6 pb-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
         {/* Предупреждение */}
         {showPrivacyBanner && (
           <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex gap-3">
