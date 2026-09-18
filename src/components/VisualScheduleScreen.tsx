@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  ArrowLeft,
   Plus,
   Minus,
   Trash2,
@@ -33,11 +32,13 @@ import {
   Sparkles,
   RotateCcw,
   AlertTriangle,
+  Calendar,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { PICTOGRAMS, PICTOGRAM_CATEGORIES, type Pictogram } from '@/data/pictograms';
 import { ConfirmDialog, AlertDialog } from './ConfirmDialog';
+import BackButton from './BackButton';
 
 type TemplateType = 'horizontal' | 'vertical' | 'grid3' | 'grid4';
 type Language = 'ru' | 'en';
@@ -128,7 +129,6 @@ function createEmptyCells(template: TemplateType): ScheduleCell[] {
   }));
 }
 
-// Преобразование AlignPosition в tailwind-классы для flex-контейнера
 function getEmojiAlignClasses(pos: AlignPosition): string {
   const map: Record<AlignPosition, string> = {
     'top-left':      'items-start justify-start',
@@ -144,7 +144,6 @@ function getEmojiAlignClasses(pos: AlignPosition): string {
   return map[pos];
 }
 
-// 🆕 Определение мобильного устройства
 function isMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -175,9 +174,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
   const [previewLanguage, setPreviewLanguage] = useState<Language>('ru');
   const [editingPreviewCellId, setEditingPreviewCellId] = useState<string | null>(null);
 
-  // Единое хранилище стилей для всех ячеек
   const [cellStyles, setCellStyles] = useState<Record<string, CellStyle>>({});
-  // Выбранная ячейка в превью
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
@@ -486,7 +483,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     setIsExporting(false);
   };
 
-  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед скачиванием PDF: стабильно работает только с компьютера
   const handleExportPDFRequest = () => {
     const mobile = isMobileDevice();
     setConfirmState({
@@ -666,9 +662,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     );
   };
 
-  // Рендер ячейки предпросмотра:
-  // • клик по картинке/эмодзи — выделение плитки для настройки
-  // • клик по подписи — редактирование подписи
   const renderPreviewCell = (cell: ScheduleCell) => {
     const pictogram = cell.pictogramId ? PICTOGRAMS.find(p => p.id === cell.pictogramId) : null;
     const label = cell.customLabel || (pictogram ? pictogram[previewLanguage] : '');
@@ -703,7 +696,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </div>
         ) : (
           <>
-            {/* ЗОНА 1: картинка/эмодзи — клик выделяет плитку для настройки */}
             <div
               className={`flex-[7] flex overflow-hidden p-0 min-w-0 min-h-0 cursor-pointer ${emojiAlignClasses}`}
               onClick={(e) => {
@@ -738,7 +730,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               )}
             </div>
 
-            {/* ЗОНА 2: подпись — клик редактирует её */}
             {label && (
               <div
                 className={`flex-[3] flex p-0 min-w-0 min-h-0 border-t border-gray-100 cursor-text ${textAlignClass}`}
@@ -767,7 +758,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
               </div>
             )}
 
-            {/* Если подписи нет — кнопка добавления (не попадает в PDF-экспорт) */}
             {!label && (
               <button
                 onClick={(e) => {
@@ -786,7 +776,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </>
         )}
 
-        {/* Индикатор выделения */}
         {isSelected && (
           <div className="preview-controls absolute top-1 right-1 bg-purple-600 text-white rounded-full p-1 shadow-lg">
             <Check className="w-3 h-3" />
@@ -796,7 +785,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     );
   };
 
-  // ЕДИНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ размерами и позиционированием
   const renderStyleToolbar = () => {
     if (!selectedCellId) return null;
 
@@ -807,7 +795,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
     const pictogram = selectedCell.pictogramId ? PICTOGRAMS.find(p => p.id === selectedCell.pictogramId) : null;
     const cellLabel = selectedCell.customLabel || (pictogram ? pictogram[previewLanguage] : 'Пустая');
 
-    // Матрица позиций для выравнивания иконки (3x3)
     const positions: AlignPosition[] = [
       'top-left', 'top-center', 'top-right',
       'center-left', 'center', 'center-right',
@@ -816,7 +803,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
     return (
       <div className="sticky top-0 z-20 bg-gradient-to-r from-purple-700 to-indigo-700 text-white rounded-xl shadow-xl mb-4 overflow-hidden">
-        {/* Заголовок */}
         <div className="bg-black/20 px-4 py-2 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-2 text-sm">
             <Sparkles className="w-4 h-4" />
@@ -834,9 +820,7 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
           </button>
         </div>
 
-        {/* Контролы */}
         <div className="p-3 flex flex-wrap items-center gap-4">
-          {/* Размер иконки */}
           <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase tracking-wider text-purple-200 font-semibold flex items-center gap-1">
               <Smile className="w-3 h-3" /> Иконка
@@ -864,7 +848,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             </div>
           </div>
 
-          {/* Размер текста */}
           <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase tracking-wider text-purple-200 font-semibold flex items-center gap-1">
               <Type className="w-3 h-3" /> Текст
@@ -892,7 +875,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             </div>
           </div>
 
-          {/* Позиционирование иконки (3x3 grid) */}
           <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase tracking-wider text-purple-200 font-semibold flex items-center gap-1">
               <AlignCenterVertical className="w-3 h-3" /> Позиция иконки
@@ -918,7 +900,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             </div>
           </div>
 
-          {/* Выравнивание текста */}
           <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase tracking-wider text-purple-200 font-semibold">
               Выравнивание текста
@@ -954,10 +935,8 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
             </div>
           </div>
 
-          {/* Разделитель */}
           <div className="w-px h-12 bg-white/20 self-end mb-1" />
 
-          {/* Кнопки действий */}
           <div className="flex flex-col gap-1">
             <label className="text-[10px] uppercase tracking-wider text-purple-200 font-semibold">
               Действия
@@ -1030,237 +1009,250 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-indigo-50 flex flex-col">
-      {/* РАСШИРЕННАЯ ШАПКА с отступом от верхней границы (safe-area для мобильных) */}
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-20 pt-[env(safe-area-inset-top)]">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="p-2 text-white hover:bg-purple-600 rounded-lg transition-colors shrink-0"
-            aria-label="Назад"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-semibold text-purple-200 leading-tight">Визуальное расписание</h1>
+            <h1 className="text-lg font-bold text-white truncate">Визуальное расписание</h1>
+          </div>
+          <Calendar className="w-6 h-6 text-white/70 shrink-0" />
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+        {/* 🆕 Информационная плашка: название проекта + иконка */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Проект</p>
             <input
               type="text"
               value={currentProject.name}
               onChange={(e) => setCurrentProject(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full bg-transparent text-white font-bold text-lg border-b border-white/30 focus:border-white focus:outline-none"
+              className="w-full bg-transparent text-sm font-bold text-purple-700 focus:outline-none truncate"
               placeholder="Название проекта"
             />
           </div>
+          <div className="shrink-0 text-right">
+            <p className="text-xs text-gray-500">Язык</p>
+            <p className="text-sm font-bold text-purple-700">
+              {currentProject.language === 'ru' ? 'Русский' : 'English'}
+            </p>
+          </div>
+          <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+            <Calendar className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* 🆕 Панель управления (перенесена из шапки) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <button
             onClick={handleToggleLanguage}
-            className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0"
+            className="bg-white hover:bg-gray-50 text-gray-700 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold transition-colors shadow-sm"
           >
-            <Languages className="w-4 h-4" />
+            <Languages className="w-5 h-5" />
             {currentProject.language === 'ru' ? 'RU' : 'EN'}
           </button>
           <button
             onClick={handleSaveProject}
-            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg shrink-0"
-            title="Сохранить"
+            className="bg-white hover:bg-gray-50 text-gray-700 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold transition-colors shadow-sm"
           >
             <Save className="w-5 h-5" />
+            Сохранить
           </button>
           <button
             onClick={handleOpenPreview}
             disabled={isExporting}
-            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg shrink-0 disabled:opacity-50 flex items-center gap-1"
-            title="Предпросмотр и экспорт"
+            className="bg-white hover:bg-gray-50 disabled:opacity-50 text-gray-700 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold transition-colors shadow-sm"
           >
             {isExporting ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-purple-300 border-t-purple-600 rounded-full animate-spin" />
             ) : (
-              <>
-                <FileDown className="w-5 h-5" />
-                <span className="text-xs font-semibold hidden sm:inline">PDF</span>
-              </>
+              <FileDown className="w-5 h-5" />
             )}
+            PDF
           </button>
           <button
             onClick={() => setShowProjects(!showProjects)}
-            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg shrink-0"
-            title="Мои проекты"
+            className="bg-white hover:bg-gray-50 text-gray-700 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold transition-colors shadow-sm"
           >
             <FolderOpen className="w-5 h-5" />
+            Проекты
           </button>
         </div>
-      </header>
 
-      <main className="flex-1 max-w-5xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
-        <aside className="bg-white rounded-2xl p-4 shadow-sm space-y-4 h-fit lg:sticky lg:top-24">
-          <div>
-            <h2 className="text-sm font-bold text-purple-700 mb-2">Шаблон</h2>
-            <div className="grid grid-cols-2 gap-2">
-              {TEMPLATES.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => handleTemplateChange(t.id)}
-                  className={`p-2 rounded-lg border-2 text-xs font-semibold flex flex-col items-center gap-1 ${
-                    currentProject.template === t.id
-                      ? 'border-purple-500 bg-purple-50 text-purple-700'
-                      : 'border-gray-200 text-gray-600 hover:border-purple-200'
-                  }`}
-                >
-                  {t.icon}
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="relative mb-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск..."
-                className="w-full pl-9 pr-3 py-2 rounded-lg border border-purple-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
-                >
-                  <X className="w-3 h-3 text-gray-500" />
-                </button>
-              )}
-            </div>
-
-            {!searchQuery && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {PICTOGRAM_CATEGORIES.map(cat => (
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-4">
+          <aside className="bg-white rounded-2xl p-4 shadow-sm space-y-4 h-fit lg:sticky lg:top-24">
+            <div>
+              <h2 className="text-sm font-bold text-purple-700 mb-2">Шаблон</h2>
+              <div className="grid grid-cols-2 gap-2">
+                {TEMPLATES.map(t => (
                   <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                      selectedCategory === cat.id
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                    key={t.id}
+                    onClick={() => handleTemplateChange(t.id)}
+                    className={`p-2 rounded-lg border-2 text-xs font-semibold flex flex-col items-center gap-1 ${
+                      currentProject.template === t.id
+                        ? 'border-purple-500 bg-purple-50 text-purple-700'
+                        : 'border-gray-200 text-gray-600 hover:border-purple-200'
                     }`}
                   >
-                    {cat.icon} {cat.ru}
+                    {t.icon}
+                    {t.label}
                   </button>
                 ))}
               </div>
-            )}
-
-            <div className="grid grid-cols-6 gap-1 max-h-[380px] overflow-y-auto">
-              {filteredPictograms.map(p => (
-                <div
-                  key={p.id}
-                  draggable
-                  onDragStart={() => handleDragStart(p)}
-                  onClick={() => {
-                    const emptyCell = currentProject.cells.find(c => c.type === 'empty');
-                    if (emptyCell) handleAddPictogramToCell(emptyCell.id, p);
-                  }}
-                  className="aspect-square rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 flex flex-col items-center justify-center p-0.5 cursor-grab active:cursor-grabbing transition-colors"
-                  title={`${p.ru} / ${p.en}`}
-                >
-                  <span className="text-xl" style={{ fontFamily: EMOJI_FONTS }}>{p.emoji}</span>
-                  <span className="text-[9px] text-gray-600 text-center line-clamp-1 mt-0.5">
-                    {p[currentProject.language]}
-                  </span>
-                </div>
-              ))}
             </div>
-          </div>
 
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
-          >
-            <Image className="w-4 h-4" />
-            Загрузить своё фото
-          </button>
-        </aside>
+            <div>
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Поиск..."
+                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-purple-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                  >
+                    <X className="w-3 h-3 text-gray-500" />
+                  </button>
+                )}
+              </div>
 
-        <section className="space-y-4">
-          {renderSchedule()}
+              {!searchQuery && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {PICTOGRAM_CATEGORIES.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`px-2 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                        selectedCategory === cat.id
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                      }`}
+                    >
+                      {cat.icon} {cat.ru}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <h3 className="text-sm font-bold text-purple-700 mb-2">💡 Подсказки</h3>
-            <ul className="text-xs text-gray-600 space-y-1">
-              <li>• Перетащите пиктограмму из библиотеки в ячейку</li>
-              <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
-              <li>• 📥 Кнопка «PDF» откроет режим предпросмотра с настройкой</li>
-              <li>• 🎯 В предпросмотре: клик по картинке — выделение, клик по подписи — правка текста</li>
-              <li>• 🛠️ Сверху появится панель с регуляторами размера и позиции</li>
-              <li>• ✨ «Ко всем» — применить текущие настройки ко всем плиткам</li>
-              <li>• ⚠️ Скачивание PDF стабильно работает только с компьютера</li>
-            </ul>
-          </div>
+              <div className="grid grid-cols-6 gap-1 max-h-[380px] overflow-y-auto">
+                {filteredPictograms.map(p => (
+                  <div
+                    key={p.id}
+                    draggable
+                    onDragStart={() => handleDragStart(p)}
+                    onClick={() => {
+                      const emptyCell = currentProject.cells.find(c => c.type === 'empty');
+                      if (emptyCell) handleAddPictogramToCell(emptyCell.id, p);
+                    }}
+                    className="aspect-square rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 flex flex-col items-center justify-center p-0.5 cursor-grab active:cursor-grabbing transition-colors"
+                    title={`${p.ru} / ${p.en}`}
+                  >
+                    <span className="text-xl" style={{ fontFamily: EMOJI_FONTS }}>{p.emoji}</span>
+                    <span className="text-[9px] text-gray-600 text-center line-clamp-1 mt-0.5">
+                      {p[currentProject.language]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <button
-              onClick={() => setShowScenarios(!showScenarios)}
-              className="w-full px-4 py-3 flex items-center justify-between gap-2"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-sm font-semibold flex items-center justify-center gap-2"
             >
-              <div className="flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-amber-500" />
-                <h3 className="font-bold text-purple-700 text-sm">Сценарии использования</h3>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showScenarios ? 'rotate-180' : ''}`} />
+              <Image className="w-4 h-4" />
+              Загрузить своё фото
             </button>
-            {showScenarios && (
-              <div className="px-4 pb-4 space-y-3 text-sm text-gray-700">
-                <div className="bg-purple-50 rounded-xl p-3">
-                  <p className="font-bold text-purple-800 mb-1">🧩 Расписание дня для ребёнка с РАС</p>
-                  <p className="text-xs leading-relaxed">Линейное расписание на 5–7 ячеек снижает тревожность и формирует предсказуемость.</p>
-                </div>
-                <div className="bg-blue-50 rounded-xl p-3">
-                  <p className="font-bold text-blue-800 mb-1">🏫 Режим дня в детском саду</p>
-                  <p className="text-xs leading-relaxed">Сетка 3×3. Распечатайте на A4 и ламинируйте.</p>
-                </div>
-                <div className="bg-green-50 rounded-xl p-3">
-                  <p className="font-bold text-green-800 mb-1">📝 Алгоритм выполнения задания</p>
-                  <p className="text-xs leading-relaxed">Вертикальное расписание на 4–6 шагов.</p>
-                </div>
-              </div>
-            )}
-          </div>
+          </aside>
 
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <button
-              onClick={() => setShowFaq(!showFaq)}
-              className="w-full px-4 py-3 flex items-center justify-between gap-2"
-            >
-              <div className="flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-purple-600" />
-                <h3 className="font-bold text-purple-700 text-sm">Частые вопросы</h3>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showFaq ? 'rotate-180' : ''}`} />
-            </button>
-            {showFaq && (
-              <div className="px-4 pb-4 space-y-3 text-sm">
-                <div>
-                  <p className="font-bold text-gray-800 mb-1">❓ Как настроить размер и положение?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре кликните на картинку в плитке — она выделится, сверху появится панель с регуляторами размера иконки/текста, матрицей позиций 3×3 и выравниванием текста. Клик по подписи открывает её редактирование.</p>
+          <section className="space-y-4">
+            {renderSchedule()}
+
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <h3 className="text-sm font-bold text-purple-700 mb-2">💡 Подсказки</h3>
+              <ul className="text-xs text-gray-600 space-y-1">
+                <li>• Перетащите пиктограмму из библиотеки в ячейку</li>
+                <li>• Кликните на пиктограмму — добавится в первую пустую ячейку</li>
+                <li>• 📥 Кнопка «PDF» откроет режим предпросмотра с настройкой</li>
+                <li>• 🎯 В предпросмотре: клик по картинке — выделение, клик по подписи — правка текста</li>
+                <li>• 🛠️ Сверху появится панель с регуляторами размера и позиции</li>
+                <li>• ✨ «Ко всем» — применить текущие настройки ко всем плиткам</li>
+                <li>• ⚠️ Скачивание PDF стабильно работает только с компьютера</li>
+              </ul>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <button
+                onClick={() => setShowScenarios(!showScenarios)}
+                className="w-full px-4 py-3 flex items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-amber-500" />
+                  <h3 className="font-bold text-purple-700 text-sm">Сценарии использования</h3>
                 </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как применить ко всем плиткам?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Выделите плитку с нужными настройками и нажмите кнопку «✨ Ко всем» в панели инструментов.</p>
+                <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showScenarios ? 'rotate-180' : ''}`} />
+              </button>
+              {showScenarios && (
+                <div className="px-4 pb-4 space-y-3 text-sm text-gray-700">
+                  <div className="bg-purple-50 rounded-xl p-3">
+                    <p className="font-bold text-purple-800 mb-1">🧩 Расписание дня для ребёнка с РАС</p>
+                    <p className="text-xs leading-relaxed">Линейное расписание на 5–7 ячеек снижает тревожность и формирует предсказуемость.</p>
+                  </div>
+                  <div className="bg-blue-50 rounded-xl p-3">
+                    <p className="font-bold text-blue-800 mb-1">🏫 Режим дня в детском саду</p>
+                    <p className="text-xs leading-relaxed">Сетка 3×3. Распечатайте на A4 и ламинируйте.</p>
+                  </div>
+                  <div className="bg-green-50 rounded-xl p-3">
+                    <p className="font-bold text-green-800 mb-1">📝 Алгоритм выполнения задания</p>
+                    <p className="text-xs leading-relaxed">Вертикальное расписание на 4–6 шагов.</p>
+                  </div>
                 </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как распечатать?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → «Печать» в панели предпросмотра. Внимание: скачивание PDF стабильно работает только при работе с компьютера — на телефоне файл может не сохраниться.</p>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <button
+                onClick={() => setShowFaq(!showFaq)}
+                className="w-full px-4 py-3 flex items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-purple-600" />
+                  <h3 className="font-bold text-purple-700 text-sm">Частые вопросы</h3>
                 </div>
-                <div className="border-t border-gray-100 pt-3">
-                  <p className="font-bold text-gray-800 mb-1">❓ Как изменить подписи?</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре кликните на текст плитки — откроется редактор подписи. Если подписи нет — выделите плитку и нажмите кнопку «Подпись» внизу плитки.</p>
+                <ChevronDown className={`w-4 h-4 text-purple-600 transition-transform duration-200 ${showFaq ? 'rotate-180' : ''}`} />
+              </button>
+              {showFaq && (
+                <div className="px-4 pb-4 space-y-3 text-sm">
+                  <div>
+                    <p className="font-bold text-gray-800 mb-1">❓ Как настроить размер и положение?</p>
+                    <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре кликните на картинку в плитке — она выделится, сверху появится панель с регуляторами размера иконки/текста, матрицей позиций 3×3 и выравниванием текста. Клик по подписи открывает её редактирование.</p>
+                  </div>
+                  <div className="border-t border-gray-100 pt-3">
+                    <p className="font-bold text-gray-800 mb-1">❓ Как применить ко всем плиткам?</p>
+                    <p className="text-xs text-gray-600 leading-relaxed">Выделите плитку с нужными настройками и нажмите кнопку «✨ Ко всем» в панели инструментов.</p>
+                  </div>
+                  <div className="border-t border-gray-100 pt-3">
+                    <p className="font-bold text-gray-800 mb-1">❓ Как распечатать?</p>
+                    <p className="text-xs text-gray-600 leading-relaxed">Нажмите 📥 PDF → «Печать» в панели предпросмотра. Внимание: скачивание PDF стабильно работает только при работе с компьютера — на телефоне файл может не сохраниться.</p>
+                  </div>
+                  <div className="border-t border-gray-100 pt-3">
+                    <p className="font-bold text-gray-800 mb-1">❓ Как изменить подписи?</p>
+                    <p className="text-xs text-gray-600 leading-relaxed">В предпросмотре кликните на текст плитки — откроется редактор подписи. Если подписи нет — выделите плитку и нажмите кнопку «Подпись» внизу плитки.</p>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </section>
+              )}
+            </div>
+          </section>
+        </div>
       </main>
 
-      {/* ПОЛНОЭКРАННЫЙ РЕЖИМ ПРЕДПРОСМОТРА */}
       {showPreview && (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col">
           <div className="bg-purple-700 px-4 py-3 flex items-center justify-between gap-3 shadow-md pt-[calc(0.75rem+env(safe-area-inset-top))]">
@@ -1294,7 +1286,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
 
           <div className="flex-1 overflow-auto bg-gray-100 p-4 flex flex-col items-center">
             <div className="w-full max-w-[1200px]">
-              {/* ЕДИНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ (показывается только при выделении) */}
               {renderStyleToolbar()}
 
               {!selectedCellId && (
@@ -1341,7 +1332,6 @@ export default function VisualScheduleScreen({ onBack }: { onBack: () => void })
                 <span className="text-xs">Закрыть</span>
               </button>
             </div>
-            {/* 🆕 Постоянное предупреждение под кнопками */}
             <p className="mt-3 text-center text-[11px] text-gray-500 flex items-center justify-center gap-1">
               <AlertTriangle className="w-3 h-3 text-amber-500" />
               Скачивание PDF стабильно работает только при работе с компьютера. На мобильных устройствах файл может не сохраниться.
