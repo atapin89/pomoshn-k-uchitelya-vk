@@ -64,18 +64,20 @@ interface PromptState {
 const SCRIPTS_KEY = 'teleprompter-scripts';
 const SETTINGS_KEY = 'teleprompter-settings';
 const AUTORECORD_KEY = 'teleprompter-autorecord';
-// 🆕 Ключи автотаймера
 const AUTOTIMER_KEY = 'teleprompter-autotimer';
 const AUTOTIMER_MIN_KEY = 'teleprompter-autotimer-min';
+// 🆕 Зеркалирование камеры (отдельно от зеркалирования текста)
+const CAMERA_MIRROR_KEY = 'teleprompter-camera-mirror';
 
-// Пределы ползунков: мин повышен, макс понижен
-const SPEED_MIN = 0.8;
+// 🆕 Скорость можно уменьшить до 0 (текст стоит, листается свайпом)
+const SPEED_MIN = 0;
 const SPEED_MAX = 2.0;
 const FONT_MIN = 20;
 const FONT_MAX = 48;
 
-// 🆕 Варианты длительности автотаймера
-const AUTOTIMER_OPTIONS = [3, 5, 10, 15, 20, 30, 45, 60];
+// 🆕 Границы длительности таймера: 1–99 минут
+const TIMER_MIN = 1;
+const TIMER_MAX = 99;
 
 const FONTS = [
   'Arial, sans-serif',
@@ -174,7 +176,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   const [showCamera, setShowCamera] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
-  // Автораспись: начинать запись после старта прокрутки
+  // Автораспись
   const [autoRecord, setAutoRecord] = useState(() => {
     try {
       return localStorage.getItem(AUTORECORD_KEY) === '1';
@@ -183,7 +185,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
     }
   });
 
-  // 🆕 Автотаймер: запускать отсчёт после старта прокрутки
+  // Автотаймер + длительность 1–99 мин
   const [autoTimer, setAutoTimer] = useState(() => {
     try {
       return localStorage.getItem(AUTOTIMER_KEY) === '1';
@@ -194,9 +196,18 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   const [autoTimerMin, setAutoTimerMin] = useState(() => {
     try {
       const v = Number(localStorage.getItem(AUTOTIMER_MIN_KEY));
-      return v >= 1 && v <= 120 ? v : 5;
+      return v >= TIMER_MIN && v <= TIMER_MAX ? v : 5;
     } catch {
       return 5;
+    }
+  });
+
+  // 🆕 Зеркалирование камеры
+  const [cameraMirror, setCameraMirror] = useState(() => {
+    try {
+      return localStorage.getItem(CAMERA_MIRROR_KEY) === '1';
+    } catch {
+      return false;
     }
   });
 
@@ -239,8 +250,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   }, []);
 
   // ===== СИНХРОНИЗАЦИЯ ВИДЕО С ПОТОКОМ =====
-  // Исправляет баг «камера не показывает изображение во время записи»:
-  // после пересоздания потока видео-элемент мог остаться без srcObject.
   useEffect(() => {
     const video = videoRef.current;
     const stream = streamRef.current;
@@ -443,7 +452,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
       });
       streamRef.current = stream;
 
-      // Сразу привязываем поток к видео и запускаем воспроизведение
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(() => {});
@@ -550,33 +558,48 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
 
   // ===== ТУМБЛЕР АВТОЗАПИСИ =====
   const toggleAutoRecord = () => {
-    setAutoRecord((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(AUTORECORD_KEY, next ? '1' : '0');
-      } catch {}
-      triggerHaptic('light');
-      return next;
-    });
-  };
-
-  // 🆕 ТУМБЛЕР АВТОТАЙМЕРА И ВЫБОР ДЛИТЕЛЬНОСТИ
-  const toggleAutoTimer = () => {
-    setAutoTimer((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(AUTOTIMER_KEY, next ? '1' : '0');
-      } catch {}
-      triggerHaptic('light');
-      return next;
-    });
-  };
-
-  const changeAutoTimerMin = (min: number) => {
-    setAutoTimerMin(min);
+    const next = !autoRecord;
+    setAutoRecord(next);
     try {
-      localStorage.setItem(AUTOTIMER_MIN_KEY, String(min));
+      localStorage.setItem(AUTORECORD_KEY, next ? '1' : '0');
     } catch {}
+    triggerHaptic('light');
+  };
+
+  // 🆕 ТУМБЛЕР ТАЙМЕРА: вкл — запустить отсчёт, выкл — сбросить
+  const toggleAutoTimer = () => {
+    const next = !autoTimer;
+    setAutoTimer(next);
+    try {
+      localStorage.setItem(AUTOTIMER_KEY, next ? '1' : '0');
+    } catch {}
+    if (next) {
+      setTimerLeft(autoTimerMin * 60);
+      setTimerPaused(false);
+    } else {
+      setTimerLeft(null);
+      setTimerPaused(false);
+    }
+    triggerHaptic('light');
+  };
+
+  // 🆕 Длительность таймера с ограничением 1–99 минут
+  const changeAutoTimerMin = (min: number) => {
+    const v = Math.max(TIMER_MIN, Math.min(TIMER_MAX, Math.round(min) || TIMER_MIN));
+    setAutoTimerMin(v);
+    try {
+      localStorage.setItem(AUTOTIMER_MIN_KEY, String(v));
+    } catch {}
+  };
+
+  // 🆕 ТУМБЛЕР ЗЕРКАЛА КАМЕРЫ
+  const toggleCameraMirror = () => {
+    const next = !cameraMirror;
+    setCameraMirror(next);
+    try {
+      localStorage.setItem(CAMERA_MIRROR_KEY, next ? '1' : '0');
+    } catch {}
+    triggerHaptic('light');
   };
 
   // ===== КЛЮЧЕВЫЕ ДЕЙСТВИЯ =====
@@ -590,7 +613,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
     if (willPlay && autoRecord && !isRecording) {
       void startRecording();
     }
-    // 🆕 Автотаймер: старт отсчёта одновременно со стартом прокрутки
+    // Автотаймер: старт отсчёта одновременно со стартом прокрутки
     if (willPlay && autoTimer) {
       setTimerLeft(autoTimerMin * 60);
       setTimerPaused(false);
@@ -614,19 +637,22 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
   const handleStartTimer = () => {
     setPromptState({
       title: 'Таймер выступления',
-      message: 'Сколько минут продлится выступление?',
+      message: `Сколько минут продлится выступление? (${TIMER_MIN}–${TIMER_MAX})`,
       initialValue: String(autoTimerMin),
       placeholder: '5',
       confirmLabel: 'Запустить',
       action: (min) => {
         const n = Number(min);
-        if (n > 0) {
+        if (n >= TIMER_MIN && n <= TIMER_MAX) {
+          changeAutoTimerMin(n);
           setTimerLeft(n * 60);
           setTimerPaused(false);
-          // Запоминаем длительность для автотаймера
-          changeAutoTimerMin(n);
+          setAutoTimer(true);
+          try {
+            localStorage.setItem(AUTOTIMER_KEY, '1');
+          } catch {}
         } else {
-          setAlertMsg('Введите число больше нуля');
+          setAlertMsg(`Введите число от ${TIMER_MIN} до ${TIMER_MAX}`);
         }
       },
     });
@@ -758,7 +784,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               muted
               playsInline
               className="w-full h-full object-cover bg-black"
-              style={{ transform: settings.mirrorH ? 'scaleX(-1)' : 'none' }}
+              style={{ transform: cameraMirror ? 'scaleX(-1)' : 'none' }}
             />
             <div
               className={`absolute top-1 left-1 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${
@@ -819,6 +845,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
         </div>
 
         <div className="fixed bottom-4 left-4 right-4 z-30 bg-black/80 backdrop-blur-md rounded-2xl p-3 border border-white/10">
+          {/* 🆕 Кнопки управления: таймер убран, добавлено зеркало камеры */}
           <div className="grid grid-cols-6 gap-2 mb-3">
             <button
               onClick={handlePlayPause}
@@ -843,7 +870,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               }`}
             >
               <FlipHorizontal className="w-4 h-4" />
-              <span className="text-[10px]">Зеркало</span>
+              <span className="text-[10px]">Зеркало текста</span>
             </button>
             <button
               onClick={toggleCamera}
@@ -863,77 +890,79 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               {isRecording ? <Square className="w-4 h-4" /> : <Video className="w-4 h-4" />}
               <span className="text-[10px]">{isRecording ? 'Стоп' : 'Запись'}</span>
             </button>
+            {/* 🆕 Зеркало камеры */}
             <button
-              onClick={timerLeft === null ? handleStartTimer : handleStopTimer}
+              onClick={toggleCameraMirror}
               className={`py-2.5 rounded-xl font-semibold text-sm flex flex-col items-center justify-center gap-1 ${
-                timerLeft !== null ? 'bg-red-600 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'
+                cameraMirror ? 'bg-blue-500 text-white' : 'bg-gray-700 text-white hover:bg-gray-600'
               }`}
             >
-              <Clock className="w-4 h-4" />
-              <span className="text-[10px]">{timerLeft !== null ? 'Стоп' : 'Таймер'}</span>
+              <FlipHorizontal className="w-4 h-4" />
+              <span className="text-[10px]">Зеркало камеры</span>
             </button>
           </div>
 
-          {/* Тумблер «Запись после старта» */}
-          <div className="flex items-center justify-between gap-2 mb-2 px-1">
-            <span className="text-white text-xs flex items-center gap-1.5">
-              <Video className="w-3.5 h-3.5 text-red-400" />
-              Запись после старта
-            </span>
-            <button
-              onClick={toggleAutoRecord}
-              className={`relative shrink-0 w-10 h-5 rounded-full transition-colors ${
-                autoRecord ? 'bg-red-500' : 'bg-gray-600'
-              }`}
-              aria-label="Запись после старта"
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                  autoRecord ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* 🆕 Тумблер «Таймер после старта» + выбор длительности */}
-          <div className="flex items-center justify-between gap-2 mb-2 px-1">
-            <span className="text-white text-xs flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-yellow-400" />
-              Таймер после старта
-            </span>
-            <div className="flex items-center gap-2">
-              <select
-                value={autoTimerMin}
-                onChange={(e) => changeAutoTimerMin(Number(e.target.value))}
-                className="bg-gray-700 text-white text-xs rounded-lg px-1.5 py-1 border border-white/20 focus:outline-none"
-                aria-label="Длительность таймера"
-              >
-                {AUTOTIMER_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {m} мин
-                  </option>
-                ))}
-              </select>
+          {/* 🆕 Переключатели и настройки в одну строку */}
+          <div className="grid grid-cols-4 gap-2">
+            {/* Запись после старта */}
+            <div className="bg-white/5 rounded-xl p-2 flex flex-col gap-1.5">
+              <span className="text-[10px] text-white/80 flex items-center gap-1 truncate">
+                <Video className="w-3 h-3 text-red-400 shrink-0" />
+                Запись после старта
+              </span>
               <button
-                onClick={toggleAutoTimer}
+                onClick={toggleAutoRecord}
                 className={`relative shrink-0 w-10 h-5 rounded-full transition-colors ${
-                  autoTimer ? 'bg-yellow-500' : 'bg-gray-600'
+                  autoRecord ? 'bg-red-500' : 'bg-gray-600'
                 }`}
-                aria-label="Таймер после старта"
+                aria-label="Запись после старта"
               >
                 <span
                   className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    autoTimer ? 'translate-x-5' : 'translate-x-0'
+                    autoRecord ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
               </button>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Gauge className="w-4 h-4 text-white shrink-0" />
-              <span className="text-white text-xs w-16 shrink-0">Скорость</span>
+            {/* Таймер после старта + минуты 1–99 */}
+            <div className="bg-white/5 rounded-xl p-2 flex flex-col gap-1.5">
+              <span className="text-[10px] text-white/80 flex items-center gap-1 truncate">
+                <Clock className="w-3 h-3 text-yellow-400 shrink-0" />
+                Таймер после старта
+              </span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={TIMER_MIN}
+                  max={TIMER_MAX}
+                  value={autoTimerMin}
+                  onChange={(e) => changeAutoTimerMin(Number(e.target.value))}
+                  className="w-11 bg-gray-700 text-white text-xs rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                  aria-label="Минуты таймера"
+                />
+                <button
+                  onClick={toggleAutoTimer}
+                  className={`relative shrink-0 w-10 h-5 rounded-full transition-colors ${
+                    autoTimer ? 'bg-yellow-500' : 'bg-gray-600'
+                  }`}
+                  aria-label="Таймер после старта"
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                      autoTimer ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Скорость */}
+            <div className="bg-white/5 rounded-xl p-2 flex flex-col gap-1.5">
+              <span className="text-[10px] text-white/80 flex items-center gap-1 truncate">
+                <Gauge className="w-3 h-3 shrink-0" />
+                Скорость: {settings.speed.toFixed(2)}×
+              </span>
               <input
                 type="range"
                 min={SPEED_MIN}
@@ -941,15 +970,16 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
                 step={0.05}
                 value={settings.speed}
                 onChange={(e) => updateSettings({ speed: Number(e.target.value) })}
-                className="flex-1 accent-purple-500"
+                className="w-full accent-purple-500"
               />
-              <span className="text-white text-xs w-10 text-right font-mono">
-                {settings.speed.toFixed(2)}×
-              </span>
             </div>
-            <div className="flex items-center gap-2">
-              <Type className="w-4 h-4 text-white shrink-0" />
-              <span className="text-white text-xs w-16 shrink-0">Размер</span>
+
+            {/* Размер */}
+            <div className="bg-white/5 rounded-xl p-2 flex flex-col gap-1.5">
+              <span className="text-[10px] text-white/80 flex items-center gap-1 truncate">
+                <Type className="w-3 h-3 shrink-0" />
+                Размер: {settings.fontSize}px
+              </span>
               <input
                 type="range"
                 min={FONT_MIN}
@@ -957,9 +987,8 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
                 step={1}
                 value={settings.fontSize}
                 onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })}
-                className="flex-1 accent-purple-500"
+                className="w-full accent-purple-500"
               />
-              <span className="text-white text-xs w-10 text-right font-mono">{settings.fontSize}px</span>
             </div>
           </div>
         </div>
@@ -1061,7 +1090,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
               className="w-full accent-purple-600"
             />
             <div className="flex justify-between text-[10px] text-gray-400">
-              <span>{SPEED_MIN.toFixed(2)}×</span>
+              <span>{SPEED_MIN.toFixed(2)}× (стоп)</span>
               <span>{SPEED_MAX.toFixed(2)}×</span>
             </div>
           </div>
@@ -1170,7 +1199,6 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
             <label className="text-sm font-semibold text-purple-700">Камера</label>
           </div>
 
-          {/* 🆕 Переименованная кнопка + живой предпросмотр */}
           <button
             onClick={toggleCamera}
             className={`w-full py-3 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm transition-colors ${
@@ -1189,6 +1217,7 @@ export default function TeleprompterScreen({ onBack }: { onBack: () => void }) {
                 muted
                 playsInline
                 className="w-full h-full object-cover"
+                style={{ transform: cameraMirror ? 'scaleX(-1)' : 'none' }}
               />
               <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
