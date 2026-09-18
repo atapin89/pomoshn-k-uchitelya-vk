@@ -8,6 +8,8 @@ import {
   Users,
   CheckCircle2,
   ClipboardList,
+  HelpCircle,
+  ChevronDown,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -95,8 +97,8 @@ export default function EquipmentScreen({ onBack }: { onBack: () => void }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [customItem, setCustomItem] = useState('');
   const [filter, setFilter] = useState<HistoryFilter>('all');
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  // ===== Внутренние диалоги (замена window.confirm) =====
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const update = (next: LoanRecord[]) => {
@@ -186,22 +188,49 @@ export default function EquipmentScreen({ onBack }: { onBack: () => void }) {
     return sorted;
   }, [loans, filter]);
 
+  const faqs = [
+    {
+      q: 'Для чего нужен учёт оборудования?',
+      a: 'Учитель выдаёт ученикам калькуляторы, линейки, циркули и другие принадлежности. Без учёта предметы теряются, а в конце урока сложно проверить, всё ли вернули. Этот инструмент фиксирует: кто взял, что взял, когда. В любой момент видно, что ещё на руках.',
+    },
+    {
+      q: 'Как выдать несколько предметов одному ученику?',
+      a: 'Введите имя ученика один раз, затем отметьте все нужные предметы (калькулятор + линейка + транспортир) и нажмите «Выдать». Система создаст отдельную запись для каждого предмета. Так удобнее возвращать по одному.',
+    },
+    {
+      q: 'Что делать, если предмета нет в списке?',
+      a: 'Используйте поле «Или свой предмет...» — введите любое название (например, «Микроскоп» или «Гербарий»). Можно одновременно выбрать предметы из списка и добавить свой.',
+    },
+    {
+      q: 'Как вернуть все предметы сразу?',
+      a: 'В конце урока нажмите кнопку «Вернуть всё» — все предметы от всех учеников будут отмечены как возвращённые. Это удобно, если вы уверены, что всё собрали. Если вернули не всё — возвращайте по одному кнопкой «Вернуть» рядом с каждой записью.',
+    },
+    {
+      q: 'Что показывает история учёта?',
+      a: 'История хранит все записи: и текущие выдачи (на руках), и уже возвращённые предметы. Фильтры «На руках» и «Возвращено» помогают быстро найти нужное. Это полезно для анализа: какие предметы теряются чаще, кто из учеников часто забывает вернуть.',
+    },
+    {
+      q: 'Можно ли использовать для других целей?',
+      a: 'Да! Инструмент подходит для учёта любых выдач: библиотечных книг, спортивного инвентаря, планшетов в компьютерном классе, халатов в кабинете химии. Принцип один: кто взял, что взял, когда вернул.',
+    },
+  ];
+
   // ===== ЭКРАН ИСТОРИИ =====
   if (view === 'history') {
     return (
       <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-        <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-          <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+        {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+        <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+          <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
             <BackButton onClick={() => setView('main')} variant="light" />
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-bold text-white truncate">История учёта</h1>
-              <p className="text-xs text-purple-200">Выдачи и возвраты</p>
             </div>
             <History className="w-6 h-6 text-white/70" />
           </div>
         </header>
 
-        <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
+        <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
           {/* Фильтры */}
           <div className="inline-flex w-full bg-gray-100 rounded-xl p-1">
             {(
@@ -264,7 +293,6 @@ export default function EquipmentScreen({ onBack }: { onBack: () => void }) {
           </button>
         </main>
 
-        {/* ===== Внутренний диалог подтверждения ===== */}
         <ConfirmDialog
           isOpen={confirmState !== null}
           title={confirmState?.title ?? ''}
@@ -284,23 +312,36 @@ export default function EquipmentScreen({ onBack }: { onBack: () => void }) {
   // ===== ГЛАВНЫЙ ЭКРАН =====
   return (
     <div className="min-h-[100dvh] bg-purple-50 flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию, правый угол свободен */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-white truncate">Учёт оборудования</h1>
-            <p className="text-xs text-purple-200">Выдача и возврат принадлежностей</p>
           </div>
-          <button
-            onClick={() => setView('history')}
-            className="bg-white/20 hover:bg-white/30 text-white rounded-xl px-3 py-2 text-sm font-semibold flex items-center gap-1.5"
-          >
-            <History className="w-4 h-4" /> История
-          </button>
+          <Package className="w-6 h-6 text-white/70" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 space-y-4 pb-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+        {/* 🆕 Панель действий с кнопкой "История" (перенесена из шапки) */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setView('history')}
+            className="bg-white hover:bg-gray-50 text-gray-700 rounded-xl py-3 flex items-center justify-center gap-2 text-sm font-semibold transition-colors shadow-sm"
+          >
+            <History className="w-5 h-5" />
+            История учёта
+          </button>
+          <button
+            onClick={handleReturnAll}
+            disabled={outstanding.length === 0}
+            className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-700 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
+          >
+            <RotateCcw className="w-5 h-5" /> Вернуть всё
+          </button>
+        </div>
+
         {/* Статистика */}
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-white rounded-2xl p-3 text-center shadow-sm">
@@ -394,17 +435,35 @@ export default function EquipmentScreen({ onBack }: { onBack: () => void }) {
               ))}
             </div>
           )}
-          <button
-            onClick={handleReturnAll}
-            disabled={outstanding.length === 0}
-            className="w-full bg-gray-100 hover:bg-gray-200 disabled:opacity-40 text-gray-700 font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors"
-          >
-            <RotateCcw className="w-5 h-5" /> Вернуть всё
-          </button>
+        </div>
+
+        {/* 🆕 FAQ секция */}
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5" />
+            Частые вопросы
+          </h2>
+          <div className="space-y-2">
+            {faqs.map((faq, index) => (
+              <div key={index} className="border border-purple-100 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                  className="w-full px-4 py-3 text-left flex items-center justify-between gap-2 hover:bg-purple-50 transition-colors"
+                >
+                  <span className="text-sm font-semibold text-gray-800">{faq.q}</span>
+                  <ChevronDown className={`w-4 h-4 text-purple-600 shrink-0 transition-transform duration-200 ${openFaq === index ? 'rotate-180' : ''}`} />
+                </button>
+                {openFaq === index && (
+                  <div className="px-4 py-3 bg-purple-50 border-t border-purple-100">
+                    <p className="text-sm text-gray-700 leading-relaxed">{faq.a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </main>
 
-      {/* ===== Внутренний диалог подтверждения ===== */}
       <ConfirmDialog
         isOpen={confirmState !== null}
         title={confirmState?.title ?? ''}
