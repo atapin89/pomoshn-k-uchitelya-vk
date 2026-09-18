@@ -27,6 +27,7 @@ import {
   ScrollText,
   File,
   Book,
+  AlertTriangle,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -167,7 +168,7 @@ const FIELD_HELPS: Record<string, string> = {
   conferenceCity: 'ГОСТ Р 7.0.100–2018, п. 5.9.2. Город проведения конференции.',
   conferenceDate: 'ГОСТ Р 7.0.100–2018, п. 5.9.2. Дата проведения: «15–17 мая 2024 г.».',
   degree: 'ГОСТ Р 7.0.100–2018, п. 5.10. Степень: «кандидат» или «доктор».',
-  science: 'ГОСТ Р 7.0.100–2018, п. 5.10. Отрасль науки: «педагогических», «филологических», «физико-математических».',
+  science: 'ГОСТ Р 7.0.100–2018, п. 5.10. Отрасль наук: «педагогических», «филологических», «физико-математических».',
   specialty: 'ГОСТ Р 7.0.100–2018, п. 5.10. Шифр специальности ВАК: «13.00.01 — Общая педагогика».',
   defensePlace: 'ГОСТ Р 7.0.100–2018, п. 5.10. Место защиты: «МГУ им. М. В. Ломоносова».',
   url: 'ГОСТ Р 7.0.100–2018, п. 5.12. Полный URL ресурса. Обязательно с «https://».',
@@ -414,6 +415,12 @@ function sortByAuthors(a: SavedSource, b: SavedSource): number {
   return aKey.localeCompare(bKey, 'ru');
 }
 
+// 🆕 Определение мобильного устройства
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 // ===== ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ =====
 
 function Field({
@@ -634,6 +641,46 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
     a.click();
     URL.revokeObjectURL(url);
     triggerHaptic('heavy');
+  };
+
+  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед скачиванием .txt
+  const handleExportTxtRequest = () => {
+    if (sources.length === 0) {
+      setAlertMsg('Список пуст. Добавьте хотя бы один источник.');
+      return;
+    }
+    const mobile = isMobileDevice();
+    setConfirmState({
+      title: '⚠️ Скачивание TXT',
+      message: mobile
+        ? 'Вы работаете с мобильного устройства. Скачивание файлов стабильно работает только при работе с компьютера. В мини-апе ВКонтакте или мобильном браузере файл может не сохраниться. Для гарантированного результата откройте приложение на компьютере. Всё равно продолжить?'
+        : 'Скачивание файлов стабильно работает только при работе с компьютера. В мини-апе ВКонтакте или мобильном браузере файл может не сохраниться. Продолжить скачивание?',
+      confirmLabel: 'Скачать .txt',
+      danger: false,
+      action: () => {
+        handleExportTxt();
+      },
+    });
+  };
+
+  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед скачиванием .doc (Word ещё капризнее, чем TXT)
+  const handleExportDocxRequest = () => {
+    if (sources.length === 0) {
+      setAlertMsg('Список пуст. Добавьте хотя бы один источник.');
+      return;
+    }
+    const mobile = isMobileDevice();
+    setConfirmState({
+      title: '⚠️ Скачивание Word (.doc)',
+      message: mobile
+        ? 'Вы работаете с мобильного устройства. Скачивание Word-файлов стабильно работает только при работе с компьютера. В мини-апе ВКонтакте файл может не открыться или открыться с ошибками (в виде кода или с нарушенной кириллицей). Для гарантированного результата откройте приложение на компьютере или используйте копирование списка в буфер. Всё равно продолжить?'
+        : 'Скачивание Word-файлов стабильно работает только при работе с компьютера. В мини-апе ВКонтакте или мобильном браузере файл может не открыться или открыться с ошибками (нарушенная кириллица, вид архива вместо документа). Продолжить скачивание?',
+      confirmLabel: 'Скачать .doc',
+      danger: false,
+      action: () => {
+        handleExportDocx();
+      },
+    });
   };
 
   const handleClearAll = () => {
@@ -924,7 +971,7 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 to-indigo-50 flex flex-col">
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
@@ -1148,22 +1195,28 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
                 <button
                   onClick={handleCopyAll}
                   className="py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+                  title="Скопировать все записи в буфер обмена (работает на любом устройстве)"
                 >
                   <Copy className="w-3 h-3" /> Все
                 </button>
                 <button
-                  onClick={handleExportTxt}
+                  onClick={handleExportTxtRequest}
                   className="py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
                 >
                   <FileDown className="w-3 h-3" /> .txt
                 </button>
                 <button
-                  onClick={handleExportDocx}
+                  onClick={handleExportDocxRequest}
                   className="py-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
                 >
                   <Download className="w-3 h-3" /> .doc
                 </button>
               </div>
+              {/* 🆕 Постоянное предупреждение о стабильности скачивания */}
+              <p className="text-center text-[11px] text-gray-500 flex items-center justify-center gap-1 px-2 leading-relaxed">
+                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                Скачивание файлов стабильно работает только с компьютера. На мобильных используйте кнопку «Все» для копирования.
+              </p>
               <button
                 onClick={handleClearAll}
                 className="w-full py-2 text-[11px] text-red-600 hover:text-red-800 font-semibold"
@@ -1194,9 +1247,15 @@ export default function BibliographyScreen({ onBack }: { onBack: () => void }) {
               <p><b>4.</b> Результат формируется автоматически внизу формы. Скопируйте одним нажатием.</p>
               <p><b>5.</b> Нажмите «Сохранить» — запись добавится в список.</p>
               <p><b>6.</b> Когда список готов — экспортируйте в Word (.doc) или текст (.txt).</p>
-              <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">
-                💡 <b>Совет:</b> в списке литературы источники должны идти по алфавиту — включите эту сортировку кнопкой справа от заголовка.
-              </p>
+              <div className="pt-2 border-t border-gray-100 space-y-2">
+                <p className="text-xs text-gray-500 flex items-start gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                  <span><b>Важно:</b> скачивание .doc и .txt стабильно работает только при работе с компьютера. В мини-апе ВКонтакте или мобильном браузере файлы могут не скачаться или открыться с ошибками. Используйте кнопку «Все» для копирования списка в буфер — она работает на любом устройстве.</span>
+                </p>
+                <p className="text-xs text-gray-500">
+                  💡 <b>Совет:</b> в списке литературы источники должны идти по алфавиту — включите эту сортировку кнопкой справа от заголовка.
+                </p>
+              </div>
             </div>
           )}
         </div>
