@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Mic, MicOff, Volume2, ChevronDown, ChevronUp, Volume } from 'lucide-react';
+import { Mic, MicOff, Volume2, ChevronDown, ChevronUp, Volume, HelpCircle } from 'lucide-react';
 import BackButton from './BackButton';
 import YandexAdBlock from './YandexAdBlock';
 import { triggerHaptic } from '@/lib/haptic';
@@ -59,6 +59,7 @@ export default function NoiseMonitorScreen({ onBack }: { onBack: () => void }) {
   const [threshold, setThreshold] = useState(80);
   const [showSettings, setShowSettings] = useState(true);
   const [noiseLevel, setNoiseLevel] = useState(0);
+  const [showFaq, setShowFaq] = useState(false);
 
   const [soundVolume, setSoundVolume] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -382,30 +383,55 @@ export default function NoiseMonitorScreen({ onBack }: { onBack: () => void }) {
     { id: 'none', label: 'Без звука' },
   ];
 
+  const faqItems = [
+    {
+      q: 'Как работает шумометр?',
+      a: 'Приложение использует микрофон устройства для измерения уровня звука. Звук обрабатывается локально в браузере и никуда не отправляется. Уровень шума отображается в процентах и влияет на поведение объектов на экране — они начинают двигаться активнее при повышении громкости.',
+    },
+    {
+      q: 'Что делает чувствительность?',
+      a: 'Чувствительность (от 10 до 200) определяет, насколько сильно микрофон усиливает входящий звук. Низкие значения (10-50) подходят для тихих помещений, высокие (100-200) — для шумных классов. Начните со значения 80 и настраивайте по ситуации.',
+    },
+    {
+      q: 'Что такое порог сигнала?',
+      a: 'Порог (от 20% до 100%) — это уровень шума, при превышении которого срабатывает звуковой сигнал и появляется предупреждение "ТИШЕ!". Например, при пороге 80% сигнал сработает только когда шум превысит 80% от максимума.',
+    },
+    {
+      q: 'Какие звуковые сигналы доступны?',
+      a: 'Бип — короткий электронный звук, Ш-ш-ш — шум ветра (менее резкий), Колокольчик — мелодичный перезвон из трёх нот, Без звука — только визуальное предупреждение. Громкость сигнала настраивается отдельно от системной громкости.',
+    },
+    {
+      q: 'Можно ли использовать без интернета?',
+      a: 'Да! После загрузки страницы шумометр работает полностью офлайн. Все вычисления происходят локально, интернет не требуется. Микрофон должен быть разрешён в настройках браузера.',
+    },
+    {
+      q: 'Сохраняются ли настройки?',
+      a: 'Да, настройки громкости сигнала и типа звука сохраняются в localStorage вашего браузера. При следующем открытии приложения они будут восстановлены. Данные о уровне шума не сохраняются.',
+    },
+    {
+      q: 'Какие темы оформления доступны?',
+      a: 'Шарики — цветные круги с физикой отскоков, Смайлики — эмодзи с разными выражениями лица, Пузыри — полупрозрачные круги с обводкой. Все темы реагируют на шум одинаково, разница только в визуальном оформлении.',
+    },
+    {
+      q: 'Почему микрофон не работает?',
+      a: 'Возможные причины: 1) Доступ к микрофону запрещён в настройках браузера — разрешите в адресной строке. 2) Страница открыта по HTTP — микрофон работает только по HTTPS или localhost. 3) Микрофон занят другим приложением. 4) В мобильном браузере VK мини-апп может блокировать доступ.',
+    },
+  ];
+
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      {/* НОВАЯ КОМПАКТНАЯ ШАПКА */}
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          {/* Кнопка назад (не сжимается) */}
-          <div className="shrink-0">
-            <BackButton onClick={onBack} variant="light" />
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton onClick={onBack} variant="light" />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Контроль шума</h1>
           </div>
-          
-          {/* Заголовок и описание (занимают все свободное место, текст обрезается если не влезает) */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">Контроль шума</h1>
-            <p className="text-xs text-purple-200 leading-tight">Шумометр для класса</p>
-          </div>
-          
-          {/* Иконка раздела справа (не сжимается) */}
-          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-            <Volume2 className="w-5 h-5 text-white" />
-          </div>
+          <Volume2 className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 flex flex-col gap-4">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
         {!active && !error && (
           <div className="flex flex-col items-center justify-center gap-4 py-10">
             <div className="w-20 h-20 rounded-full bg-purple-100 flex items-center justify-center">
@@ -651,6 +677,32 @@ export default function NoiseMonitorScreen({ onBack }: { onBack: () => void }) {
             </button>
           </>
         )}
+
+        {/* 🆕 FAQ секция */}
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5" />
+            Частые вопросы
+          </h2>
+          <div className="space-y-2">
+            {faqItems.map((item, index) => (
+              <div key={index} className="border border-purple-100 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setShowFaq(!showFaq)}
+                  className="w-full px-4 py-3 text-left flex items-center justify-between gap-2 hover:bg-purple-50 transition-colors"
+                >
+                  <span className="text-sm font-semibold text-gray-800">{item.q}</span>
+                  <ChevronDown className={`w-4 h-4 text-purple-600 shrink-0 transition-transform duration-200 ${showFaq ? 'rotate-180' : ''}`} />
+                </button>
+                {showFaq && (
+                  <div className="px-4 py-3 bg-purple-50 border-t border-purple-100">
+                    <p className="text-sm text-gray-700 leading-relaxed">{item.a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
 
         <div className="mb-4">
           <YandexAdBlock />
