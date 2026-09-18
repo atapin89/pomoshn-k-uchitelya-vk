@@ -1,11 +1,22 @@
 import { useState } from 'react';
-import { RefreshCw, Check, AlertTriangle, Grid3x3, FileText, Download, Share2 } from 'lucide-react';
+import { RefreshCw, Check, AlertTriangle, Grid3x3, FileText, Download, Share2, HelpCircle, ChevronDown } from 'lucide-react';
 import { generateBatch } from '@/lib/wordSearchGenerator';
 import type { WordSearchResult, WordSearchConfig } from '@/types';
 import { triggerHaptic } from '@/lib/haptic';
 import BackButton from './BackButton';
 import YandexAdBlock from './YandexAdBlock';
 import { jsPDF } from 'jspdf';
+import { ConfirmDialog } from './ConfirmDialog';
+
+interface ConfirmState {
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  action: () => void;
+}
+
+const UNICODE_FONTS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'Noto Sans', 'Noto Sans Cyrillic', Arial, sans-serif";
 
 // Универсальная функция для рисования филворда на Canvas
 const generateCanvas = (
@@ -41,7 +52,7 @@ const generateCanvas = (
   ctx.fillRect(0, 0, totalWidth, totalHeight);
   
   ctx.fillStyle = '#1f2937';
-  ctx.font = `bold ${isMiniature ? 14 : 24}px Arial, sans-serif`;
+  ctx.font = `bold ${isMiniature ? 14 : 24}px ${UNICODE_FONTS}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(`Вариант ${variantNum}`, totalWidth / 2, padding + (isMiniature ? 8 : 12));
@@ -73,7 +84,7 @@ const generateCanvas = (
       }
       
       ctx.fillStyle = isAnswer ? '#854d0e' : '#1f2937';
-      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      ctx.font = `bold ${fontSize}px ${UNICODE_FONTS}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(letter, x + cellSize / 2, y + cellSize / 2 + 1);
@@ -103,7 +114,7 @@ const generateCanvas = (
           const y = startY + last.row * (cellSize + gap);
           ctx.fillStyle = '#dc2626';
           const arrowSize = isMiniature ? 14 : 18;
-          ctx.font = `900 ${arrowSize}px Arial, sans-serif`;
+          ctx.font = `900 ${arrowSize}px ${UNICODE_FONTS}`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(arrow, x + cellSize * 0.75, y + cellSize * 0.35);
@@ -124,10 +135,10 @@ const generateCanvas = (
     ctx.setLineDash([]);
     
     ctx.fillStyle = '#4b5563';
-    ctx.font = `bold ${isMiniature ? 11 : 16}px Arial, sans-serif`;
+    ctx.font = `bold ${isMiniature ? 11 : 16}px ${UNICODE_FONTS}`;
     ctx.fillText('Список слов:', totalWidth / 2, dividerY + (isMiniature ? 10 : 20));
     
-    ctx.font = `${isMiniature ? 9 : 14}px Arial, sans-serif`;
+    ctx.font = `${isMiniature ? 9 : 14}px ${UNICODE_FONTS}`;
     let currentX = padding;
     let currentY = dividerY + (isMiniature ? 28 : 50);
     const rowHeight = isMiniature ? 18 : 32;
@@ -157,7 +168,6 @@ const generateCanvas = (
   return canvas;
 };
 
-// Скачивание PNG через <a>
 const downloadImage = (canvas: HTMLCanvasElement, filename: string) => {
   const dataUrl = canvas.toDataURL('image/png');
   const link = document.createElement('a');
@@ -168,7 +178,6 @@ const downloadImage = (canvas: HTMLCanvasElement, filename: string) => {
   document.body.removeChild(link);
 };
 
-// Поделиться PNG через системное меню
 const shareImage = async (canvas: HTMLCanvasElement, filename: string): Promise<boolean> => {
   if (!navigator.share || !navigator.canShare) return false;
   
@@ -192,6 +201,39 @@ const shareImage = async (canvas: HTMLCanvasElement, filename: string): Promise<
   }
 };
 
+// 🆕 Определение мобильного устройства
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+const FAQ_ITEMS = [
+  {
+    q: 'Как использовать филворды на уроке?',
+    a: 'Сценарий 1: разминка в начале урока — раздайте филворд с терминами из прошлой темы. Сценарий 2: закрепление нового материала — слова из текущего урока. Сценарий 3: соревнование — кто быстрее найдёт все слова. Сценарий 4: домашнее задание — распечатайте и раздайте ученикам.',
+  },
+  {
+    q: 'Какой размер сетки выбрать?',
+    a: '10×10 — для младших классов и простых слов (5-8 слов). 15×15 — средний уровень, подходит для большинства уроков (10-15 слов). 20×20 — сложный уровень для старших классов или большого количества терминов (15-25 слов).',
+  },
+  {
+    q: 'Что означает сложность?',
+    a: 'Простая — слова размещаются только слева направо (→) и сверху вниз (↓). Средняя — добавляются диагонали (↘, ↙, ↗, ↖). Сложная — слова могут быть задом наперёд (←, ↑). Для младших классов используйте простую, для старших — сложную.',
+  },
+  {
+    q: 'Зачем пакетная генерация?',
+    a: 'При генерации 30 вариантов вы получаете индивидуальный филворд для каждого ученика в классе. Это предотвращает списывание — у каждого своё расположение слов. Используйте кнопку PDF для печати всего класса сразу.',
+  },
+  {
+    q: 'Почему некоторые слова не поместились?',
+    a: 'Слишком много слов для выбранного размера сетки, или слова слишком длинные. Увеличьте размер сетки (например, с 10×10 на 15×15) или уменьшите количество слов. Оптимально: 8-12 слов для сетки 10×10.',
+  },
+  {
+    q: 'Как распечатать на весь класс?',
+    a: 'Установите пакетную генерацию на нужное количество учеников (например, 25). Нажмите «PDF» — скачается файл с отдельной страницей для каждого варианта. Откройте PDF на компьютере и распечатайте. Внимание: скачивание PDF стабильно работает только с компьютера.',
+  },
+];
+
 export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
   const [wordsInput, setWordsInput] = useState('МАТЕМАТИКА\nУЧИТЕЛЬ\nШКОЛА\nУРОК\nЗНАНИЯ');
   const [config, setConfig] = useState<WordSearchConfig>({ gridSize: 10, difficulty: 'medium' });
@@ -203,6 +245,10 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [exportError, setExportError] = useState('');
   const [exportSuccess, setExportSuccess] = useState('');
+  const [showFaq, setShowFaq] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const handleGenerate = async (count: number) => {
     if (!wordsInput.trim()) return;
@@ -269,7 +315,6 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
         doc.addImage(imgData, 'PNG', margin, margin, imgWidth, imgHeight);
       }
       
-      // Прямое скачивание через doc.save()
       doc.save(`филворды_${results.length}шт.pdf`);
       setExportSuccess('PDF скачан! Проверьте загрузки устройства');
       
@@ -282,6 +327,22 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
+  // 🆕 ПРЕДУПРЕЖДЕНИЕ перед скачиванием PDF
+  const handleExportPDFRequest = () => {
+    const mobile = isMobileDevice();
+    setConfirmState({
+      title: '⚠️ Скачивание PDF',
+      message: mobile
+        ? 'Вы работаете с мобильного устройства. Скачивание PDF стабильно работает только при работе с компьютера. На телефоне или в мини-апе ВКонтакте файл может не сохраниться, а кириллица может отобразиться некорректно. Для гарантированного результата откройте приложение на компьютере. Всё равно продолжить?'
+        : 'Скачивание PDF стабильно работает при работе с компьютера. В мобильном браузере или мини-апе ВКонтакте файл может не сохраниться. Продолжить?',
+      confirmLabel: 'Скачать PDF',
+      danger: false,
+      action: () => {
+        downloadAsPDF();
+      },
+    });
+  };
+
   const getGridStyles = (size: number) => {
     if (size >= 20) return { width: 'min(100%, 400px)', fontSize: 'text-[10px] sm:text-xs', cellSize: '20px' };
     if (size === 15) return { width: 'min(100%, 360px)', fontSize: 'text-xs sm:text-sm', cellSize: '24px' };
@@ -290,28 +351,33 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      {/* НОВАЯ КОМПАКТНАЯ ШАПКА */}
-      <header className="bg-purple-700 shadow-md sticky top-0 z-10">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          {/* Кнопка назад (не сжимается) */}
-          <div className="shrink-0">
-            <BackButton onClick={onBack} variant="light" />
+      {/* 🆕 ЕДИНАЯ ШАПКА: кнопка → название → иконка в одну линию */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+          <BackButton onClick={onBack} variant="light" />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Генератор филвордов</h1>
           </div>
-          
-          {/* Заголовок и описание (занимают все свободное место, текст обрезается если не влезает) */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <h1 className="text-lg font-bold text-white leading-tight truncate">Генератор филвордов</h1>
-            <p className="text-xs text-purple-200 leading-tight">Поиск слов с ответами</p>
-          </div>
-          
-          {/* Иконка раздела справа (не сжимается) */}
-          <div className="shrink-0 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/20">
-            <Grid3x3 className="w-5 h-5 text-white" />
-          </div>
+          <Grid3x3 className="w-6 h-6 text-white/70 shrink-0" />
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-5 py-5 flex flex-col gap-5 overflow-y-auto">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
+        {/* 🆕 Информационная плашка: инструмент + количество вариантов */}
+        <div className="bg-white rounded-2xl shadow-sm p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-gray-500">Инструмент</p>
+            <p className="text-sm font-bold text-purple-700 truncate">Поиск слов</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-xs text-gray-500">Вариантов</p>
+            <p className="text-sm font-bold text-purple-700">{results.length}</p>
+          </div>
+          <div className="shrink-0 w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
+            <Grid3x3 className="w-5 h-5" />
+          </div>
+        </div>
+
         <section className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
           <div>
             <label className="text-sm font-semibold text-purple-700 block mb-2">Слова (каждое с новой строки)</label>
@@ -382,7 +448,7 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
                 Создать
               </button>
               <button
-                onClick={downloadAsPDF}
+                onClick={handleExportPDFRequest}
                 disabled={isExportingPDF || results.length === 0}
                 className="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl px-3 py-2 text-sm flex items-center gap-1.5 active:scale-95 transition-transform disabled:opacity-50 shrink-0"
               >
@@ -391,9 +457,10 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
               </button>
             </div>
             
-            {/* Уведомление о скачивании PDF только на компьютере */}
-            <p className="text-xs text-gray-500 text-center">
-              💡 PDF можно скачать только на компьютере. На телефоне используйте "Скачать PNG" или "Отправить"
+            {/* 🆕 Постоянное предупреждение о стабильности PDF */}
+            <p className="text-center text-[11px] text-gray-500 flex items-center justify-center gap-1 px-2 leading-relaxed">
+              <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+              Скачивание PDF стабильно работает только с компьютера.
             </p>
           </div>
         </section>
@@ -412,11 +479,9 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* Toggle-переключатели на одной строке */}
         {results.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm p-4">
             <div className="flex items-center justify-between gap-3">
-              {/* Toggle: Ответы */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <span className="text-sm font-medium text-gray-700 truncate">Ответы</span>
                 <button
@@ -434,7 +499,6 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
 
-              {/* Toggle: Список слов */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <span className="text-sm font-medium text-gray-700 truncate">Слова</span>
                 <button
@@ -455,7 +519,7 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        <div className="space-y-6 pb-8">
+        <div className="space-y-6">
           {results.map((result, index) => {
             const { width, fontSize, cellSize } = getGridStyles(result.gridSize);
             
@@ -541,10 +605,49 @@ export default function WordSearchScreen({ onBack }: { onBack: () => void }) {
           })}
         </div>
 
+        {/* 🆕 FAQ секция */}
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <h2 className="text-lg font-bold text-purple-700 mb-3 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5" />
+            Частые вопросы
+          </h2>
+          <div className="space-y-2">
+            {FAQ_ITEMS.map((item, index) => (
+              <div key={index} className="border border-purple-100 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                  className="w-full px-4 py-3 text-left flex items-center justify-between gap-2 hover:bg-purple-50 transition-colors"
+                >
+                  <span className="text-sm font-semibold text-gray-800">{item.q}</span>
+                  <ChevronDown className={`w-4 h-4 text-purple-600 shrink-0 transition-transform duration-200 ${openFaq === index ? 'rotate-180' : ''}`} />
+                </button>
+                {openFaq === index && (
+                  <div className="px-4 py-3 bg-purple-50 border-t border-purple-100">
+                    <p className="text-sm text-gray-700 leading-relaxed">{item.a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="mb-4">
           <YandexAdBlock />
         </div>
       </main>
+
+      <ConfirmDialog
+        isOpen={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        danger={confirmState?.danger}
+        onConfirm={() => {
+          confirmState?.action();
+          setConfirmState(null);
+        }}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 }
