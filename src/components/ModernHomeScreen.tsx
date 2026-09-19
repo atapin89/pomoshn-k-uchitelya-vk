@@ -28,6 +28,7 @@ import {
   Star,
   TrendingUp,
   History,
+  Network,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -56,7 +57,8 @@ type SectionId =
   | 'lifebalance'
   | 'qrcode'
   | 'bibliography'
-  | 'visualschedule';
+  | 'visualschedule'
+  | 'tournament';
 
 type CategoryId = 'planning' | 'activities' | 'generators' | 'tools' | 'selfcare';
 
@@ -161,6 +163,14 @@ const SECTIONS: Section[] = [
     description: 'Викторина',
     hint: 'Интеллектуальная викторина: раунды, баллы, рейтинг, печать карточек, обмен играми.',
     icon: Trophy,
+    category: 'activities',
+  },
+  {
+    id: 'tournament',
+    title: 'Турнирная сетка',
+    description: 'Плей-офф и круговой',
+    hint: 'Турнирная сетка на выбывание с автопроходами и матчем за 3 место, круговой турнир с автоматической таблицей. Счёт матчей, печать, копирование результатов, сохранение турниров.',
+    icon: Network,
     category: 'activities',
   },
   {
