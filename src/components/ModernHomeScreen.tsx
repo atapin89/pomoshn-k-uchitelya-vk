@@ -31,6 +31,7 @@ import {
   Network,
   Contact,
   Binary,
+  Ruler,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -48,6 +49,7 @@ type SectionId =
   | 'cardmaker'
   | 'postermaker'
   | 'numbersystems'
+  | 'unitconverter'
   | 'manual'
   | 'calculators'
   | 'bingo'
@@ -256,6 +258,14 @@ const SECTIONS: Section[] = [
     description: 'Конвертер и справочник',
     hint: 'Конвертер чисел между 12 системами счисления: двоичная, восьмеричная, десятичная, шестнадцатеричная, римская, древнегреческая (ионическая), славянская кириллическая, египетская, вавилонская, майя, 36-ричная и произвольное основание. Справочник, таблица соответствий, FAQ.',
     icon: Binary,
+    category: 'tools',
+  },
+  {
+    id: 'unitconverter',
+    title: 'Конвертер величин',
+    description: '12 категорий',
+    hint: 'Конвертер величин: 12 категорий (длина, масса, объём, площадь, температура, давление, скорость, время, энергия, углы, данные, кухня) с мгновенным переводом во все единицы. Скачивание таблицы, генератор заданий с вариантами для печати.',
+    icon: Ruler,
     category: 'tools',
   },
   {
