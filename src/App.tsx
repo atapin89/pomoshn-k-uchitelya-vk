@@ -30,7 +30,8 @@ import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 import QRCodeScreen from '@/components/QRCodeScreen';
 import BibliographyScreen from '@/components/BibliographyScreen';
 import VisualScheduleScreen from '@/components/VisualScheduleScreen';
-import TournamentScreen from '@/components/TournamentScreen'; // 🆕
+import TournamentScreen from '@/components/TournamentScreen';
+import CardMakerScreen from '@/components/CardMakerScreen'; // 🆕
 import { AuthProvider } from '@/contexts/AuthContext';
 
 type Route =
@@ -57,7 +58,8 @@ type Route =
   | 'qrcode'
   | 'bibliography'
   | 'visualschedule'
-  | 'tournament'; // 🆕
+  | 'tournament'
+  | 'cardmaker'; // 🆕
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -139,7 +141,6 @@ export default function App() {
 
   const allTemplates = [...presetTemplates, ...customTemplates];
 
-  // 🆕 Добавлен маршрут 'tournament'
   const routes: Record<Route, React.ReactNode> = {
     home: <HomeScreen onNavigate={setRoute} />,
     generator: <GeneratorScreen onBack={navigateHome} />,
@@ -177,11 +178,11 @@ export default function App() {
     qrcode: <QRCodeScreen onBack={navigateHome} />,
     bibliography: <BibliographyScreen onBack={navigateHome} />,
     visualschedule: <VisualScheduleScreen onBack={navigateHome} />,
-    tournament: <TournamentScreen onBack={navigateHome} />, // 🆕
+    tournament: <TournamentScreen onBack={navigateHome} />,
+    cardmaker: <CardMakerScreen onBack={navigateHome} />, // 🆕
     timer: null,
   };
 
-  // 🆕 Вычисляем, что именно рендерить — ОДИН раз
   let content: React.ReactNode;
 
   if (activeTemplate) {
@@ -253,6 +254,5 @@ export default function App() {
     );
   }
 
-  // 🆕 Единая обёртка AuthProvider — вместо 4 дублирующихся
   return <AuthProvider>{content}</AuthProvider>;
 }
