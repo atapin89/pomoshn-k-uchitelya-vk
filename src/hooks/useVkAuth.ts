@@ -7,6 +7,9 @@ export interface VkUser {
   lastName: string;
   avatar: string;
   city?: string;
+  // ⚠️ Почта НЕ запрашивается автоматически: VKWebAppGetEmail
+  // показывает диалог разрешения при каждом запуске приложения.
+  // Поле оставлено для совместимости с компонентом профиля (будет скрыто).
   email?: string;
 }
 
@@ -16,22 +19,10 @@ export function useVkAuth() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const init = async () => {
+    const fetchUser = async () => {
       try {
-        // Инициализация VK Bridge (обязательно в начале)
-        await bridge.send('VKWebAppInit');
-
-        // Получаем данные пользователя
+        // Базовые данные профиля — НЕ вызывают диалогов разрешения
         const userData = await bridge.send('VKWebAppGetUserInfo');
-
-        // Опционально: получаем email (требует разрешения пользователя)
-        let email: string | undefined;
-        try {
-          const scope = await bridge.send('VKWebAppGetEmail');
-          email = scope.email;
-        } catch {
-          // Пользователь не дал разрешение на email — это нормально
-        }
 
         setUser({
           id: userData.id,
@@ -39,18 +30,19 @@ export function useVkAuth() {
           lastName: userData.last_name,
           avatar: userData.photo_200 || userData.photo_100 || '',
           city: userData.city?.title,
-          email,
         });
       } catch (err) {
         console.error('VK auth error:', err);
         setError('Не удалось получить данные пользователя');
+
         // Fallback для тестирования вне VK (в браузере)
         if (import.meta.env.DEV) {
           setUser({
             id: 123456789,
             firstName: 'Тестовый',
             lastName: 'Пользователь',
-            avatar: 'https://via.placeholder.com/200',
+            avatar: 'https://via.placeholder.com/200/7c3aed/ffffff?text=ТП',
+            city: 'Москва',
           });
         }
       } finally {
@@ -58,7 +50,7 @@ export function useVkAuth() {
       }
     };
 
-    init();
+    fetchUser();
   }, []);
 
   return { user, loading, error };
