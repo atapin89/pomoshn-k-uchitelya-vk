@@ -30,20 +30,21 @@ import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 import QRCodeScreen from '@/components/QRCodeScreen';
 import BibliographyScreen from '@/components/BibliographyScreen';
 import VisualScheduleScreen from '@/components/VisualScheduleScreen';
+import TournamentScreen from '@/components/TournamentScreen'; // 🆕
 import { AuthProvider } from '@/contexts/AuthContext';
 
-type Route = 
-  | 'home' 
-  | 'timer' 
-  | 'generator' 
-  | 'noise' 
-  | 'flashcards' 
-  | 'study' 
-  | 'quiz' 
-  | 'wordsearch' 
-  | 'manual' 
-  | 'calculators' 
-  | 'bingo' 
+type Route =
+  | 'home'
+  | 'timer'
+  | 'generator'
+  | 'noise'
+  | 'flashcards'
+  | 'study'
+  | 'quiz'
+  | 'wordsearch'
+  | 'manual'
+  | 'calculators'
+  | 'bingo'
   | 'edugame'
   | 'activity'
   | 'pomodoro'
@@ -55,7 +56,8 @@ type Route =
   | 'lifebalance'
   | 'qrcode'
   | 'bibliography'
-  | 'visualschedule';
+  | 'visualschedule'
+  | 'tournament'; // 🆕
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -63,7 +65,7 @@ export default function App() {
   const [activeTemplate, setActiveTemplate] = useState<LessonTemplate | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<LessonTemplate | null>(null);
-  
+
   const [studyDeckId, setStudyDeckId] = useState<string | null>(null);
   const [quizDeckId, setQuizDeckId] = useState<string | null>(null);
 
@@ -75,17 +77,13 @@ export default function App() {
 
   useEffect(() => {
     const init = async () => {
-      // 🆕 Инициализация VK Bridge ДО всего остального
-      // Обязательно для работы в мини-приложениях ВКонтакте
       try {
         await bridge.send('VKWebAppInit');
         console.log('✅ VK Bridge initialized');
       } catch (err) {
         console.warn('⚠️ VK Bridge init failed (возможно, вне VK):', err);
-        // В DEV-режиме (вне VK) приложение продолжит работу
       }
 
-      // Синхронизация данных и загрузка шаблонов
       await fullSync();
       setCustomTemplates(loadCustomTemplates());
     };
@@ -141,6 +139,7 @@ export default function App() {
 
   const allTemplates = [...presetTemplates, ...customTemplates];
 
+  // 🆕 Добавлен маршрут 'tournament'
   const routes: Record<Route, React.ReactNode> = {
     home: <HomeScreen onNavigate={setRoute} />,
     generator: <GeneratorScreen onBack={navigateHome} />,
@@ -148,8 +147,14 @@ export default function App() {
     flashcards: (
       <FlashcardsScreen
         onBack={navigateHome}
-        onStudy={(deckId: string) => { setStudyDeckId(deckId); setRoute('study'); }}
-        onQuiz={(deckId: string) => { setQuizDeckId(deckId); setRoute('quiz'); }}
+        onStudy={(deckId: string) => {
+          setStudyDeckId(deckId);
+          setRoute('study');
+        }}
+        onQuiz={(deckId: string) => {
+          setQuizDeckId(deckId);
+          setRoute('quiz');
+        }}
         initialState={flashcardsState}
         onStateChange={setFlashcardsState}
       />
@@ -172,80 +177,82 @@ export default function App() {
     qrcode: <QRCodeScreen onBack={navigateHome} />,
     bibliography: <BibliographyScreen onBack={navigateHome} />,
     visualschedule: <VisualScheduleScreen onBack={navigateHome} />,
+    tournament: <TournamentScreen onBack={navigateHome} />, // 🆕
     timer: null,
   };
 
+  // 🆕 Вычисляем, что именно рендерить — ОДИН раз
+  let content: React.ReactNode;
+
   if (activeTemplate) {
-    return (
-      <AuthProvider>
-        <ActiveTimer
-          key={activeTemplate.id}
-          template={activeTemplate}
-          onReset={() => setActiveTemplate(null)}
-        />
-      </AuthProvider>
+    content = (
+      <ActiveTimer
+        key={activeTemplate.id}
+        template={activeTemplate}
+        onReset={() => setActiveTemplate(null)}
+      />
+    );
+  } else if (route === 'study' && !studyDeckId) {
+    content = (
+      <FlashcardsScreen
+        onBack={navigateHome}
+        onStudy={(deckId: string) => {
+          setStudyDeckId(deckId);
+          setRoute('study');
+        }}
+        onQuiz={(deckId: string) => {
+          setQuizDeckId(deckId);
+          setRoute('quiz');
+        }}
+        initialState={flashcardsState}
+        onStateChange={setFlashcardsState}
+      />
+    );
+  } else if (route === 'quiz' && !quizDeckId) {
+    content = (
+      <FlashcardsScreen
+        onBack={navigateHome}
+        onStudy={(deckId: string) => {
+          setStudyDeckId(deckId);
+          setRoute('study');
+        }}
+        onQuiz={(deckId: string) => {
+          setQuizDeckId(deckId);
+          setRoute('quiz');
+        }}
+        initialState={flashcardsState}
+        onStateChange={setFlashcardsState}
+      />
+    );
+  } else if (routes[route] !== null) {
+    content = <div className="animate-fadeIn">{routes[route]}</div>;
+  } else {
+    content = (
+      <>
+        <div className="animate-fadeIn">
+          <TemplateList
+            templates={allTemplates}
+            onSelect={setActiveTemplate}
+            onCreate={() => setShowCreate(true)}
+            onDelete={handleDeleteCustom}
+            onEdit={setEditingTemplate}
+            onBack={navigateHome}
+          />
+        </div>
+        {showCreate && (
+          <CreateTemplateModal onClose={() => setShowCreate(false)} onSave={handleSaveCustom} />
+        )}
+        {editingTemplate && (
+          <EditTemplateModal
+            template={editingTemplate}
+            onClose={() => setEditingTemplate(null)}
+            onSave={handleEditSave}
+          />
+        )}
+      </>
     );
   }
 
-  if (route === 'study' && !studyDeckId) {
-    return (
-      <AuthProvider>
-        <FlashcardsScreen
-          onBack={navigateHome}
-          onStudy={(deckId: string) => { setStudyDeckId(deckId); setRoute('study'); }}
-          onQuiz={(deckId: string) => { setQuizDeckId(deckId); setRoute('quiz'); }}
-          initialState={flashcardsState}
-          onStateChange={setFlashcardsState}
-        />
-      </AuthProvider>
-    );
-  }
-
-  if (route === 'quiz' && !quizDeckId) {
-    return (
-      <AuthProvider>
-        <FlashcardsScreen
-          onBack={navigateHome}
-          onStudy={(deckId: string) => { setStudyDeckId(deckId); setRoute('study'); }}
-          onQuiz={(deckId: string) => { setQuizDeckId(deckId); setRoute('quiz'); }}
-          initialState={flashcardsState}
-          onStateChange={setFlashcardsState}
-        />
-      </AuthProvider>
-    );
-  }
-
-  const currentRoute = routes[route];
-  if (currentRoute !== null) {
-    return (
-      <AuthProvider>
-        <div className="animate-fadeIn">{currentRoute}</div>
-      </AuthProvider>
-    );
-  }
-
-  return (
-    <AuthProvider>
-      <div className="animate-fadeIn">
-        <TemplateList
-          templates={allTemplates}
-          onSelect={setActiveTemplate}
-          onCreate={() => setShowCreate(true)}
-          onDelete={handleDeleteCustom}
-          onEdit={setEditingTemplate}
-          onBack={navigateHome}
-        />
-      </div>
-      {showCreate && (
-        <CreateTemplateModal onClose={() => setShowCreate(false)} onSave={handleSaveCustom} />
-      )}
-      {editingTemplate && (
-        <EditTemplateModal
-          template={editingTemplate}
-          onClose={() => setEditingTemplate(null)}
-          onSave={handleEditSave}
-        />
-      )}
-    </AuthProvider>
-  );
+  // 🆕 Единая обёртка AuthProvider — вместо 4 дублирующихся
+  return <AuthProvider>{content}</AuthProvider>;
 }
