@@ -28,6 +28,7 @@ import {
   BookText,
   CalendarDays,
   GripVertical,
+  Network,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -57,7 +58,8 @@ type SectionId =
   | 'lifebalance'
   | 'qrcode'
   | 'bibliography'
-  | 'visualschedule';
+  | 'visualschedule'
+  | 'tournament';
 
 type HomeStyle = 'classic' | 'modern';
 
@@ -145,6 +147,13 @@ const SECTIONS: Section[] = [
     description: 'Викторина',
     hint: 'Интеллектуальная викторина: раунды, баллы, рейтинг, печать карточек, обмен играми.',
     icon: Trophy,
+  },
+  {
+    id: 'tournament',
+    title: 'Турнирная сетка',
+    description: 'Плей-офф и круговой',
+    hint: 'Турнирная сетка на выбывание с автопроходами и матчем за 3 место, круговой турнир с автоматической таблицей. Счёт матчей, печать, копирование результатов, сохранение турниров.',
+    icon: Network,
   },
   {
     id: 'activity',
@@ -503,7 +512,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </a>
           </div>
 
-          {/* 🆕 Правая колонка: аватар пользователя */}
+          {/* Правая колонка: аватар пользователя */}
           <div className="shrink-0 flex flex-col items-center gap-2">
             <UserAvatar />
           </div>
