@@ -45,6 +45,7 @@ type SectionId =
   | 'flashcards'
   | 'wordsearch'
   | 'cardmaker'
+  | 'postermaker'
   | 'manual'
   | 'calculators'
   | 'bingo'
@@ -189,6 +190,14 @@ const SECTIONS: Section[] = [
     description: 'Конструктор и печать',
     hint: 'Конструктор карточек: 8 тем оформления, фоны (цвет/градиент/узоры), рамки, шрифты, эмодзи и фото, 5 пропорций, лист A4/A5, метки реза, двусторонняя печать с рубашкой, пакетный ввод, PNG и PDF, сохранение колод.',
     icon: Contact,
+    category: 'generators',
+  },
+  {
+    id: 'postermaker',
+    title: 'Постер',
+    description: 'Разделение изображения',
+    hint: 'Разделите изображение на несколько страниц для печати большого постера. Настройка сетки (до 6×6), форматы бумаги (A4/A3/Letter/Legal), перекрытие для склейки, метки реза, нумерация страниц. Экспорт в PDF.',
+    icon: Grid3x3,
     category: 'generators',
   },
   {
