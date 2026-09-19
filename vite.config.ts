@@ -4,7 +4,8 @@ import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: '/pomoshn-k-uchitelya-vk/',
+  // Изменено на относительный путь './' для совместимости с Cloudflare Pages и VK Mini Apps
+  base: './', 
   plugins: [react()],
   resolve: {
     alias: {
