@@ -1,19 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Binary,
-  ArrowLeftRight,
-  HelpCircle,
-  Trophy,
-  ChevronDown,
-  ChevronUp,
   Copy,
   Check,
   Hash,
   BookOpen,
   Lightbulb,
   Zap,
-  Clock,
   Star,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -29,8 +26,7 @@ type SystemId =
   | 'egyptian'
   | 'babylonian'
   | 'mayan'
-  | 'base36'
-  | 'custom';
+  | 'base36';
 
 interface NumeralSystem {
   id: SystemId;
@@ -42,7 +38,6 @@ interface NumeralSystem {
   description: string;
   example: string;
   allowedChars?: string;
-  color: string;
   icon: string;
 }
 
@@ -57,7 +52,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'Привычная нам система с основанием 10',
     example: '2024',
     allowedChars: '0-9',
-    color: 'from-blue-500 to-cyan-500',
     icon: '🔢',
   },
   {
@@ -70,7 +64,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'Основа всех компьютеров',
     example: '11111101000',
     allowedChars: '0-1',
-    color: 'from-purple-500 to-pink-500',
     icon: '💻',
   },
   {
@@ -83,7 +76,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'Удобна для Unix прав доступа',
     example: '3750',
     allowedChars: '0-7',
-    color: 'from-green-500 to-emerald-500',
     icon: '8️⃣',
   },
   {
@@ -96,7 +88,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'Цвета и адреса памяти',
     example: '7E8',
     allowedChars: '0-9, A-F',
-    color: 'from-orange-500 to-red-500',
     icon: '🎨',
   },
   {
@@ -109,7 +100,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'I=1, V=5, X=10, L=50, C=100, D=500, M=1000',
     example: 'MMXXIV',
     allowedChars: 'I, V, X, L, C, D, M',
-    color: 'from-amber-500 to-yellow-500',
     icon: '🏛️',
   },
   {
@@ -122,7 +112,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'Алфавитная система древних греков',
     example: 'α´',
     allowedChars: 'α-ω, ϛ, ϟ, ϡ',
-    color: 'from-indigo-500 to-blue-500',
     icon: '🏺',
   },
   {
@@ -135,7 +124,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'Кириллическая система с титлом',
     example: 'а҃',
     allowedChars: 'а-ѡ, ҃, ҂',
-    color: 'from-red-500 to-pink-500',
     icon: '📜',
   },
   {
@@ -148,7 +136,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'Иероглифическая система',
     example: '𓏺𓏺𓏺',
     allowedChars: '𓏺-𓁨',
-    color: 'from-yellow-600 to-amber-600',
     icon: '🔺',
   },
   {
@@ -161,7 +148,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: '60 минут в часе — отсюда',
     example: '𒐊𒏹',
     allowedChars: '𒐊, 𒏹',
-    color: 'from-stone-500 to-stone-700',
     icon: '🏺',
   },
   {
@@ -174,7 +160,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'Изобрели ноль независимо',
     example: '●●●',
     allowedChars: '●, ▬, 𝋠',
-    color: 'from-emerald-500 to-teal-500',
     icon: '🗿',
   },
   {
@@ -187,7 +172,6 @@ const SYSTEMS: NumeralSystem[] = [
     description: 'Все цифры + латиница',
     example: '1K8',
     allowedChars: '0-9, A-Z',
-    color: 'from-violet-500 to-purple-500',
     icon: '🔤',
   },
 ];
@@ -320,7 +304,7 @@ function toPositional(n: number, base: number, digits: string): string {
   return out;
 }
 
-function parseNumber(value: string, fromSystem: SystemId, customBase: number): number | null {
+function parseNumber(value: string, fromSystem: SystemId): number | null {
   const s = value.trim();
   if (!s) return null;
   try {
@@ -340,9 +324,6 @@ function parseNumber(value: string, fromSystem: SystemId, customBase: number): n
       case 'base36':
         if (!/^[0-9a-zA-Z]+$/.test(s)) return null;
         return parseInt(s, 36);
-      case 'custom':
-        if (customBase < 2 || customBase > 36) return null;
-        return parseInt(s, customBase);
       case 'roman': {
         const map: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
         const up = s.toUpperCase();
@@ -367,15 +348,14 @@ function parseNumber(value: string, fromSystem: SystemId, customBase: number): n
 export default function NumberSystemsScreen({ onBack }: { onBack: () => void }) {
   const [inputValue, setInputValue] = useState('2024');
   const [fromSystem, setFromSystem] = useState<SystemId>('decimal');
-  const [customBase, setCustomBase] = useState(7);
   const [copied, setCopied] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showReference, setShowReference] = useState(false);
 
   const activeSystem = SYSTEMS.find(s => s.id === fromSystem)!;
 
   const decimalValue = useMemo(() => {
-    return parseNumber(inputValue, fromSystem, customBase);
-  }, [inputValue, fromSystem, customBase]);
+    return parseNumber(inputValue, fromSystem);
+  }, [inputValue, fromSystem]);
 
   const conversions = useMemo(() => {
     const n = decimalValue;
@@ -397,11 +377,6 @@ export default function NumberSystemsScreen({ onBack }: { onBack: () => void }) 
           case 'egyptian': value = toEgyptian(n); break;
           case 'babylonian': value = toBabylonian(n); break;
           case 'mayan': value = toMayan(n); break;
-          case 'custom':
-            if (customBase >= 2 && customBase <= 36) {
-              value = toPositional(n, customBase, '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'.slice(0, customBase));
-            }
-            break;
         }
       } catch {
         valid = false;
@@ -409,7 +384,7 @@ export default function NumberSystemsScreen({ onBack }: { onBack: () => void }) 
       if (value === '—') valid = false;
       return { ...s, value, valid };
     });
-  }, [decimalValue, fromSystem, customBase]);
+  }, [decimalValue, fromSystem]);
 
   const handleCopy = async (text: string, id: string) => {
     if (text === '—') return;
@@ -447,14 +422,13 @@ export default function NumberSystemsScreen({ onBack }: { onBack: () => void }) 
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
-        {/* Быстрый старт */}
+        {/* Конвертер */}
         <section className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-6 text-white shadow-lg">
           <div className="flex items-center gap-3 mb-4">
             <Zap className="w-6 h-6" />
             <h2 className="text-xl font-bold">Конвертер чисел</h2>
           </div>
 
-          {/* Выбор системы */}
           <div className="mb-4">
             <label className="text-sm font-semibold mb-2 block opacity-90">Исходная система:</label>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -475,7 +449,6 @@ export default function NumberSystemsScreen({ onBack }: { onBack: () => void }) 
             </div>
           </div>
 
-          {/* Поле ввода */}
           <div className="bg-white/10 backdrop-blur rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-semibold opacity-90">
@@ -509,10 +482,9 @@ export default function NumberSystemsScreen({ onBack }: { onBack: () => void }) 
           </div>
         </section>
 
-        {/* Результаты */}
+        {/* Результаты конвертации */}
         {decimalValue !== null && (
           <>
-            {/* Позиционные системы */}
             {positionalConversions.length > 0 && (
               <section className="bg-white rounded-2xl p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
@@ -565,7 +537,6 @@ export default function NumberSystemsScreen({ onBack }: { onBack: () => void }) 
               </section>
             )}
 
-            {/* Непозиционные системы */}
             {nonPositionalConversions.length > 0 && (
               <section className="bg-white rounded-2xl p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
@@ -618,31 +589,63 @@ export default function NumberSystemsScreen({ onBack }: { onBack: () => void }) 
           </>
         )}
 
-        {/* Подсказки */}
-        <section className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <Lightbulb className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-900">
-              <b>Совет:</b> Нажмите на любую систему в результатах, чтобы переключиться на неё. 
-              Число автоматически конвертируется, и вы сможете редактировать его в новой системе.
+        {/* Подсказка */}
+        {decimalValue !== null && (
+          <section className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <Lightbulb className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-900">
+                <b>Совет:</b> Нажмите на любую систему выше, чтобы переключиться на неё. 
+                Число автоматически конвертируется, и вы сможете редактировать его в новой системе.
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
-        {/* Расширенные настройки */}
+        {/* Справочник - ВСЕГДА виден */}
         <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
+            onClick={() => setShowReference(!showReference)}
             className="w-full px-5 py-4 flex items-center justify-between gap-2 hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-purple-600" />
               <h3 className="font-bold text-purple-700 text-base">Справочник и примеры</h3>
             </div>
-            {showAdvanced ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
+            {showReference ? <ChevronUp className="w-5 h-5 text-purple-600" /> : <ChevronDown className="w-5 h-5 text-purple-600" />}
           </button>
-          {showAdvanced && (
+          {showReference && (
             <div className="px-5 pb-5 space-y-4 border-t border-gray-200">
+              {/* Описание всех систем */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  Все системы счисления
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {SYSTEMS.map((s) => (
+                    <div key={s.id} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">{s.icon}</span>
+                        <div>
+                          <div className="font-semibold text-sm">{s.name}</div>
+                          <div className="text-xs text-gray-500">{s.era}</div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 mb-2">{s.description}</p>
+                      <div className="text-xs">
+                        <span className="font-semibold">Пример:</span> <span className="font-mono">{s.example}</span>
+                      </div>
+                      {s.allowedChars && (
+                        <div className="text-xs mt-1">
+                          <span className="font-semibold">Символы:</span> {s.allowedChars}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Таблица */}
               <div>
                 <h4 className="font-semibold text-gray-900 mb-3">Числа 1-10 в разных системах</h4>
@@ -681,7 +684,7 @@ export default function NumberSystemsScreen({ onBack }: { onBack: () => void }) 
                   {[
                     {
                       q: 'Чем позиционные системы отличаются от непозиционных?',
-                      a: 'В позиционных системах значение цифры зависит от её позиции (разряда): в числе 222 первая двойка — 200, вторая — 20, третья — 2. В непозиционных (римская, египетская) символ всегда имеет одно значение: X всегда = 10, regardless от позиции.',
+                      a: 'В позиционных системах значение цифры зависит от её позиции (разряда): в числе 222 первая двойка — 200, вторая — 20, третья — 2. В непозиционных (римская, египетская) символ всегда имеет одно значение: X всегда = 10, независимо от позиции.',
                     },
                     {
                       q: 'Откуда взялось число 60 в вавилонской системе?',
