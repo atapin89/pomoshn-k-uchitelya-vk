@@ -30,6 +30,7 @@ import {
   History,
   Network,
   Contact,
+  Binary,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -46,6 +47,7 @@ type SectionId =
   | 'wordsearch'
   | 'cardmaker'
   | 'postermaker'
+  | 'numbersystems'
   | 'manual'
   | 'calculators'
   | 'bingo'
@@ -246,6 +248,14 @@ const SECTIONS: Section[] = [
     description: 'Баллы, СОУ, тесты',
     hint: 'Подсчёт баллов, СОУ и качества знаний по классу. Генератор тестов с экспортом в PDF.',
     icon: Calculator,
+    category: 'tools',
+  },
+  {
+    id: 'numbersystems',
+    title: 'Системы счисления',
+    description: 'Конвертер и справочник',
+    hint: 'Конвертер чисел между 12 системами счисления: двоичная, восьмеричная, десятичная, шестнадцатеричная, римская, древнегреческая (ионическая), славянская кириллическая, египетская, вавилонская, майя, 36-ричная и произвольное основание. Справочник, таблица соответствий, FAQ.',
+    icon: Binary,
     category: 'tools',
   },
   {
