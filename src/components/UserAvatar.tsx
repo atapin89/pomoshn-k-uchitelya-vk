@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   UserRound,
   X,
@@ -34,7 +35,6 @@ export function UserAvatar({ size = 'md', showName = false }: UserAvatarProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback для вебвью, где clipboard недоступен
       try {
         const ta = document.createElement('textarea');
         ta.value = idText;
@@ -52,7 +52,6 @@ export function UserAvatar({ size = 'md', showName = false }: UserAvatarProps) {
     }
   };
 
-  // Скелетон во время загрузки (не кликабельный)
   if (loading) {
     return (
       <div
@@ -62,7 +61,6 @@ export function UserAvatar({ size = 'md', showName = false }: UserAvatarProps) {
     );
   }
 
-  // Гость (вне VK или ошибка авторизации) — не кликабельный
   if (!user) {
     return (
       <div
@@ -81,7 +79,6 @@ export function UserAvatar({ size = 'md', showName = false }: UserAvatarProps) {
 
   return (
     <>
-      {/* 🆕 Аватар теперь кнопка — открывает карточку профиля */}
       <button
         type="button"
         onClick={() => setShowProfile(true)}
@@ -111,100 +108,99 @@ export function UserAvatar({ size = 'md', showName = false }: UserAvatarProps) {
         )}
       </button>
 
-      {/* 🆕 Модальное окно профиля */}
-      {showProfile && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setShowProfile(false)}
-        >
+      {showProfile &&
+        createPortal(
           <div
-            className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowProfile(false)}
           >
-            {/* Шапка карточки профиля */}
-            <div className="bg-gradient-to-r from-purple-600 to-violet-600 p-5 text-white relative">
-              <button
-                onClick={() => setShowProfile(false)}
-                className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-white/20 transition-colors"
-                aria-label="Закрыть"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <div className="flex items-center gap-3">
-                {user.avatar && !imgError ? (
-                  <img
-                    src={user.avatar}
-                    alt={fullName}
-                    className="w-16 h-16 rounded-full object-cover border-2 border-white/60 shadow-lg"
-                    draggable={false}
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-full bg-white/20 text-white text-xl font-bold flex items-center justify-center border-2 border-white/60">
-                    {initials}
+            <div
+              className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-gradient-to-r from-purple-600 to-violet-600 p-5 text-white relative">
+                <button
+                  onClick={() => setShowProfile(false)}
+                  className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                  aria-label="Закрыть"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-3">
+                  {user.avatar && !imgError ? (
+                    <img
+                      src={user.avatar}
+                      alt={fullName}
+                      className="w-16 h-16 rounded-full object-cover border-2 border-white/60 shadow-lg"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-white/20 text-white text-xl font-bold flex items-center justify-center border-2 border-white/60">
+                      {initials}
+                    </div>
+                  )}
+                  <div className="min-w-0 pr-8">
+                    <h3 className="font-bold text-lg leading-tight truncate">{fullName}</h3>
+                    <p className="text-purple-200 text-xs mt-0.5">VK ID: {user.id}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-3">
+                {user.email && (
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                    <span className="truncate">{user.email}</span>
                   </div>
                 )}
-                <div className="min-w-0 pr-8">
-                  <h3 className="font-bold text-lg leading-tight truncate">{fullName}</h3>
-                  <p className="text-purple-200 text-xs mt-0.5">VK ID: {user.id}</p>
-                </div>
-              </div>
-            </div>
+                {user.city && (
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                    <span className="truncate">{user.city}</span>
+                  </div>
+                )}
 
-            {/* Тело карточки профиля */}
-            <div className="p-5 space-y-3">
-              {user.email && (
-                <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <Mail className="w-4 h-4 text-gray-400 shrink-0" />
-                  <span className="truncate">{user.email}</span>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={copyVkId}
+                    className="py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                    {copied ? 'Скопировано' : 'Копировать ID'}
+                  </button>
+                  <a
+                    href={`https://vk.com/id${user.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Профиль ВК
+                  </a>
                 </div>
-              )}
-              {user.city && (
-                <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
-                  <span className="truncate">{user.city}</span>
-                </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <button
-                  onClick={copyVkId}
-                  className="py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                  {copied ? 'Скопировано' : 'Копировать ID'}
-                </button>
                 <a
-                  href={`https://vk.com/id${user.id}`}
+                  href="https://vk.ru/topteach"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                  Профиль ВК
+                  <Heart className="w-4 h-4" />
+                  Сообщество «Помощник учителя»
                 </a>
+
+                <p className="text-[11px] text-gray-400 text-center leading-relaxed">
+                  Данные предоставлены VK ID и хранятся только на вашем устройстве
+                </p>
               </div>
-
-              <a
-                href="https://vk.ru/topteach"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Heart className="w-4 h-4" />
-                Сообщество «Помощник учителя»
-              </a>
-
-              <p className="text-[11px] text-gray-400 text-center leading-relaxed">
-                Данные предоставлены VK ID и хранятся только на вашем устройстве
-              </p>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }
