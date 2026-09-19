@@ -29,6 +29,7 @@ import {
   TrendingUp,
   History,
   Network,
+  Contact,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -43,6 +44,7 @@ type SectionId =
   | 'noise'
   | 'flashcards'
   | 'wordsearch'
+  | 'cardmaker'
   | 'manual'
   | 'calculators'
   | 'bingo'
@@ -179,6 +181,14 @@ const SECTIONS: Section[] = [
     description: 'Поиск слов',
     hint: 'Генератор филвордов с ответами. Пакетная генерация до 30 вариантов, скачивание PNG и PDF.',
     icon: Grid3x3,
+    category: 'generators',
+  },
+  {
+    id: 'cardmaker',
+    title: 'Карточки',
+    description: 'Конструктор и печать',
+    hint: 'Конструктор карточек: 8 тем оформления, фоны (цвет/градиент/узоры), рамки, шрифты, эмодзи и фото, 5 пропорций, лист A4/A5, метки реза, двусторонняя печать с рубашкой, пакетный ввод, PNG и PDF, сохранение колод.',
+    icon: Contact,
     category: 'generators',
   },
   {
