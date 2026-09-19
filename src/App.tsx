@@ -31,7 +31,8 @@ import QRCodeScreen from '@/components/QRCodeScreen';
 import BibliographyScreen from '@/components/BibliographyScreen';
 import VisualScheduleScreen from '@/components/VisualScheduleScreen';
 import TournamentScreen from '@/components/TournamentScreen';
-import CardMakerScreen from '@/components/CardMakerScreen'; // 🆕
+import CardMakerScreen from '@/components/CardMakerScreen';
+import PosterMakerScreen from '@/components/PosterMakerScreen'; // 🆕
 import { AuthProvider } from '@/contexts/AuthContext';
 
 type Route =
@@ -59,7 +60,8 @@ type Route =
   | 'bibliography'
   | 'visualschedule'
   | 'tournament'
-  | 'cardmaker'; // 🆕
+  | 'cardmaker'
+  | 'postermaker'; // 🆕
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -179,7 +181,8 @@ export default function App() {
     bibliography: <BibliographyScreen onBack={navigateHome} />,
     visualschedule: <VisualScheduleScreen onBack={navigateHome} />,
     tournament: <TournamentScreen onBack={navigateHome} />,
-    cardmaker: <CardMakerScreen onBack={navigateHome} />, // 🆕
+    cardmaker: <CardMakerScreen onBack={navigateHome} />,
+    postermaker: <PosterMakerScreen onBack={navigateHome} />, // 🆕
     timer: null,
   };
 
