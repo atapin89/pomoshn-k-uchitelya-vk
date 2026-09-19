@@ -17,6 +17,7 @@ import {
   Users,
   ListOrdered,
   X,
+  AlertTriangle,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -106,7 +107,9 @@ function shuffleArr<T>(arr: T[]): T[] {
   return a;
 }
 
+// 🆕 Защита: при n=0 возвращаем 1, чтобы не создавать пустой скелет
 function nextPow2(n: number): number {
+  if (n <= 1) return Math.max(1, n);
   let p = 1;
   while (p < n) p *= 2;
   return p;
@@ -114,13 +117,14 @@ function nextPow2(n: number): number {
 
 function buildSkeleton(players: string[]): SkeletonMatch[][] {
   const size = nextPow2(players.length);
+  if (size === 0) return [];
   const slots: (string | null)[] = [...players];
   while (slots.length < size) slots.push(null);
 
   const rounds: SkeletonMatch[][] = [];
   const r0: SkeletonMatch[] = [];
   for (let i = 0; i < size; i += 2) {
-    r0.push({ id: `r0m${i / 2}`, a: slots[i], b: slots[i + 1] });
+    r0.push({ id: `r0m${i / 2}`, a: slots[i] ?? null, b: slots[i + 1] ?? null });
   }
   rounds.push(r0);
 
@@ -215,6 +219,7 @@ function roundName(r: number, total: number): string {
   if (fromEnd === 0) return 'Финал';
   if (fromEnd === 1) return 'Полуфинал';
   if (fromEnd === 2) return 'Четвертьфинал';
+  if (fromEnd === 3) return '1/8 финала';
   return `Раунд ${r + 1}`;
 }
 
@@ -222,6 +227,7 @@ function roundRobinRounds(players: string[]): [string, string][][] {
   const arr: (string | null)[] = [...players];
   if (arr.length % 2) arr.push(null);
   const n = arr.length;
+  if (n < 2) return [];
   const rounds: [string, string][][] = [];
   for (let r = 0; r < n - 1; r++) {
     const pairs: [string, string][] = [];
@@ -275,6 +281,19 @@ function computeStandings(
   );
 }
 
+// 🆕 Дедупликация с сохранением порядка
+function dedupeParticipants(list: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const name of list) {
+    const key = name.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(name.trim());
+  }
+  return out;
+}
+
 // ===== FAQ и сценарии =====
 
 const FAQ_ITEMS = [
@@ -285,6 +304,10 @@ const FAQ_ITEMS = [
   {
     q: 'Как отметить победителя матча?',
     a: 'Нажмите на имя участника внутри карточки матча — он станет победителем (появится 🏆) и автоматически перейдёт в следующий круг. Повторное нажатие на другое имя меняет победителя. Счёт рядом с именами необязателен, но полезен для печати и статистики.',
+  },
+  {
+    q: 'Что произойдёт со счётом, если поменять победителя?',
+    a: 'Счёт сбрасывается автоматически при смене победителя — это защищает от противоречий в статистике. Если нужно просто исправить опечатку в счёте, оставьте победителя прежним и измените только цифры.',
   },
   {
     q: 'Что такое «Матч за 3 место»?',
@@ -308,7 +331,11 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Зачем кнопка «Перемешать»?',
-    a: 'Для честной жеребьёвки: порядок участников в сетке случайный. Нажмите «Перемешать» в готовом турнире, чтобы пересоздать сетку с новым порядком (результаты матчей при этом сбрасываются).',
+    a: 'Для честной жеребьёвки: порядок участников в сетке случайный. Нажмите «Перемешать» в готовом турнире, чтобы пересоздать сетку с новым порядком (результаты матчей при этом сбрасываются). В круговом турнире перемешивание меняет порядок участников в таблице и расписание туров.',
+  },
+  {
+    q: 'Что делать, если ввели одного участника дважды?',
+    a: 'При создании турнира дубликаты автоматически удаляются, появится предупреждение с количеством удалённых. Проверьте список участников перед стартом.',
   },
 ];
 
@@ -360,18 +387,29 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
   const [showScen, setShowScen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [dupWarning, setDupWarning] = useState<number>(0);
 
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
-  const participants = useMemo(
-    () =>
-      participantsText
-        .split(/[\n,]+/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    [participantsText],
-  );
+  // 🆕 Автоматическая дедупликация + подсчёт удалённых дубликатов
+  const participants = useMemo(() => {
+    const raw = participantsText
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const deduped = dedupeParticipants(raw);
+    return deduped;
+  }, [participantsText]);
+
+  // Считаем дубликаты для предупреждения
+  useMemo(() => {
+    const raw = participantsText
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setDupWarning(raw.length - participants.length);
+  }, [participantsText, participants]);
 
   const minPlayers = mode === 'playoff' ? 2 : 3;
 
@@ -390,15 +428,63 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
     return computeStandings(active.participants, rrRounds, active.results);
   }, [active, rrRounds]);
 
+  // 🆕 Подсчёт сыгранных матчей для плей-офф
+  const playedCount = useMemo(() => {
+    if (!resolved) return 0;
+    let c = 0;
+    resolved.rounds.forEach((round) => round.forEach((m) => {
+      if (m.winner && !m.bye) c++;
+    }));
+    if (resolved.third && resolved.third.winner && !resolved.third.bye) c++;
+    return c;
+  }, [resolved]);
+
+  // 🆕 Подсчёт сыгранных матчей для кругового
+  const rrPlayedCount = useMemo(() => {
+    if (!active || active.mode !== 'round' || !rrRounds) return 0;
+    let c = 0;
+    rrRounds.forEach((pairs, r) => pairs.forEach((_, i) => {
+      const res = active.results[`rr-${r}-${i}`];
+      if (res && res.scoreA != null && res.scoreB != null) c++;
+    }));
+    return c;
+  }, [active, rrRounds]);
+
+  const rrTotalMatches = useMemo(() => {
+    if (!rrRounds) return 0;
+    return rrRounds.reduce((s, p) => s + p.length, 0);
+  }, [rrRounds]);
+
+  // 🆕 Номер первого «активного» раунда (с несостоявшимися матчами)
+  const activeRoundIdx = useMemo(() => {
+    if (!resolved) return -1;
+    for (let r = 0; r < resolved.rounds.length; r++) {
+      const hasPlayed = resolved.rounds[r].some((m) => m.winner && !m.bye);
+      const hasPending = resolved.rounds[r].some(
+        (m) => m.aName && m.bName && !m.winner && !m.bye,
+      );
+      if (hasPending && !hasPlayed) return r;
+    }
+    // Если все сыграны — активен последний
+    return resolved.rounds.length - 1;
+  }, [resolved]);
+
   const updateActive = (patch: Partial<Tournament>) => {
     setActive((prev) => (prev ? { ...prev, ...patch } : prev));
   };
 
+  // 🆕 При смене победителя — сбрасываем счёт, чтобы не было противоречий
   const setResult = (matchId: string, patch: Partial<MatchResult>) => {
     if (!active) return;
     const prevRes = active.results[matchId] || { winner: null, scoreA: null, scoreB: null };
+    const winnerChanged = 'winner' in patch && patch.winner !== prevRes.winner;
+    const nextRes: MatchResult = {
+      winner: patch.winner ?? prevRes.winner,
+      scoreA: winnerChanged ? null : (patch.scoreA ?? prevRes.scoreA),
+      scoreB: winnerChanged ? null : (patch.scoreB ?? prevRes.scoreB),
+    };
     updateActive({
-      results: { ...active.results, [matchId]: { ...prevRes, ...patch } },
+      results: { ...active.results, [matchId]: nextRes },
     });
   };
 
@@ -434,15 +520,20 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
         setActive(null);
         setParticipantsText('');
         setTName('');
+        setDupWarning(0);
       },
     });
   };
 
+  // 🆕 Перемешивание работает для обоих режимов
   const handleReshuffle = () => {
     if (!active) return;
     setConfirmState({
       title: 'Перемешать участников?',
-      message: 'Сетка будет пересоздана, все результаты матчей сбросятся.',
+      message:
+        active.mode === 'playoff'
+          ? 'Сетка будет пересоздана, все результаты матчей сбросятся.'
+          : 'Порядок участников и расписание туров изменятся. Все счета сбросятся.',
       confirmLabel: 'Перемешать',
       danger: true,
       action: () => {
@@ -469,11 +560,21 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
     triggerHaptic('light');
   };
 
+  // 🆕 Удаление с подтверждением
   const handleDeleteSaved = (id: string) => {
-    setSaved((prev) => {
-      const next = prev.filter((t) => t.id !== id);
-      persistSaved(next);
-      return next;
+    const t = saved.find((x) => x.id === id);
+    setConfirmState({
+      title: 'Удалить турнир?',
+      message: t ? `«${t.name}» будет удалён безвозвратно.` : 'Турнир будет удалён.',
+      confirmLabel: 'Удалить',
+      danger: true,
+      action: () => {
+        setSaved((prev) => {
+          const next = prev.filter((x) => x.id !== id);
+          persistSaved(next);
+          return next;
+        });
+      },
     });
   };
 
@@ -494,7 +595,8 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
       if (active.thirdPlace && resolved.third && !resolved.third.empty) {
         const t = resolved.third;
         const winner = t.winner === 'a' ? t.aName : t.winner === 'b' ? t.bName : '—';
-        lines.push(`Матч за 3 место: ${t.aName || '—'} vs ${t.bName || '—'} → ${winner}`);
+        const score = t.scoreA != null && t.scoreB != null ? ` (${t.scoreA}:${t.scoreB})` : '';
+        lines.push(`Матч за 3 место: ${t.aName || '—'} vs ${t.bName || '—'}${score} → ${winner}`);
       }
       lines.push('', `🥇 Чемпион: ${resolved.champion || 'не определён'}`);
     }
@@ -535,7 +637,7 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
           ${resolved.rounds
             .map(
               (round, r) => `
-            <div class="round">
+            <div class="round${r === activeRoundIdx ? ' active' : ''}">
               <h3>${roundName(r, resolved.rounds.length)}</h3>
               ${round
                 .map((m) => {
@@ -556,7 +658,7 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
         </div>
         ${
           active.thirdPlace && resolved.third && !resolved.third.empty
-            ? `<h3>Матч за 3 место</h3><div class="match"><div class="side ${resolved.third.winner === 'a' ? 'win' : ''}">${resolved.third.aName || '—'}</div><div class="side ${resolved.third.winner === 'b' ? 'win' : ''}">${resolved.third.bName || '—'}</div></div>`
+            ? `<h3>Матч за 3 место</h3><div class="match"><div class="side ${resolved.third.winner === 'a' ? 'win' : ''}">${resolved.third.aName || '—'}${resolved.third.winner === 'a' ? ' 🥉' : ''}</div><div class="side ${resolved.third.winner === 'b' ? 'win' : ''}">${resolved.third.bName || '—'}${resolved.third.winner === 'b' ? ' 🥉' : ''}</div></div>`
             : ''
         }
         <h2 class="champ">🥇 Чемпион: ${resolved.champion || 'не определён'}</h2>`;
@@ -567,7 +669,7 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
           ${standings
             .map(
               (row, i) =>
-                `<tr><td>${i + 1}</td><td>${row.name}</td><td>${row.played}</td><td>${row.w}</td><td>${row.d}</td><td>${row.l}</td><td>${row.diff > 0 ? '+' : ''}${row.diff}</td><td><b>${row.pts}</b></td></tr>`,
+                `<tr${i === 0 && row.played > 0 ? ' class="leader"' : ''}><td>${i === 0 && row.played > 0 ? '🥇 ' : ''}${i + 1}</td><td>${row.name}</td><td>${row.played}</td><td>${row.w}</td><td>${row.d}</td><td>${row.l}</td><td>${row.diff > 0 ? '+' : ''}${row.diff}</td><td><b>${row.pts}</b></td></tr>`,
             )
             .join('')}
         </table>
@@ -578,7 +680,7 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
           <p><b>Тур ${r + 1}:</b> ${pairs
             .map((pair, i) => {
               const res = active.results[`rr-${r}-${i}`];
-              const score = res && res.scoreA != null && res.scoreB != null ? ` ${res.scoreA}:${res.scoreB}` : '';
+              const score = res && res.scoreA != null && res.scoreB != null ? ` <b>${res.scoreA}:${res.scoreB}</b>` : '';
               return `${pair[0]} — ${pair[1]}${score}`;
             })
             .join('; ')}</p>`,
@@ -597,7 +699,8 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
           h1 { font-size: 22px; }
           h2.champ { color: #7c3aed; }
           .rounds { display: flex; gap: 24px; }
-          .round { min-width: 180px; }
+          .round { min-width: 180px; padding: 6px; border-radius: 8px; }
+          .round.active { background: #f3e8ff; border: 2px solid #a78bfa; }
           .round h3 { font-size: 14px; border-bottom: 2px solid #7c3aed; padding-bottom: 4px; }
           .match { border: 1px solid #d1d5db; border-radius: 8px; margin: 8px 0; padding: 6px 8px; font-size: 13px; }
           .match.empty { color: #9ca3af; text-align: center; }
@@ -606,6 +709,7 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
           table.standings { border-collapse: collapse; width: 100%; font-size: 13px; }
           table.standings th, table.standings td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: center; }
           table.standings th { background: #f3e8ff; }
+          tr.leader { background: #fef3c7; }
           @media print { .no-print { display: none; } }
         </style>
       </head>
@@ -622,7 +726,6 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
     printWindow.document.close();
   };
 
-  // ===== Карточка матча плей-офф =====
   const renderMatch = (m: ResolvedMatch) => {
     if (m.empty) {
       return (
@@ -684,7 +787,6 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      {/* ЕДИНАЯ ШАПКА */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
@@ -696,7 +798,6 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
-        {/* ===== СОЗДАНИЕ ТУРНИРА ===== */}
         {!active && (
           <>
             <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
@@ -758,6 +859,15 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
                     ? ` · сетка на ${nextPow2(participants.length)} мест`
                     : ''}
                 </p>
+                {/* 🆕 Предупреждение о дубликатах */}
+                {dupWarning > 0 && (
+                  <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-start gap-2 text-xs text-amber-800">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>
+                      Автоматически удалено дубликатов: <b>{dupWarning}</b>. Проверьте список перед созданием.
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -783,7 +893,7 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
                 )}
               </div>
 
-              {participants.length < minPlayers && (
+              {participants.length > 0 && participants.length < minPlayers && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2 text-sm text-red-700">
                   <X className="w-4 h-4 shrink-0" />
                   {mode === 'playoff'
@@ -802,7 +912,6 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
               </button>
             </section>
 
-            {/* Сохранённые турниры */}
             <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
               <button
                 onClick={() => setShowSaved(!showSaved)}
@@ -862,7 +971,7 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
                 <div className="min-w-0">
                   <h2 className="font-bold text-purple-700 truncate">{active.name}</h2>
                   <p className="text-xs text-gray-500">
-                    плей-офф · участников: {active.participants.length}
+                    плей-офф · участников: {active.participants.length} · сыграно: {playedCount}
                   </p>
                 </div>
                 {resolved.champion && (
@@ -917,18 +1026,31 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
             <section className="bg-white rounded-2xl p-4 shadow-sm">
               <div className="overflow-x-auto pb-2">
                 <div className="flex gap-3 min-w-max">
-                  {resolved.rounds.map((round, r) => (
-                    <div key={r} className="flex flex-col gap-2 w-52">
-                      <h4 className="text-xs font-bold text-purple-700 text-center uppercase tracking-wide">
-                        {roundName(r, resolved.rounds.length)}
-                      </h4>
-                      <div className="flex flex-col gap-2 flex-1 justify-around">
-                        {round.map((m) => (
-                          <div key={m.id}>{renderMatch(m)}</div>
-                        ))}
+                  {resolved.rounds.map((round, r) => {
+                    const isActive = r === activeRoundIdx;
+                    return (
+                      <div
+                        key={r}
+                        className={`flex flex-col gap-2 w-52 rounded-xl p-2 transition-colors ${
+                          isActive ? 'bg-purple-50 ring-2 ring-purple-300' : ''
+                        }`}
+                      >
+                        <h4
+                          className={`text-xs font-bold text-center uppercase tracking-wide ${
+                            isActive ? 'text-purple-700' : 'text-purple-600'
+                          }`}
+                        >
+                          {roundName(r, resolved.rounds.length)}
+                          {isActive && <span className="ml-1 text-[10px] font-normal">(сейчас)</span>}
+                        </h4>
+                        <div className="flex flex-col gap-2 flex-1 justify-around">
+                          {round.map((m) => (
+                            <div key={m.id}>{renderMatch(m)}</div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {active.thirdPlace && resolved.third && (
                     <div className="flex flex-col gap-2 w-52">
                       <h4 className="text-xs font-bold text-amber-600 text-center uppercase tracking-wide flex items-center justify-center gap-1">
@@ -940,7 +1062,8 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
               <p className="text-[11px] text-gray-400 text-center mt-2">
-                Нажмите на имя участника в матче, чтобы отметить победителя · поля справа — счёт
+                Нажмите на имя участника в матче, чтобы отметить победителя · поля справа — счёт ·
+                текущий раунд подсвечен
               </p>
             </section>
           </>
@@ -954,7 +1077,7 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
                 <div className="min-w-0">
                   <h2 className="font-bold text-purple-700 truncate">{active.name}</h2>
                   <p className="text-xs text-gray-500">
-                    круговой · участников: {active.participants.length} · туров: {rrRounds.length}
+                    круговой · участников: {active.participants.length} · туров: {rrRounds.length} · сыграно: {rrPlayedCount}/{rrTotalMatches}
                   </p>
                 </div>
                 <div className="shrink-0 flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
@@ -987,6 +1110,14 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
                   <Save className="w-3.5 h-3.5" />
                   Сохранить
                 </button>
+                {/* 🆕 Кнопка перемешать для кругового турнира */}
+                <button
+                  onClick={handleReshuffle}
+                  className="flex-1 min-w-[110px] py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                  Перемешать
+                </button>
                 <button
                   onClick={handleNew}
                   className="flex-1 min-w-[110px] py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
@@ -997,7 +1128,6 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
               </div>
             </section>
 
-            {/* Таблица */}
             <section className="bg-white rounded-2xl p-4 shadow-sm overflow-x-auto">
               <h3 className="font-bold text-purple-700 text-sm mb-2 flex items-center gap-1.5">
                 <ListOrdered className="w-4 h-4" /> Турнирная таблица
@@ -1044,7 +1174,6 @@ export default function TournamentScreen({ onBack }: { onBack: () => void }) {
               </p>
             </section>
 
-            {/* Туры */}
             <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
               <h3 className="font-bold text-purple-700 text-sm flex items-center gap-1.5">
                 <Users className="w-4 h-4" /> Матчи (внесите счёт)
