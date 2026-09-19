@@ -30,6 +30,7 @@ import {
   GripVertical,
   Network,
   Contact,
+  Binary,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -47,6 +48,7 @@ type SectionId =
   | 'wordsearch'
   | 'cardmaker'
   | 'postermaker'
+  | 'numbersystems'
   | 'manual'
   | 'calculators'
   | 'bingo'
@@ -143,6 +145,13 @@ const SECTIONS: Section[] = [
     description: 'Разделение изображения',
     hint: 'Разделите изображение на несколько страниц для печати большого постера. Настройка сетки (до 6×6), форматы бумаги (A4/A3/Letter/Legal), перекрытие для склейки (0-20 мм), поля, метки реза, нумерация страниц. Экспорт в PDF с правильными размерами. Сохранение проектов.',
     icon: Grid3x3,
+  },
+  {
+    id: 'numbersystems',
+    title: 'Системы счисления',
+    description: 'Конвертер и справочник',
+    hint: 'Конвертер чисел между 12 системами счисления: двоичная, восьмеричная, десятичная, шестнадцатеричная, римская, древнегреческая (ионическая), славянская кириллическая, египетская, вавилонская, майя, 36-ричная и произвольное основание. Справочник, таблица соответствий, FAQ.',
+    icon: Binary,
   },
   {
     id: 'calculators',
