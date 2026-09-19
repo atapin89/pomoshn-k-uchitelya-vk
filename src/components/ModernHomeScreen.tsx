@@ -81,10 +81,10 @@ const RECENT_KEY = 'home-recent';
 // ===== Категории =====
 
 const CATEGORIES: { id: CategoryId; title: string; icon: LucideIcon; gradient: string }[] = [
-  { id: 'planning', title: 'Планирование и время', icon: Clock, gradient: 'from-blue-500 to-cyan-500' },
-  { id: 'activities', title: 'Активности на уроке', icon: Users, gradient: 'from-purple-500 to-pink-500' },
-  { id: 'generators', title: 'Генераторы и печать', icon: Sparkles, gradient: 'from-amber-500 to-orange-500' },
-  { id: 'tools', title: 'Инструменты педагога', icon: Calculator, gradient: 'from-green-500 to-emerald-500' },
+  { id: 'planning', title: 'Планирование', icon: Clock, gradient: 'from-blue-500 to-cyan-500' },
+  { id: 'activities', title: 'Активности', icon: Users, gradient: 'from-purple-500 to-pink-500' },
+  { id: 'generators', title: 'Генераторы', icon: Sparkles, gradient: 'from-amber-500 to-orange-500' },
+  { id: 'tools', title: 'Инструменты', icon: Calculator, gradient: 'from-green-500 to-emerald-500' },
   { id: 'selfcare', title: 'Для себя', icon: TrendingUp, gradient: 'from-indigo-500 to-violet-500' },
 ];
 
@@ -109,7 +109,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: 'visualschedule',
-    title: 'Визуальное расписание',
+    title: 'Расписание',
     description: 'Пиктограммы',
     hint: 'Создание визуальных расписаний с пиктограммами для детей с РАС и ОВЗ. 150+ билингвальных пиктограмм (RU/EN) в 9 категориях. 4 шаблона. Экспорт в PNG и PDF.',
     icon: CalendarDays,
@@ -133,7 +133,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: 'activity',
-    title: 'Счётчик активности',
+    title: 'Активность',
     description: 'Опрос учеников',
     hint: 'Отслеживайте, кого опросили и кто был активен. Счётчик ответов. Сводка в конце урока.',
     icon: Users,
@@ -181,7 +181,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: 'graphdictation',
-    title: 'Графический диктант',
+    title: 'Граф. диктант',
     description: 'Рисование по клеткам',
     hint: 'Развивающее упражнение для детей 5-9 лет. Рисование линий по клеткам по устным инструкциям.',
     icon: PenTool,
@@ -205,8 +205,8 @@ const SECTIONS: Section[] = [
   },
   {
     id: 'bibliography',
-    title: 'Источники по ГОСТу',
-    description: 'Библиография',
+    title: 'Библиография',
+    description: 'Источники по ГОСТу',
     hint: 'Оформление списка литературы по действующим ГОСТам. 12 типов источников. Экспорт в Word (.doc) и текст (.txt).',
     icon: BookText,
     category: 'tools',
@@ -222,7 +222,7 @@ const SECTIONS: Section[] = [
   {
     id: 'teleprompter',
     title: 'Телесуфлер',
-    description: 'Чтение и запись с экрана',
+    description: 'Чтение и запись',
     hint: 'Профессиональный телесуфлер: плавная прокрутка текста, скорость 0.5–3×, темы, зеркалирование, таймер выступления, веб-камера и запись видео.',
     icon: MonitorPlay,
     category: 'tools',
@@ -238,15 +238,15 @@ const SECTIONS: Section[] = [
   {
     id: 'manual',
     title: 'Руководство',
-    description: 'Инструкции и помощь',
+    description: 'Инструкции',
     hint: 'Подробное руководство по использованию всех инструментов приложения.',
     icon: BookOpen,
     category: 'tools',
   },
   {
     id: 'lifebalance',
-    title: 'Колесо баланса',
-    description: 'Саморефлексия педагога',
+    title: 'Баланс жизни',
+    description: 'Саморефлексия',
     hint: 'Оцените 8 сфер жизни от 1 до 10. Интерактивное колесо покажет перекосы, даст персональные рекомендации и позволит скачать результат.',
     icon: Sparkles,
     category: 'selfcare',
@@ -277,7 +277,7 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
       const raw = localStorage.getItem(RECENT_KEY);
       if (raw) {
         const arr = JSON.parse(raw) as SectionId[];
-        if (Array.isArray(arr)) return arr.slice(0, 5);
+        if (Array.isArray(arr)) return arr.slice(0, 6);
       }
     } catch {}
     return [];
@@ -310,7 +310,7 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
   const handleNavigate = (id: SectionId) => {
     setRecent(prev => {
       const filtered = prev.filter(r => r !== id);
-      return [id, ...filtered].slice(0, 5);
+      return [id, ...filtered].slice(0, 6);
     });
     onNavigate(id);
   };
@@ -367,144 +367,148 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
     return activeSection?.hint || 'Описание скоро появится';
   };
 
+  // Группировка инструментов по категориям
+  const groupedSections = useMemo(() => {
+    const groups: Record<CategoryId, Section[]> = {
+      planning: [],
+      activities: [],
+      generators: [],
+      tools: [],
+      selfcare: [],
+    };
+    filteredSections.forEach(s => {
+      groups[s.category].push(s);
+    });
+    return groups;
+  }, [filteredSections]);
+
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 flex flex-col">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 flex flex-col">
       {/* Шапка */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-purple-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">
-                {getGreeting()}! 👋
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
+                {getGreeting()}
               </h1>
-              <p className="text-sm text-gray-600 mt-1">Чем займёмся сегодня?</p>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setShowSettings(true)}
-                className="p-2.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
+                className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
                 aria-label="Настройки"
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="w-4 h-4" />
               </button>
               <button
                 onClick={onSwitchToClassic}
-                className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="hidden sm:flex px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
               >
                 Классический вид
               </button>
-              {/* 🆕 Аватар пользователя в верхнем правом углу */}
-              <UserAvatar size="sm" showName />
+              <UserAvatar size="sm" />
             </div>
           </div>
 
           {/* Поиск */}
-          <div className="mt-4 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <div className="mt-3 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск инструментов..."
-              className="w-full pl-12 pr-4 py-3 rounded-xl bg-white border-2 border-purple-200 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 transition-all"
+              placeholder="Поиск..."
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 focus:border-purple-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-100 transition-all text-sm"
             />
           </div>
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-8">
-        {/* Избранное */}
-        {favoriteSections.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <Star className="w-6 h-6 text-amber-500" />
-              <h2 className="text-xl font-bold text-gray-900">Избранное</h2>
-              <span className="text-sm text-gray-500">({favoriteSections.length})</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {favoriteSections.map(section => {
-                const Icon = section.icon;
-                return (
-                  <div
-                    key={section.id}
-                    className="group relative bg-white rounded-2xl p-4 shadow-sm hover:shadow-lg border-2 border-amber-200 hover:border-amber-400 transition-all"
-                  >
-                    <button
-                      onClick={() => handleNavigate(section.id)}
-                      className="w-full text-left focus:outline-none"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
-                          <Icon className="w-6 h-6 text-white" />
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 space-y-4">
+        {/* Быстрый доступ: Избранное + Недавние */}
+        {(favoriteSections.length > 0 || recentSections.length > 0) && !searchQuery && selectedCategory === 'all' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Избранное */}
+            {favoriteSections.length > 0 && (
+              <section className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/60">
+                <div className="flex items-center gap-2 mb-3">
+                  <Star className="w-4 h-4 text-amber-500" />
+                  <h2 className="text-sm font-semibold text-slate-700">Избранное</h2>
+                  <span className="text-xs text-slate-400">({favoriteSections.length})</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {favoriteSections.slice(0, 8).map(section => {
+                    const Icon = section.icon;
+                    const category = CATEGORIES.find(c => c.id === section.category);
+                    return (
+                      <button
+                        key={section.id}
+                        onClick={() => handleNavigate(section.id)}
+                        className="group relative flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        title={section.title}
+                      >
+                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${category?.gradient} flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}>
+                          <Icon className="w-5 h-5 text-white" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-gray-900 truncate">{section.title}</h3>
-                          <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{section.description}</p>
+                        <span className="text-[11px] font-medium text-slate-700 text-center line-clamp-1 w-full">
+                          {section.title}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Недавние */}
+            {recentSections.length > 0 && (
+              <section className="bg-white rounded-xl p-4 shadow-sm border border-slate-200/60">
+                <div className="flex items-center gap-2 mb-3">
+                  <History className="w-4 h-4 text-blue-500" />
+                  <h2 className="text-sm font-semibold text-slate-700">Недавние</h2>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {recentSections.map(section => {
+                    const Icon = section.icon;
+                    return (
+                      <button
+                        key={section.id}
+                        onClick={() => handleNavigate(section.id)}
+                        className="group flex flex-col items-center gap-1.5 p-2 rounded-lg hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        title={section.title}
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                          <Icon className="w-5 h-5 text-blue-600" />
                         </div>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => toggleFavorite(section.id)}
-                      className="absolute top-3 right-3 p-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 transition-colors"
-                      aria-label="Убрать из избранного"
-                    >
-                      <Star className="w-4 h-4 text-amber-600 fill-amber-600" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
+                        <span className="text-[11px] font-medium text-slate-700 text-center line-clamp-1 w-full">
+                          {section.title}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
         )}
 
-        {/* Недавно использованные */}
-        {recentSections.length > 0 && !searchQuery && selectedCategory === 'all' && (
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <History className="w-6 h-6 text-blue-500" />
-              <h2 className="text-xl font-bold text-gray-900">Недавно использованные</h2>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {recentSections.map(section => {
-                const Icon = section.icon;
-                return (
-                  <button
-                    key={section.id}
-                    onClick={() => handleNavigate(section.id)}
-                    className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md border border-blue-200 hover:border-blue-400 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="shrink-0 w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div className="flex-1 min-w-0 text-left">
-                        <h3 className="text-sm font-semibold text-gray-900 truncate">{section.title}</h3>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* Все инструменты */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <LayoutGrid className="w-6 h-6 text-purple-500" />
-            <h2 className="text-xl font-bold text-gray-900">Все инструменты</h2>
-            <span className="text-sm text-gray-500">({filteredSections.length})</span>
+        {/* Все инструменты по категориям */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-slate-700">Все инструменты</h2>
+            <span className="text-xs text-slate-400">({filteredSections.length})</span>
           </div>
 
           {/* Фильтр категорий */}
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`shrink-0 px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
+              className={`shrink-0 px-3 py-1.5 rounded-lg font-medium text-xs transition-all ${
                 selectedCategory === 'all'
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-purple-50 border border-gray-200'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
               }`}
             >
               Все
@@ -515,101 +519,142 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`shrink-0 px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${
+                  className={`shrink-0 px-3 py-1.5 rounded-lg font-medium text-xs transition-all flex items-center gap-1.5 ${
                     selectedCategory === cat.id
-                      ? `bg-gradient-to-r ${cat.gradient} text-white shadow-md`
-                      : 'bg-white text-gray-700 hover:bg-purple-50 border border-gray-200'
+                      ? `bg-gradient-to-r ${cat.gradient} text-white shadow-sm`
+                      : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5" />
                   {cat.title}
                 </button>
               );
             })}
           </div>
 
-          {/* Карточки инструментов */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredSections.map(section => {
-              const Icon = section.icon;
-              const isFavorite = favorites.has(section.id);
-              const category = CATEGORIES.find(c => c.id === section.category);
-
-              return (
-                <div
-                  key={section.id}
-                  className="group relative bg-white rounded-2xl p-5 shadow-sm hover:shadow-xl border border-gray-200 hover:border-purple-300 transition-all"
-                >
-                  <button
-                    onClick={() => handleNavigate(section.id)}
-                    className="w-full text-left focus:outline-none"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={`shrink-0 w-14 h-14 rounded-xl bg-gradient-to-br ${category?.gradient || 'from-purple-500 to-pink-500'} flex items-center justify-center shadow-md group-hover:scale-110 transition-transform`}>
-                        <Icon className="w-7 h-7 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-bold text-lg text-gray-900 group-hover:text-purple-700 transition-colors">
-                            {section.title}
-                          </h3>
-                          {section.isTest && (
-                            <span className="shrink-0 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-md flex items-center gap-1">
-                              <FlaskConical className="w-3 h-3" />
-                              тест
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">{section.description}</p>
-                      </div>
+          {/* Группы по категориям */}
+          {selectedCategory === 'all' ? (
+            <>
+              {CATEGORIES.map(cat => {
+                const sections = groupedSections[cat.id];
+                if (sections.length === 0) return null;
+                return (
+                  <div key={cat.id}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-1 h-4 rounded-full bg-gradient-to-b ${cat.gradient}`} />
+                      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        {cat.title}
+                      </h3>
                     </div>
-                  </button>
-
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                      {sections.map(section => {
+                        const Icon = section.icon;
+                        const isFavorite = favorites.has(section.id);
+                        return (
+                          <div key={section.id} className="group relative">
+                            <button
+                              onClick={() => handleNavigate(section.id)}
+                              className="w-full flex flex-col items-center gap-2 p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/60 hover:border-purple-300 shadow-sm hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            >
+                              <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${cat.gradient} flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform`}>
+                                <Icon className="w-6 h-6 text-white" />
+                              </div>
+                              <span className="text-xs font-medium text-slate-700 text-center line-clamp-2 leading-tight">
+                                {section.title}
+                              </span>
+                            </button>
+                            {section.isTest && (
+                              <span className="absolute top-1 left-1 bg-amber-400 text-amber-900 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                                тест
+                              </span>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveHelpModal(section.id);
+                              }}
+                              className="absolute top-1 right-1 p-1 rounded bg-white/80 hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+                              aria-label={`Подсказка: ${section.title}`}
+                            >
+                              <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
+                            </button>
+                            {isFavorite && (
+                              <div className="absolute bottom-1 right-1">
+                                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+              {filteredSections.map(section => {
+                const Icon = section.icon;
+                const category = CATEGORIES.find(c => c.id === section.category);
+                const isFavorite = favorites.has(section.id);
+                return (
+                  <div key={section.id} className="group relative">
                     <button
-                      onClick={() => setActiveHelpModal(section.id)}
-                      className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-purple-600 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded-lg px-2 py-1"
+                      onClick={() => handleNavigate(section.id)}
+                      className="w-full flex flex-col items-center gap-2 p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/60 hover:border-purple-300 shadow-sm hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    >
+                      <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${category?.gradient} flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform`}>
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+                      <span className="text-xs font-medium text-slate-700 text-center line-clamp-2 leading-tight">
+                        {section.title}
+                      </span>
+                    </button>
+                    {section.isTest && (
+                      <span className="absolute top-1 left-1 bg-amber-400 text-amber-900 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                        тест
+                      </span>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveHelpModal(section.id);
+                      }}
+                      className="absolute top-1 right-1 p-1 rounded bg-white/80 hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
                       aria-label={`Подсказка: ${section.title}`}
                     >
-                      <HelpCircle className="w-4 h-4" />
-                      <span className="font-medium">Подробнее</span>
+                      <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
                     </button>
-                    <button
-                      onClick={() => toggleFavorite(section.id)}
-                      className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 ${
-                        isFavorite
-                          ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                          : 'bg-gray-100 text-gray-400 hover:bg-amber-50 hover:text-amber-600'
-                      }`}
-                      aria-label={isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
-                    >
-                      <Star className={`w-5 h-5 ${isFavorite ? 'fill-amber-600' : ''}`} />
-                    </button>
+                    {isFavorite && (
+                      <div className="absolute bottom-1 right-1">
+                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      </div>
+                    )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           {filteredSections.length === 0 && (
-            <div className="text-center py-12">
-              <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">Ничего не найдено</p>
-              <p className="text-gray-400 text-sm mt-2">Попробуйте изменить поисковый запрос или выбрать другую категорию</p>
+            <div className="text-center py-12 bg-white rounded-xl border border-slate-200/60">
+              <Search className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500 text-sm font-medium">Ничего не найдено</p>
+              <p className="text-slate-400 text-xs mt-1">Попробуйте изменить запрос или категорию</p>
             </div>
           )}
         </section>
       </main>
 
       {/* Подвал */}
-      <footer className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 text-center">
-        <p className="text-sm text-gray-500">
+      <footer className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 text-center">
+        <p className="text-xs text-slate-500">
           Проект{' '}
           <a
             href="https://vk.ru/aaatapin"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-purple-600 hover:text-purple-800 font-semibold underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
+            className="text-purple-600 hover:text-purple-700 font-semibold underline underline-offset-2 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 rounded"
           >
             Алексея Атапина
           </a>
@@ -618,44 +663,44 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
 
       {/* Модальное окно настроек */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">Настройки</h2>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowSettings(false)}>
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-900">Настройки</h2>
               <button
                 onClick={() => setShowSettings(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
                 aria-label="Закрыть"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-slate-600" />
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-purple-50 rounded-xl p-4">
-                <h3 className="font-semibold text-purple-900 mb-2">Внешний вид</h3>
-                <p className="text-sm text-purple-700 mb-3">
-                  Вы используете современный стиль с категоризацией и поиском
+            <div className="p-4 space-y-3">
+              <div className="bg-purple-50 rounded-lg p-3">
+                <h3 className="font-semibold text-purple-900 text-sm mb-1.5">Внешний вид</h3>
+                <p className="text-xs text-purple-700 mb-2.5">
+                  Современный стиль с категориями
                 </p>
                 <button
                   onClick={() => {
                     setShowSettings(false);
                     onSwitchToClassic();
                   }}
-                  className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors"
+                  className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg transition-colors"
                 >
-                  Переключиться на классический вид
+                  Классический вид
                 </button>
               </div>
-              <div className="bg-blue-50 rounded-xl p-4">
-                <h3 className="font-semibold text-blue-900 mb-2">Сообщество</h3>
+              <div className="bg-blue-50 rounded-lg p-3">
+                <h3 className="font-semibold text-blue-900 text-sm mb-1.5">Сообщество</h3>
                 <a
                   href="https://vk.ru/topteach"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 font-medium"
+                  className="inline-flex items-center gap-1.5 text-xs text-blue-700 hover:text-blue-800 font-medium"
                 >
-                  <BookOpen className="w-4 h-4" />
-                  Перейти в сообщество ВКонтакте
+                  <BookOpen className="w-3.5 h-3.5" />
+                  ВКонтакте
                 </a>
               </div>
             </div>
