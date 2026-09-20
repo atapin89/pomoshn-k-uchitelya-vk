@@ -33,7 +33,9 @@ import VisualScheduleScreen from '@/components/VisualScheduleScreen';
 import TournamentScreen from '@/components/TournamentScreen';
 import CardMakerScreen from '@/components/CardMakerScreen';
 import PosterMakerScreen from '@/components/PosterMakerScreen';
-import NumberSystemsScreen from '@/components/NumberSystemsScreen'; // 🆕
+import NumberSystemsScreen from '@/components/NumberSystemsScreen';
+import UnitConverterScreen from '@/components/UnitConverterScreen'; // 🆕
+import MorseScreen from '@/components/MorseScreen'; // 🆕
 import { AuthProvider } from '@/contexts/AuthContext';
 
 type Route =
@@ -63,7 +65,9 @@ type Route =
   | 'tournament'
   | 'cardmaker'
   | 'postermaker'
-  | 'numbersystems'; // 🆕
+  | 'numbersystems'
+  | 'unitconverter' // 🆕
+  | 'morse'; // 🆕
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -185,7 +189,9 @@ export default function App() {
     tournament: <TournamentScreen onBack={navigateHome} />,
     cardmaker: <CardMakerScreen onBack={navigateHome} />,
     postermaker: <PosterMakerScreen onBack={navigateHome} />,
-    numbersystems: <NumberSystemsScreen onBack={navigateHome} />, // 🆕
+    numbersystems: <NumberSystemsScreen onBack={navigateHome} />,
+    unitconverter: <UnitConverterScreen onBack={navigateHome} />, // 🆕
+    morse: <MorseScreen onBack={navigateHome} />, // 🆕
     timer: null,
   };
 
