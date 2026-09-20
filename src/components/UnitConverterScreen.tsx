@@ -54,14 +54,10 @@ interface Category {
 
 type LevelId = 'easy' | 'medium' | 'hard';
 
-// ===== Вспомогательные функции =====
-
 const lin = (k: number) => ({
   toBase: (v: number) => v * k,
   fromBase: (v: number) => v / k,
 });
-
-// ===== Категории и единицы =====
 
 const CATEGORIES: Category[] = [
   {
@@ -273,8 +269,6 @@ const SCENARIO_ITEMS = [
   { icon: '🧮', title: 'Подготовка к экзамену', description: 'Генератор заданий: 10 переводов между единицами СИ и британской системы. Распечатайте вариант для самостоятельной работы.' },
 ];
 
-// ===== Форматирование =====
-
 function formatNumber(v: number): string {
   if (!isFinite(v)) return '—';
   const abs = Math.abs(v);
@@ -293,8 +287,6 @@ function pickDefaultUnit(cat: Category): string {
   };
   return defaults[cat.id];
 }
-
-// ===== Canvas-помощник =====
 
 function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
   const words = text.split(/\s+/);
@@ -316,7 +308,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
   const [fromUnit, setFromUnit] = useState<string>('m');
   const [copied, setCopied] = useState<string | null>(null);
 
-  // Генератор заданий
   const [genCat, setGenCat] = useState<CategoryId>('length');
   const [genFrom, setGenFrom] = useState<string>('m');
   const [genTo, setGenTo] = useState<string>('cm');
@@ -366,7 +357,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
     triggerHaptic('light');
   };
 
-  // ===== Скачивание таблицы (PNG) =====
   const downloadTable = () => {
     if (numericValue === null) return;
     const W = 1200;
@@ -463,7 +453,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
     triggerHaptic('heavy');
   };
 
-  // ===== Генератор заданий =====
   const genCategory = CATEGORIES.find((c) => c.id === genCat)!;
 
   const generateTasks = () => {
@@ -532,7 +521,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      {/* ЕДИНАЯ ШАПКА */}
       <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
@@ -544,7 +532,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
-        {/* ===== Категории ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
             <Ruler className="w-5 h-5 text-purple-600" />
@@ -571,7 +558,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           </div>
         </section>
 
-        {/* ===== Ввод ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
@@ -632,7 +618,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           )}
         </section>
 
-        {/* ===== Результаты (компактный список) ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -695,7 +680,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           )}
         </section>
 
-        {/* ===== О категории ===== */}
         <section className="bg-purple-50 border border-purple-200 rounded-2xl p-4 space-y-2">
           <div className="flex items-center gap-2">
             <Lightbulb className="w-5 h-5 text-purple-600" />
@@ -707,7 +691,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           </div>
         </section>
 
-        {/* ===== Генератор заданий ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-purple-600" />
@@ -804,7 +787,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           )}
         </section>
 
-        {/* ===== FAQ ===== */}
         <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <details>
             <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
@@ -823,7 +805,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           </details>
         </section>
 
-        {/* ===== Сценарии ===== */}
         <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <details>
             <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
@@ -845,7 +826,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           </details>
         </section>
 
-        {/* ===== Справочник ===== */}
         <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <details>
             <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
