@@ -244,7 +244,8 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="bg-indigo-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+      {/* ЕДИНАЯ ШАПКА */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
@@ -255,13 +256,13 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
-        {/* ===== Режим ===== */}
+        {/* ===== Режим и ввод ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="grid grid-cols-2 gap-1.5 bg-gray-100 rounded-xl p-1.5">
             <button
               onClick={() => { setMode('encode'); triggerHaptic('light'); }}
               className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                mode === 'encode' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:bg-white'
+                mode === 'encode' ? 'bg-purple-600 text-white shadow-md' : 'text-gray-600 hover:bg-white'
               }`}
             >
               <ArrowLeftRight className="w-4 h-4" /> Текст → Морзе
@@ -269,7 +270,7 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
             <button
               onClick={() => { setMode('decode'); triggerHaptic('light'); }}
               className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                mode === 'decode' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:bg-white'
+                mode === 'decode' ? 'bg-purple-600 text-white shadow-md' : 'text-gray-600 hover:bg-white'
               }`}
             >
               <ArrowLeftRight className="w-4 h-4" /> Морзе → Текст
@@ -283,12 +284,16 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
                 onChange={(e) => setText(e.target.value)}
                 rows={3}
                 placeholder="Введите текст: ПРИВЕТ, SOS, 2024…"
-                className="w-full rounded-xl border-2 border-indigo-200 p-3 text-lg text-center text-gray-900 focus:outline-none focus:border-indigo-500 resize-y"
+                className="w-full rounded-xl border-2 border-purple-200 p-3 text-lg text-center text-gray-900 focus:outline-none focus:border-purple-500 resize-y"
               />
               <div className="flex items-center gap-1.5 flex-wrap justify-center">
                 <span className="text-xs text-gray-500">Примеры:</span>
                 {QUICK_TEXTS.map((t) => (
-                  <button key={t} onClick={() => setText(t)} className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100">
+                  <button
+                    key={t}
+                    onClick={() => setText(t)}
+                    className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 transition-colors"
+                  >
                     {t}
                   </button>
                 ))}
@@ -301,12 +306,16 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
                 onChange={(e) => setMorseInput(e.target.value)}
                 rows={3}
                 placeholder="... --- ...  (пробел между буквами, / между словами)"
-                className="w-full rounded-xl border-2 border-indigo-200 p-3 text-lg text-center font-mono text-gray-900 focus:outline-none focus:border-indigo-500 resize-y"
+                className="w-full rounded-xl border-2 border-purple-200 p-3 text-lg text-center font-mono text-gray-900 focus:outline-none focus:border-purple-500 resize-y"
               />
               <div className="flex items-center gap-1.5 flex-wrap justify-center">
                 <span className="text-xs text-gray-500">Примеры:</span>
                 {QUICK_MORSE.map((m) => (
-                  <button key={m} onClick={() => setMorseInput(m)} className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-mono hover:bg-indigo-100">
+                  <button
+                    key={m}
+                    onClick={() => setMorseInput(m)}
+                    className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 text-xs font-mono hover:bg-purple-100 transition-colors"
+                  >
                     {m.length > 18 ? m.slice(0, 18) + '…' : m}
                   </button>
                 ))}
@@ -318,7 +327,7 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
                       key={a}
                       onClick={() => setAlpha(a)}
                       className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        alpha === a ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-white'
+                        alpha === a ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-white'
                       }`}
                     >
                       {a === 'ru' ? 'Русский' : 'Латиница'}
@@ -333,7 +342,7 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
         {/* ===== Результат ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="font-bold text-indigo-700 text-sm">
+            <h3 className="font-bold text-purple-700 text-base">
               {mode === 'encode' ? 'Код Морзе' : 'Расшифровка'}
             </h3>
             <div className="flex gap-1.5">
@@ -347,25 +356,25 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
           </div>
 
           <div
-            className={`rounded-xl p-4 text-center break-all min-h-[4rem] flex items-center justify-center border-2 ${
-              mode === 'encode' ? 'bg-indigo-50 border-indigo-200 font-mono text-xl text-indigo-900' : 'bg-indigo-50 border-indigo-200 text-xl font-semibold text-indigo-900'
+            className={`rounded-xl p-4 text-center break-all min-h-[4rem] flex items-center justify-center border-2 bg-purple-50 border-purple-200 text-xl text-purple-900 ${
+              mode === 'encode' ? 'font-mono' : 'font-semibold'
             }`}
           >
             {output || '—'}
           </div>
 
           <div className="flex items-center justify-center gap-3 text-xs text-gray-500">
-            <span>Знаков морзе: <b className="text-indigo-700">{morseToPlay.replace(/[\s/]/g, '').length}</b></span>
+            <span>Знаков морзе: <b className="text-purple-700">{morseToPlay.replace(/[\s/]/g, '').length}</b></span>
             <span>·</span>
-            <span>Время звучания: <b className="text-indigo-700">{(totalMs / 1000).toFixed(1)} с</b></span>
+            <span>Время звучания: <b className="text-purple-700">{(totalMs / 1000).toFixed(1)} с</b></span>
           </div>
         </section>
 
         {/* ===== Воспроизведение ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
-            <Volume2 className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-bold text-indigo-700 text-base">Воспроизведение сигнала</h3>
+            <Volume2 className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-700 text-base">Воспроизведение сигнала</h3>
           </div>
 
           <div className="flex items-center justify-center gap-6">
@@ -383,7 +392,7 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
                 onClick={playing ? stopPlayback : playMorse}
                 disabled={!morseToPlay}
                 className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-colors disabled:opacity-40 ${
-                  playing ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                  playing ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'
                 }`}
               >
                 {playing ? <Square className="w-5 h-5" /> : <Play className="w-5 h-5" />}
@@ -399,36 +408,36 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
             <div>
               <div className="flex justify-between text-xs text-gray-600 mb-1">
                 <span className="flex items-center gap-1"><Gauge className="w-3 h-3" /> Скорость</span>
-                <span className="font-mono font-bold text-indigo-700">{wpm} WPM</span>
+                <span className="font-mono font-bold text-purple-700">{wpm} WPM</span>
               </div>
-              <input type="range" min={5} max={30} value={wpm} onChange={(e) => setWpm(Number(e.target.value))} className="w-full accent-indigo-600" />
+              <input type="range" min={5} max={30} value={wpm} onChange={(e) => setWpm(Number(e.target.value))} className="w-full accent-purple-600" />
               <p className="text-[10px] text-gray-400 mt-0.5">Точка = {unit} мс</p>
             </div>
             <div>
               <div className="flex justify-between text-xs text-gray-600 mb-1">
                 <span className="flex items-center gap-1"><Volume2 className="w-3 h-3" /> Тон</span>
-                <span className="font-mono font-bold text-indigo-700">{freq} Гц</span>
+                <span className="font-mono font-bold text-purple-700">{freq} Гц</span>
               </div>
-              <input type="range" min={400} max={1000} step={25} value={freq} onChange={(e) => setFreq(Number(e.target.value))} className="w-full accent-indigo-600" />
+              <input type="range" min={400} max={1000} step={25} value={freq} onChange={(e) => setFreq(Number(e.target.value))} className="w-full accent-purple-600" />
               <p className="text-[10px] text-gray-400 mt-0.5">Стандартный телеграфный тон ≈ 600-700 Гц</p>
             </div>
           </div>
         </section>
 
         {/* ===== Правила тайминга ===== */}
-        <section className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 space-y-2">
+        <section className="bg-purple-50 border border-purple-200 rounded-2xl p-4 space-y-2">
           <div className="flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-bold text-indigo-900 text-sm">Правила тайминга</h3>
+            <Lightbulb className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-900 text-sm">Правила тайминга</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs text-indigo-900">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs text-purple-900">
             <div className="bg-white/80 rounded-lg p-2"><b className="font-mono text-base">•</b><br />точка = 1</div>
             <div className="bg-white/80 rounded-lg p-2"><b className="font-mono text-base">—</b><br />тире = 3</div>
-            <div className="bg-white/80 rounded-lg p-2"><b className="font-mono text-base"></b><br />внутри буквы = 1</div>
+            <div className="bg-white/80 rounded-lg p-2"><b className="font-mono text-base"> </b><br />внутри буквы = 1</div>
             <div className="bg-white/80 rounded-lg p-2"><b className="font-mono text-base">␣</b><br />между буквами = 3</div>
             <div className="bg-white/80 rounded-lg p-2"><b className="font-mono text-base">/</b><br />между словами = 7</div>
           </div>
-          <p className="text-xs text-indigo-800">
+          <p className="text-xs text-purple-800">
             При скорости <b>{wpm} WPM</b> точка длится <b>{unit} мс</b>, тире — <b>{unit * 3} мс</b>, пауза между буквами — <b>{unit * 3} мс</b>.
           </p>
         </section>
@@ -437,21 +446,21 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
         <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <details>
             <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-indigo-600" />
-              <h3 className="font-bold text-indigo-700 text-sm">Таблица кодов</h3>
-              <span className="text-xs font-bold text-indigo-400">{LETTERS.length + DIGITS.length + PUNCT.length}</span>
+              <BookOpen className="w-5 h-5 text-green-600" />
+              <h3 className="font-bold text-purple-700 text-sm">Таблица кодов</h3>
+              <span className="text-xs font-bold text-purple-400">{LETTERS.length + DIGITS.length + PUNCT.length}</span>
             </summary>
             <div className="px-4 pb-4 space-y-3">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
-                    <tr className="bg-indigo-50 text-indigo-800">
-                      <th className="border border-indigo-100 px-2 py-1.5 text-center">Код</th>
-                      <th className="border border-indigo-100 px-2 py-1.5 text-center">Рус</th>
-                      <th className="border border-indigo-100 px-2 py-1.5 text-center">Лат</th>
-                      <th className="border border-indigo-100 px-2 py-1.5 text-center">Код</th>
-                      <th className="border border-indigo-100 px-2 py-1.5 text-center">Рус</th>
-                      <th className="border border-indigo-100 px-2 py-1.5 text-center">Лат</th>
+                    <tr className="bg-purple-50 text-purple-800">
+                      <th className="border border-purple-100 px-2 py-1.5 text-center">Код</th>
+                      <th className="border border-purple-100 px-2 py-1.5 text-center">Рус</th>
+                      <th className="border border-purple-100 px-2 py-1.5 text-center">Лат</th>
+                      <th className="border border-purple-100 px-2 py-1.5 text-center">Код</th>
+                      <th className="border border-purple-100 px-2 py-1.5 text-center">Рус</th>
+                      <th className="border border-purple-100 px-2 py-1.5 text-center">Лат</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -459,7 +468,7 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
                       const a = LETTERS[i];
                       const b = LETTERS[i + Math.ceil(LETTERS.length / 2)];
                       return (
-                        <tr key={i} className="hover:bg-indigo-50/50">
+                        <tr key={i} className="hover:bg-purple-50/50">
                           <td className="border border-gray-100 px-2 py-1 text-center font-mono font-bold">{a[2]}</td>
                           <td className="border border-gray-100 px-2 py-1 text-center">{a[0]}</td>
                           <td className="border border-gray-100 px-2 py-1 text-center text-gray-500">{a[1]}</td>
@@ -469,7 +478,13 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
                               <td className="border border-gray-100 px-2 py-1 text-center">{b[0]}</td>
                               <td className="border border-gray-100 px-2 py-1 text-center text-gray-500">{b[1]}</td>
                             </>
-                          ) : <><td /><td /><td /></>}
+                          ) : (
+                            <>
+                              <td />
+                              <td />
+                              <td />
+                            </>
+                          )}
                         </tr>
                       );
                     })}
@@ -481,7 +496,10 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
                   <h4 className="font-semibold text-xs text-gray-700 mb-2">Цифры</h4>
                   <div className="grid grid-cols-2 gap-1 text-sm">
                     {DIGITS.map(([d, c]) => (
-                      <div key={d} className="flex justify-between font-mono"><span className="font-bold">{d}</span><span>{c}</span></div>
+                      <div key={d} className="flex justify-between font-mono">
+                        <span className="font-bold">{d}</span>
+                        <span>{c}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -489,7 +507,10 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
                   <h4 className="font-semibold text-xs text-gray-700 mb-2">Знаки препинания</h4>
                   <div className="grid grid-cols-2 gap-1 text-sm">
                     {PUNCT.map(([p, c]) => (
-                      <div key={p} className="flex justify-between font-mono"><span className="font-bold">{p}</span><span>{c}</span></div>
+                      <div key={p} className="flex justify-between font-mono">
+                        <span className="font-bold">{p}</span>
+                        <span>{c}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -502,15 +523,15 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
         <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <details>
             <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-indigo-600" />
-              <h3 className="font-bold text-indigo-700 text-sm">Частые вопросы</h3>
-              <span className="text-xs font-bold text-indigo-400">{FAQ_ITEMS.length}</span>
+              <HelpCircle className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700 text-sm">Частые вопросы</h3>
+              <span className="text-xs font-bold text-purple-400">{FAQ_ITEMS.length}</span>
             </summary>
             <div className="px-4 pb-4 space-y-2">
               {FAQ_ITEMS.map((item, idx) => (
-                <details key={idx} className="border border-indigo-100 rounded-xl overflow-hidden">
-                  <summary className="px-4 py-2.5 cursor-pointer hover:bg-indigo-50 font-semibold text-sm text-gray-800">{item.q}</summary>
-                  <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-indigo-50/50 border-t border-indigo-100">{item.a}</div>
+                <details key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <summary className="px-4 py-2.5 cursor-pointer hover:bg-purple-50 font-semibold text-sm text-gray-800">{item.q}</summary>
+                  <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">{item.a}</div>
                 </details>
               ))}
             </div>
@@ -522,12 +543,12 @@ export default function MorseScreen({ onBack }: { onBack: () => void }) {
           <details>
             <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-amber-500" />
-              <h3 className="font-bold text-indigo-700 text-sm">Сценарии использования</h3>
-              <span className="text-xs font-bold text-indigo-400">{SCENARIO_ITEMS.length}</span>
+              <h3 className="font-bold text-purple-700 text-sm">Сценарии использования</h3>
+              <span className="text-xs font-bold text-purple-400">{SCENARIO_ITEMS.length}</span>
             </summary>
             <div className="px-4 pb-4 space-y-2">
               {SCENARIO_ITEMS.map((s, idx) => (
-                <div key={idx} className="border border-indigo-100 rounded-xl p-3 flex gap-3">
+                <div key={idx} className="border border-purple-100 rounded-xl p-3 flex gap-3">
                   <span className="text-3xl shrink-0">{s.icon}</span>
                   <div className="min-w-0">
                     <h4 className="font-bold text-sm text-gray-800 mb-1">{s.title}</h4>
