@@ -4,8 +4,11 @@ import { fileURLToPath, URL } from 'node:url';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  // Изменено на относительный путь './' для совместимости с Cloudflare Pages и VK Mini Apps
-  base: './', 
+  // ВАЖНО ДЛЯ GITHUB PAGES: 
+  // Указываем имя репозитория как базовый путь.
+  // Формат: '/<repo-name>/'
+  base: '/pomoshn-k-uchitelya-vk/', 
+  
   plugins: [react()],
   resolve: {
     alias: {
