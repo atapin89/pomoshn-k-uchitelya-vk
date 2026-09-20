@@ -34,8 +34,8 @@ import TournamentScreen from '@/components/TournamentScreen';
 import CardMakerScreen from '@/components/CardMakerScreen';
 import PosterMakerScreen from '@/components/PosterMakerScreen';
 import NumberSystemsScreen from '@/components/NumberSystemsScreen';
-import UnitConverterScreen from '@/components/UnitConverterScreen'; // 🆕
-import MorseScreen from '@/components/MorseScreen'; // 🆕
+import UnitConverterScreen from '@/components/UnitConverterScreen';
+import MorseScreen from '@/components/MorseScreen';
 import { AuthProvider } from '@/contexts/AuthContext';
 
 type Route =
@@ -66,8 +66,8 @@ type Route =
   | 'cardmaker'
   | 'postermaker'
   | 'numbersystems'
-  | 'unitconverter' // 🆕
-  | 'morse'; // 🆕
+  | 'unitconverter'
+  | 'morse';
 
 export default function App() {
   const [route, setRoute] = useState<Route>('home');
@@ -171,7 +171,7 @@ export default function App() {
     study: studyDeckId ? <StudyScreen deckId={studyDeckId} onBack={() => setRoute('flashcards')} /> : null,
     quiz: quizDeckId ? <QuizScreen deckId={quizDeckId} onBack={() => setRoute('flashcards')} /> : null,
     wordsearch: <WordSearchScreen onBack={navigateHome} />,
-    manual: <ManualScreen onBack={navigateHome} />,
+    manual: <ManualScreen onBack={navigateHome} onNavigate={(r) => setRoute(r as Route)} />,
     calculators: <CalculatorsScreen onBack={navigateHome} />,
     bingo: <BingoGeneratorScreen onBack={navigateHome} />,
     edugame: <EduGameScreen onBack={navigateHome} />,
@@ -190,8 +190,8 @@ export default function App() {
     cardmaker: <CardMakerScreen onBack={navigateHome} />,
     postermaker: <PosterMakerScreen onBack={navigateHome} />,
     numbersystems: <NumberSystemsScreen onBack={navigateHome} />,
-    unitconverter: <UnitConverterScreen onBack={navigateHome} />, // 🆕
-    morse: <MorseScreen onBack={navigateHome} />, // 🆕
+    unitconverter: <UnitConverterScreen onBack={navigateHome} />,
+    morse: <MorseScreen onBack={navigateHome} />,
     timer: null,
   };
 
