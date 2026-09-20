@@ -90,6 +90,14 @@ export default function App() {
       try {
         await bridge.send('VKWebAppInit');
         console.log('✅ VK Bridge initialized');
+
+        // 🆕 Раскрываем окно приложения на максимальную высоту
+        if (bridge.supports('VKWebAppResizeWindow')) {
+          await bridge.send('VKWebAppResizeWindow', {
+            height: window.innerHeight,
+          });
+          console.log('✅ App window resized to max height');
+        }
       } catch (err) {
         console.warn('⚠️ VK Bridge init failed (возможно, вне VK):', err);
       }
@@ -98,6 +106,27 @@ export default function App() {
       setCustomTemplates(loadCustomTemplates());
     };
     void init();
+  }, []);
+
+  // 🆕 Подстраиваем высоту окна при повороте устройства и ресайзе
+  useEffect(() => {
+    if (!bridge.supports('VKWebAppResizeWindow')) return;
+
+    const handleResize = async () => {
+      try {
+        await bridge.send('VKWebAppResizeWindow', {
+          height: window.innerHeight,
+        });
+      } catch {}
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, []);
 
   const navigateHome = useCallback(() => {
