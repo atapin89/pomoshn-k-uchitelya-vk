@@ -2,12 +2,12 @@ name: Deploy to Yandex Cloud Object Storage
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master ] # Ваша основная ветка
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20' 
 
       - name: Install dependencies
         run: npm install
@@ -23,23 +23,36 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # Настраиваем AWS CLI вручную: стиль адресации path обязателен для Yandex Cloud
       - name: Configure AWS CLI for Yandex Cloud
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
         run: |
-          aws configure set aws_access_key_id "${{ secrets.YC_ACCESS_KEY_ID }}"
-          aws configure set aws_secret_access_key "${{ secrets.YC_SECRET_ACCESS_KEY }}"
-          aws configure set default.region ru-central1
-          aws configure set default.s3.addressing_style path
+          pip install awscli
+          # Устанавливаем endpoint Яндекса
+          aws configure set default.s3.endpoint_url https://storage.yandexcloud.net
+          # Используем 'virtual' для совместимости с новыми версиями CLI
+          aws configure set s3.addressing_style virtual
 
-      # Синхронизация без сторонних action — напрямую через aws s3 sync
       - name: Sync dist folder to Bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
+          BUCKET_NAME: ${{ secrets.YC_BUCKET_NAME }}
         run: |
-          echo "Deploying to s3://${{ secrets.YC_BUCKET_NAME }}"
-          aws s3 sync dist/ "s3://${{ secrets.YC_BUCKET_NAME }}/" \
-            --endpoint-url https://storage.yandexcloud.net \
-            --acl public-read \
-            --follow-symlinks \
-            --delete
+          echo "Checking configuration..."
+          
+          if [ -z "$BUCKET_NAME" ]; then
+            echo "::error::Variable BUCKET_NAME is empty! Please check GitHub Secrets -> YC_BUCKET_NAME"
+            exit 1
+          fi
+          
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "::error::Variable AWS_ACCESS_KEY_ID is empty!"
+            exit 1
+          fi
 
-      - name: Done
-        run: echo "✅ Deploy completed"
+          echo "Deploying to s3://${BUCKET_NAME}"
+          
+          # Синхронизация файлов
+          aws s3 sync ./dist s3://${BUCKET_NAME} --delete
