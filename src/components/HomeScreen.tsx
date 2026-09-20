@@ -39,6 +39,7 @@ import { HelpModal } from './HelpModal';
 import { helpTexts } from '@/data/helpTexts';
 import ModernHomeScreen from './ModernHomeScreen';
 import { UserAvatar } from './UserAvatar';
+import WelcomeModal from './WelcomeModal'; // 🆕
 
 // ===== Типы =====
 
@@ -285,6 +286,8 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [activeHelpModal, setActiveHelpModal] = useState<SectionId | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [gearActive, setGearActive] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false); // 🆕
+  const [userName, setUserName] = useState<string | undefined>(); // 🆕
 
   const [gearSeen, setGearSeen] = useState(() => {
     try {
@@ -332,6 +335,17 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // 🆕 Показ приветственного окна при первом входе
+  useEffect(() => {
+    try {
+      const dismissed = localStorage.getItem('welcome-modal-dismissed');
+      if (!dismissed) {
+        const timer = setTimeout(() => setShowWelcomeModal(true), 500);
+        return () => clearTimeout(timer);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     try {
@@ -812,6 +826,13 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         onClose={() => setActiveHelpModal(null)}
         title={getHelpTitle()}
         content={getHelpContent()}
+      />
+
+      {/* 🆕 Приветственное модальное окно */}
+      <WelcomeModal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        userName={userName}
       />
     </div>
   );
