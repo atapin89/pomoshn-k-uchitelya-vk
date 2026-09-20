@@ -1,8 +1,8 @@
-name: Deploy to Yandex Cloud
+name: Deploy to Yandex Cloud Object Storage
 
 on:
   push:
-    branches: [ main ] # Если ваша основная ветка master, замените 'main' на 'master'
+    branches: [ master ] # Ваша основная ветка
 
 jobs:
   deploy:
@@ -41,6 +41,18 @@ jobs:
           BUCKET_NAME: ${{ secrets.YC_BUCKET_NAME }}
         run: |
           echo "Deploying to s3://${BUCKET_NAME}"
+          
+          # Проверка, что секреты не пустые (для отладки)
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "::error::YC_ACCESS_KEY_ID is missing in GitHub Secrets!"
+            exit 1
+          fi
+          
+          if [ -z "$BUCKET_NAME" ]; then
+            echo "::error::YC_BUCKET_NAME is missing in GitHub Secrets!"
+            exit 1
+          fi
+
           # Синхронизируем папку dist с бакетом. 
           # --delete удаляет старые файлы из бакета, которых нет в новой сборке
           aws s3 sync ./dist s3://${BUCKET_NAME} --delete
