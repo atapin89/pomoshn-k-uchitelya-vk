@@ -1,8 +1,8 @@
-name: Deploy to Yandex Cloud Object Storage
+name: Deploy to Yandex Cloud
 
 on:
   push:
-    branches: [ master ] # Ваша основная ветка
+    branches: [ main ] # Если ваша основная ветка master, замените 'main' на 'master'
 
 jobs:
   deploy:
@@ -18,7 +18,7 @@ jobs:
           node-version: '20' 
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build project
         run: npm run build
@@ -31,8 +31,8 @@ jobs:
           pip install awscli
           # Устанавливаем endpoint Яндекса
           aws configure set default.s3.endpoint_url https://storage.yandexcloud.net
-          # Используем 'virtual' для совместимости с новыми версиями CLI
-          aws configure set s3.addressing_style virtual
+          # Важная настройка для совместимости с S3 API Яндекса
+          aws configure set s3.addressing_style virtual-hosted
 
       - name: Sync dist folder to Bucket
         env:
@@ -40,19 +40,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
           BUCKET_NAME: ${{ secrets.YC_BUCKET_NAME }}
         run: |
-          echo "Checking configuration..."
-          
-          if [ -z "$BUCKET_NAME" ]; then
-            echo "::error::Variable BUCKET_NAME is empty! Please check GitHub Secrets -> YC_BUCKET_NAME"
-            exit 1
-          fi
-          
-          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
-            echo "::error::Variable AWS_ACCESS_KEY_ID is empty!"
-            exit 1
-          fi
-
           echo "Deploying to s3://${BUCKET_NAME}"
-          
-          # Синхронизация файлов
+          # Синхронизируем папку dist с бакетом. 
+          # --delete удаляет старые файлы из бакета, которых нет в новой сборке
           aws s3 sync ./dist s3://${BUCKET_NAME} --delete
