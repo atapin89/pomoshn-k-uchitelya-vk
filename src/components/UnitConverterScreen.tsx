@@ -15,7 +15,6 @@ import {
   Layout,
   Thermometer,
   Gauge,
-  Gauge as SpeedIcon,
   Clock,
   Zap,
   Compass,
@@ -36,8 +35,8 @@ interface Unit {
   id: string;
   name: string;
   symbol: string;
-  toBase: (v: number) => number;   // в базовую единицу
-  fromBase: (v: number) => number; // из базовой
+  toBase: (v: number) => number;
+  fromBase: (v: number) => number;
   era?: string;
   note?: string;
 }
@@ -52,6 +51,8 @@ interface Category {
   description: string;
   history: string;
 }
+
+type LevelId = 'easy' | 'medium' | 'hard';
 
 // ===== Вспомогательные функции =====
 
@@ -98,7 +99,7 @@ const CATEGORIES: Category[] = [
   {
     id: 'volume', name: 'Объём', icon: Beaker, baseName: 'литр', baseSymbol: 'л',
     description: 'Метрические и кулинарные единицы объёма',
-    history: 'Литр (1795) — объём куба со стороной 1 дм. С 1964 года точно = 1 куб.дециметру.',
+    history: 'Литр (1795) — объём куба со стороной 1 дм. С 1964 года точно = 1 куб. дециметру.',
     units: [
       { id: 'ml', name: 'миллилитр', symbol: 'мл', ...lin(0.001) },
       { id: 'l', name: 'литр', symbol: 'л', ...lin(1) },
@@ -129,24 +130,9 @@ const CATEGORIES: Category[] = [
     description: 'Три основные температурные шкалы',
     history: 'Цельсий (1742) — 0° = замерзание воды, 100° = кипение. Фаренгейт (1724) — вода кипит при 212°. Кельвин (1848) — абсолютная шкала, 0 K = −273.15 °C.',
     units: [
-      {
-        id: 'c', name: 'Цельсий', symbol: '°C',
-        toBase: (v) => v,
-        fromBase: (v) => v,
-        note: '0° — лёд, 100° — пар',
-      },
-      {
-        id: 'f', name: 'Фаренгейт', symbol: '°F', era: '1724',
-        toBase: (v) => (v - 32) * 5 / 9,
-        fromBase: (v) => v * 9 / 5 + 32,
-        note: '32° — лёд, 212° — пар',
-      },
-      {
-        id: 'k', name: 'Кельвин', symbol: 'K', era: '1848',
-        toBase: (v) => v - 273.15,
-        fromBase: (v) => v + 273.15,
-        note: 'Абсолютный ноль = 0 K',
-      },
+      { id: 'c', name: 'Цельсий', symbol: '°C', toBase: (v) => v, fromBase: (v) => v, note: '0° — лёд, 100° — пар' },
+      { id: 'f', name: 'Фаренгейт', symbol: '°F', era: '1724', toBase: (v) => (v - 32) * 5 / 9, fromBase: (v) => v * 9 / 5 + 32, note: '32° — лёд, 212° — пар' },
+      { id: 'k', name: 'Кельвин', symbol: 'K', era: '1848', toBase: (v) => v - 273.15, fromBase: (v) => v + 273.15, note: 'Абсолютный ноль = 0 K' },
     ],
   },
   {
@@ -164,7 +150,7 @@ const CATEGORIES: Category[] = [
     ],
   },
   {
-    id: 'speed', name: 'Скорость', icon: SpeedIcon, baseName: 'метр/сек', baseSymbol: 'м/с',
+    id: 'speed', name: 'Скорость', icon: Gauge, baseName: 'метр/сек', baseSymbol: 'м/с',
     description: 'Транспорт, физика, навигация',
     history: 'Узел = 1 морская миля в час. Название — от лага: верёвка с узлами разматывалась с корабля, узлы считали песочными часами.',
     units: [
@@ -261,6 +247,12 @@ const QUICK_VALUES: Record<CategoryId, number[]> = {
   cooking: [10, 25, 130, 200, 1000],
 };
 
+const LEVELS: { id: LevelId; label: string; min: number; max: number }[] = [
+  { id: 'easy', label: 'Лёгкий', min: 1, max: 100 },
+  { id: 'medium', label: 'Средний', min: 1, max: 1000 },
+  { id: 'hard', label: 'Сложный', min: 1, max: 10000 },
+];
+
 const FAQ_ITEMS = [
   { q: 'Почему в килобайте 1024 байта, а не 1000?', a: 'Компьютеры работают в двоичной системе: 2¹⁰ = 1024. Для ясности в 1998 году ввели приставки Киби (KiB = 1024 Б), Меби (MiB = 1024² Б), но в обиходе «килобайт» по-прежнему = 1024 байта.' },
   { q: 'Почему в миле 5280 футов, а не круглое число?', a: 'Английская миля (1593) = 8 фарлонгов, фарлонг = 10 чейнов, чейн = 66 футов (длина геодезической цепи Гунтера). 8×10×66 = 5280.' },
@@ -294,7 +286,6 @@ function formatNumber(v: number): string {
 }
 
 function pickDefaultUnit(cat: Category): string {
-  // Самая «употребительная» единица категории
   const defaults: Record<CategoryId, string> = {
     length: 'm', mass: 'kg', volume: 'l', area: 'm2',
     temperature: 'c', pressure: 'atm', speed: 'kmh', time: 'h',
@@ -302,15 +293,6 @@ function pickDefaultUnit(cat: Category): string {
   };
   return defaults[cat.id];
 }
-
-// ===== Генератор заданий =====
-
-type LevelId = 'easy' | 'medium' | 'hard';
-const LEVELS: { id: LevelId; label: string; min: number; max: number }[] = [
-  { id: 'easy', label: 'Лёгкий', min: 1, max: 100 },
-  { id: 'medium', label: 'Средний', min: 1, max: 1000 },
-  { id: 'hard', label: 'Сложный', min: 1, max: 10000 },
-];
 
 // ===== Canvas-помощник =====
 
@@ -345,7 +327,6 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
 
   const category = CATEGORIES.find((c) => c.id === catId)!;
 
-  // При смене категории — сбрасываем единицу на дефолтную
   const handleCatChange = (id: CategoryId) => {
     const cat = CATEGORIES.find((c) => c.id === id)!;
     setCatId(id);
@@ -370,10 +351,10 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
     }));
   }, [numericValue, fromUnit, category]);
 
-  const handleCopy = async (text: string, id: string) => {
+  const handleCopy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(id);
+      setCopied(text);
       setTimeout(() => setCopied(null), 1500);
       triggerHaptic('light');
     } catch {}
@@ -385,7 +366,7 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
     triggerHaptic('light');
   };
 
-  // ===== Скачивание таблицы =====
+  // ===== Скачивание таблицы (PNG) =====
   const downloadTable = () => {
     if (numericValue === null) return;
     const W = 1200;
@@ -403,8 +384,8 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
     const g = ctx.createLinearGradient(0, 0, W, 0);
-    g.addColorStop(0, '#2563eb');
-    g.addColorStop(1, '#9333ea');
+    g.addColorStop(0, '#7c3aed');
+    g.addColorStop(1, '#a855f7');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, headerH);
 
@@ -419,13 +400,13 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.fillText('Помощник учителя · конвертер величин', W / 2, 165);
 
-    ctx.fillStyle = '#eff6ff';
+    ctx.fillStyle = '#f5f3ff';
     ctx.fillRect(0, headerH, W, descH);
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#1e40af';
+    ctx.fillStyle = '#5b21b6';
     ctx.font = 'bold 20px Arial';
     ctx.fillText('О категории:', 40, headerH + 32);
-    ctx.fillStyle = '#1e3a8a';
+    ctx.fillStyle = '#4c1d95';
     ctx.font = '18px Arial';
     wrapCanvasText(ctx, category.description, W - 80).slice(0, 2).forEach((line, i) => {
       ctx.fillText(line, 40, headerH + 58 + i * 22);
@@ -457,7 +438,7 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
       ctx.font = 'bold 26px monospace';
       ctx.fillText(c.unit.symbol, 380, y + 42);
       ctx.fillStyle = c.isFrom ? '#7c3aed' : '#111827';
-      ctx.font = `bold 28px monospace`;
+      ctx.font = 'bold 28px monospace';
       const val = formatNumber(c.value);
       ctx.fillText(val.length > 22 ? val.slice(0, 22) + '…' : val, 580, y + 42);
       if (c.unit.note) {
@@ -494,12 +475,11 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
     let guard = 0;
     while (result.length < genCount && guard < 500) {
       let n = level.min + Math.floor(Math.random() * (level.max - level.min + 1));
-      if (genCat === 'temperature') n = level.min + Math.floor(Math.random() * (level.max - level.min + 1)) * (Math.random() < 0.3 ? -1 : 1);
+      if (genCat === 'temperature') n = (level.min + Math.floor(Math.random() * (level.max - level.min + 1))) * (Math.random() < 0.3 ? -1 : 1);
       if (!seen.has(n)) {
         seen.add(n);
         const base = from.toBase(n);
-        const ans = formatNumber(to.fromBase(base));
-        result.push({ n, ans });
+        result.push({ n, ans: formatNumber(to.fromBase(base)) });
       }
       guard++;
     }
@@ -552,7 +532,8 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
 
   return (
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
-      <header className="bg-blue-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
+      {/* ЕДИНАЯ ШАПКА */}
+      <header className="bg-purple-700 shadow-md sticky top-0 z-10 pt-[env(safe-area-inset-top)]">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <BackButton onClick={onBack} variant="light" />
           <div className="flex-1 min-w-0">
@@ -563,9 +544,12 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
       </header>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-4 space-y-4 pb-8">
-        {/* ===== Выбор категории ===== */}
-        <section className="bg-white rounded-2xl p-4 shadow-sm">
-          <label className="text-sm font-bold text-blue-700 mb-2 block">Категория</label>
+        {/* ===== Категории ===== */}
+        <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="flex items-center gap-2">
+            <Ruler className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-700 text-base">Категория</h3>
+          </div>
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5">
             {CATEGORIES.map((cat) => {
               const Icon = cat.icon;
@@ -575,8 +559,8 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
                   onClick={() => handleCatChange(cat.id)}
                   className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl text-xs font-semibold transition-all ${
                     catId === cat.id
-                      ? 'bg-blue-600 text-white shadow-md scale-105'
-                      : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      ? 'bg-purple-600 text-white shadow-md scale-105'
+                      : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -590,19 +574,16 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
         {/* ===== Ввод ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2 flex-wrap">
-              <label className="text-sm font-bold text-blue-700">Значение</label>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-purple-700 text-base">Значение</h3>
               <span className="text-xs text-gray-500">{category.description}</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               {QUICK_VALUES[catId].map((v) => (
                 <button
                   key={v}
-                  onClick={() => {
-                    setFromUnit(pickDefaultUnit(category));
-                    setInputValue(String(v));
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100"
+                  onClick={() => { setFromUnit(pickDefaultUnit(category)); setInputValue(String(v)); }}
+                  className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 transition-colors"
                 >
                   {v}
                 </button>
@@ -617,12 +598,12 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Введите число"
-              className="flex-1 rounded-xl border-2 border-blue-200 p-3 text-2xl font-mono text-center text-gray-900 focus:outline-none focus:border-blue-500 tracking-wide"
+              className="flex-1 rounded-xl border-2 border-purple-200 p-3 text-2xl font-mono text-center text-gray-900 focus:outline-none focus:border-purple-500 tracking-wide"
             />
             <select
               value={fromUnit}
               onChange={(e) => setFromUnit(e.target.value)}
-              className="rounded-xl border-2 border-blue-200 px-3 py-3 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[140px]"
+              className="rounded-xl border-2 border-purple-200 px-3 py-3 text-sm font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 min-w-[140px]"
             >
               {category.units.map((u) => (
                 <option key={u.id} value={u.id}>{u.symbol} — {u.name}</option>
@@ -637,13 +618,13 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           )}
 
           {numericValue !== null && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-sm text-blue-800">
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-sm text-purple-800">
                 <b className="text-lg font-mono">{formatNumber(numericValue)}</b> {category.units.find((u) => u.id === fromUnit)?.symbol}
               </span>
               <button
                 onClick={downloadTable}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold transition-colors"
               >
                 <Download className="w-3.5 h-3.5" /> Скачать таблицу
               </button>
@@ -654,7 +635,7 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
         {/* ===== Результаты ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-blue-700 text-base">Во всех единицах</h3>
+            <h3 className="font-bold text-purple-700 text-base">Во всех единицах</h3>
             <span className="text-xs text-gray-400">({category.units.length})</span>
           </div>
 
@@ -666,12 +647,12 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
                 <div
                   key={c.unit.id}
                   className={`border-2 rounded-xl p-3 transition-all ${
-                    c.isFrom ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-200'
+                    c.isFrom ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-purple-200'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-lg font-mono font-bold text-blue-700">{c.unit.symbol}</span>
+                      <span className="text-lg font-mono font-bold text-purple-700">{c.unit.symbol}</span>
                       <div className="min-w-0">
                         <div className="text-sm font-bold text-gray-900 truncate">{c.unit.name}</div>
                         {c.unit.note && <div className="text-[10px] text-gray-500 truncate">{c.unit.note}</div>}
@@ -679,11 +660,11 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button
-                        onClick={() => handleCopy(formatNumber(c.value), c.unit.id)}
+                        onClick={() => handleCopy(formatNumber(c.value))}
                         className="p-1.5 rounded-lg hover:bg-white transition-colors"
                         aria-label="Копировать"
                       >
-                        {copied === c.unit.id ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5 text-gray-400" />}
+                        {copied === formatNumber(c.value) ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5 text-gray-400" />}
                       </button>
                       {!c.isFrom && (
                         <button
@@ -707,14 +688,14 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           )}
         </section>
 
-        {/* ===== Пояснения ===== */}
-        <section className="bg-blue-50 border border-blue-200 rounded-2xl p-4 space-y-3">
+        {/* ===== О категории ===== */}
+        <section className="bg-purple-50 border border-purple-200 rounded-2xl p-4 space-y-2">
           <div className="flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 text-blue-600" />
-            <h3 className="font-bold text-blue-900 text-sm">О категории</h3>
+            <Lightbulb className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-900 text-sm">О категории</h3>
           </div>
-          <p className="text-sm text-blue-900 leading-relaxed">{category.history}</p>
-          <div className="bg-white/70 rounded-lg p-2.5 text-xs text-blue-800">
+          <p className="text-sm text-purple-900 leading-relaxed">{category.history}</p>
+          <div className="bg-white/70 rounded-lg p-2.5 text-xs text-purple-800">
             <b>Базовая единица:</b> {category.baseName} ({category.baseSymbol}). Все переводы идут через неё как через общий знаменатель.
           </div>
         </section>
@@ -722,8 +703,8 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
         {/* ===== Генератор заданий ===== */}
         <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600" />
-            <h3 className="font-bold text-blue-700 text-base">Генератор заданий</h3>
+            <FileText className="w-5 h-5 text-purple-600" />
+            <h3 className="font-bold text-purple-700 text-base">Генератор заданий</h3>
           </div>
 
           <div>
@@ -737,7 +718,7 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
                 setGenFrom(pickDefaultUnit(cat));
                 setGenTo(cat.units[1]?.id || pickDefaultUnit(cat));
               }}
-              className="w-full rounded-lg border border-gray-200 p-2 text-sm bg-white"
+              className="w-full rounded-lg border border-gray-200 p-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
             >
               {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -746,13 +727,13 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs text-gray-600">
               <span className="block mb-1 font-semibold">Из:</span>
-              <select value={genFrom} onChange={(e) => setGenFrom(e.target.value)} className="w-full rounded-lg border border-gray-200 p-2 text-sm bg-white">
+              <select value={genFrom} onChange={(e) => setGenFrom(e.target.value)} className="w-full rounded-lg border border-gray-200 p-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400">
                 {genCategory.units.map((u) => <option key={u.id} value={u.id}>{u.symbol} {u.name}</option>)}
               </select>
             </label>
             <label className="text-xs text-gray-600">
               <span className="block mb-1 font-semibold">В:</span>
-              <select value={genTo} onChange={(e) => setGenTo(e.target.value)} className="w-full rounded-lg border border-gray-200 p-2 text-sm bg-white">
+              <select value={genTo} onChange={(e) => setGenTo(e.target.value)} className="w-full rounded-lg border border-gray-200 p-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400">
                 {genCategory.units.map((u) => <option key={u.id} value={u.id}>{u.symbol} {u.name}</option>)}
               </select>
             </label>
@@ -764,7 +745,7 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
                 key={l.id}
                 onClick={() => setGenLevel(l.id)}
                 className={`py-2 rounded-lg text-xs font-semibold transition-colors ${
-                  genLevel === l.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-blue-50'
+                  genLevel === l.id ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-purple-50'
                 }`}
               >
                 {l.label}
@@ -775,27 +756,27 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           <div>
             <div className="flex justify-between text-xs text-gray-600 mb-1">
               <span>Количество заданий</span>
-              <span className="font-mono font-bold text-blue-700">{genCount}</span>
+              <span className="font-mono font-bold text-purple-700">{genCount}</span>
             </div>
-            <input type="range" min={5} max={30} value={genCount} onChange={(e) => setGenCount(Number(e.target.value))} className="w-full accent-blue-600" />
+            <input type="range" min={5} max={30} value={genCount} onChange={(e) => setGenCount(Number(e.target.value))} className="w-full accent-purple-600" />
           </div>
 
           <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" checked={genAnswers} onChange={(e) => setGenAnswers(e.target.checked)} className="w-4 h-4 accent-blue-600" />
+            <input type="checkbox" checked={genAnswers} onChange={(e) => setGenAnswers(e.target.checked)} className="w-4 h-4 accent-purple-600" />
             Добавить страницу с ответами
           </label>
 
           <div className="flex gap-2">
             <button
               onClick={generateTasks}
-              className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
             >
               <RefreshCw className="w-4 h-4" /> Сгенерировать
             </button>
             <button
               onClick={downloadTasks}
               disabled={!tasks || !tasks.length}
-              className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white text-sm font-semibold flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
             >
               <Download className="w-4 h-4" /> Скачать вариант
             </button>
@@ -820,15 +801,15 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
         <section className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <details>
             <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-blue-600" />
-              <h3 className="font-bold text-blue-700 text-sm">Частые вопросы</h3>
-              <span className="text-xs font-bold text-blue-400">{FAQ_ITEMS.length}</span>
+              <HelpCircle className="w-5 h-5 text-purple-600" />
+              <h3 className="font-bold text-purple-700 text-sm">Частые вопросы</h3>
+              <span className="text-xs font-bold text-purple-400">{FAQ_ITEMS.length}</span>
             </summary>
             <div className="px-4 pb-4 space-y-2">
               {FAQ_ITEMS.map((item, idx) => (
-                <details key={idx} className="border border-blue-100 rounded-xl overflow-hidden">
-                  <summary className="px-4 py-2.5 cursor-pointer hover:bg-blue-50 font-semibold text-sm text-gray-800">{item.q}</summary>
-                  <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-blue-50/50 border-t border-blue-100">{item.a}</div>
+                <details key={idx} className="border border-purple-100 rounded-xl overflow-hidden">
+                  <summary className="px-4 py-2.5 cursor-pointer hover:bg-purple-50 font-semibold text-sm text-gray-800">{item.q}</summary>
+                  <div className="px-4 pb-3 pt-1 text-sm text-gray-600 bg-purple-50/50 border-t border-purple-100">{item.a}</div>
                 </details>
               ))}
             </div>
@@ -840,12 +821,12 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           <details>
             <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-amber-500" />
-              <h3 className="font-bold text-blue-700 text-sm">Сценарии использования</h3>
-              <span className="text-xs font-bold text-blue-400">{SCENARIO_ITEMS.length}</span>
+              <h3 className="font-bold text-purple-700 text-sm">Сценарии использования</h3>
+              <span className="text-xs font-bold text-purple-400">{SCENARIO_ITEMS.length}</span>
             </summary>
             <div className="px-4 pb-4 space-y-2">
               {SCENARIO_ITEMS.map((s, idx) => (
-                <div key={idx} className="border border-blue-100 rounded-xl p-3 flex gap-3">
+                <div key={idx} className="border border-purple-100 rounded-xl p-3 flex gap-3">
                   <span className="text-3xl shrink-0">{s.icon}</span>
                   <div className="min-w-0">
                     <h4 className="font-bold text-sm text-gray-800 mb-1">{s.title}</h4>
@@ -862,8 +843,8 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
           <details>
             <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-green-600" />
-              <h3 className="font-bold text-blue-700 text-sm">Справочник по всем категориям</h3>
-              <span className="text-xs font-bold text-blue-400">{CATEGORIES.length}</span>
+              <h3 className="font-bold text-purple-700 text-sm">Справочник по всем категориям</h3>
+              <span className="text-xs font-bold text-purple-400">{CATEGORIES.length}</span>
             </summary>
             <div className="px-4 pb-4 space-y-2">
               {CATEGORIES.map((cat) => {
@@ -871,7 +852,7 @@ export default function UnitConverterScreen({ onBack }: { onBack: () => void }) 
                 return (
                   <details key={cat.id} className="border border-gray-200 rounded-xl overflow-hidden">
                     <summary className="px-4 py-2.5 cursor-pointer hover:bg-gray-50 flex items-center gap-2">
-                      <Icon className="w-4 h-4 text-blue-600" />
+                      <Icon className="w-4 h-4 text-purple-600" />
                       <span className="font-semibold text-sm text-gray-800">{cat.name}</span>
                       <span className="text-[10px] text-gray-400 ml-auto">{cat.units.length} ед.</span>
                     </summary>
