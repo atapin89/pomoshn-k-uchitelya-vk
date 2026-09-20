@@ -7,7 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' 
+          node-version: '20'
 
       - name: Install dependencies
         run: npm install
@@ -23,15 +23,23 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # Используем специализированный action для загрузки в S3-хранилище
-      # jakejarvis/s3-sync-action поддерживает кастомные endpoints (Яндекс)
+      # Настраиваем AWS CLI вручную: стиль адресации path обязателен для Yandex Cloud
+      - name: Configure AWS CLI for Yandex Cloud
+        run: |
+          aws configure set aws_access_key_id "${{ secrets.YC_ACCESS_KEY_ID }}"
+          aws configure set aws_secret_access_key "${{ secrets.YC_SECRET_ACCESS_KEY }}"
+          aws configure set default.region ru-central1
+          aws configure set default.s3.addressing_style path
+
+      # Синхронизация без сторонних action — напрямую через aws s3 sync
       - name: Sync dist folder to Bucket
-        uses: jakejarvis/s3-sync-action@master
-        with:
-          args: --acl public-read --follow-symlinks --delete
-        env:
-          AWS_S3_ENDPOINT: https://storage.yandexcloud.net
-          AWS_S3_BUCKET: ${{ secrets.YC_BUCKET_NAME }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
-          AWS_REGION: ru-central1 # Регион вашего бакета
+        run: |
+          echo "Deploying to s3://${{ secrets.YC_BUCKET_NAME }}"
+          aws s3 sync dist/ "s3://${{ secrets.YC_BUCKET_NAME }}/" \
+            --endpoint-url https://storage.yandexcloud.net \
+            --acl public-read \
+            --follow-symlinks \
+            --delete
+
+      - name: Done
+        run: echo "✅ Deploy completed"
