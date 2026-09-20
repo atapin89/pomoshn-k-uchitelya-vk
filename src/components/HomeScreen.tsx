@@ -32,6 +32,7 @@ import {
   Contact,
   Binary,
   Ruler,
+  Radio,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -51,6 +52,7 @@ type SectionId =
   | 'postermaker'
   | 'numbersystems'
   | 'unitconverter'
+  | 'morse'
   | 'manual'
   | 'calculators'
   | 'bingo'
@@ -161,6 +163,13 @@ const SECTIONS: Section[] = [
     description: '12 категорий',
     hint: 'Конвертер величин: 12 категорий (длина, масса, объём, площадь, температура, давление, скорость, время, энергия, углы, данные, кухня) с мгновенным переводом во все единицы. Скачивание таблицы, генератор заданий с вариантами для печати.',
     icon: Ruler,
+  },
+  {
+    id: 'morse',
+    title: 'Азбука Морзе',
+    description: 'Кодирование и сигнал',
+    hint: 'Кодирование текста в азбуку Морзе и обратно (русский и латинский алфавиты, цифры, знаки). Звуковое воспроизведение с сигнальной лампой, регулировка скорости (5-30 WPM) и тона, таблица кодов, правила тайминга, скачивание результата. FAQ и сценарии для уроков.',
+    icon: Radio,
   },
   {
     id: 'calculators',
