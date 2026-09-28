@@ -39,7 +39,7 @@ import { HelpModal } from './HelpModal';
 import { helpTexts } from '@/data/helpTexts';
 import ModernHomeScreen from './ModernHomeScreen';
 import { UserAvatar } from './UserAvatar';
-import WelcomeModal from './WelcomeModal'; // 🆕
+import WelcomeModal from './WelcomeModal';
 
 // ===== Типы =====
 
@@ -286,8 +286,8 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [activeHelpModal, setActiveHelpModal] = useState<SectionId | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [gearActive, setGearActive] = useState(false);
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false); // 🆕
-  const [userName, setUserName] = useState<string | undefined>(); // 🆕
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [userName, setUserName] = useState<string | undefined>();
 
   const [gearSeen, setGearSeen] = useState(() => {
     try {
@@ -336,7 +336,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  // 🆕 Показ приветственного окна при первом входе
   useEffect(() => {
     try {
       const dismissed = localStorage.getItem('welcome-modal-dismissed');
@@ -570,8 +569,8 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </a>
           </div>
 
-          {/* Правая колонка: аватар пользователя */}
-          <div className="shrink-0 flex flex-col items-center gap-2">
+          {/* Правая колонка: аватар пользователя (опущен ниже системных кнопок ВК) */}
+          <div className="shrink-0 flex flex-col items-center gap-2 pt-9">
             <UserAvatar />
           </div>
         </div>
@@ -828,7 +827,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
         content={getHelpContent()}
       />
 
-      {/* 🆕 Приветственное модальное окно */}
       <WelcomeModal
         isOpen={showWelcomeModal}
         onClose={() => setShowWelcomeModal(false)}
