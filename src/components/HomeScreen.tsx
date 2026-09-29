@@ -33,6 +33,7 @@ import {
   Binary,
   Ruler,
   Radio,
+  ClipboardList, // 🆕
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -45,6 +46,7 @@ import WelcomeModal from './WelcomeModal';
 
 type SectionId =
   | 'timer'
+  | 'lessonboard' // 🆕
   | 'generator'
   | 'noise'
   | 'flashcards'
@@ -101,6 +103,13 @@ const SECTIONS: Section[] = [
     description: 'Шаблоны и этапы',
     hint: 'Шаблоны урока с этапами: разминка, объяснение, практика, закрепление. Готовые сценарии + свой.',
     icon: Clock,
+  },
+  {
+    id: 'lessonboard', // 🆕
+    title: 'Сегодня на уроке',
+    description: 'Доска, план и QR',
+    hint: 'Электронная доска урока: дата, тема, план и домашнее задание в настраиваемых полях (добавление, удаление, переименование, порядок). QR-код с текстовой заметкой для сканирования в конце урока, режим проектора с крупным текстом, скачивание доски в PNG, копирование заметки для чата класса.',
+    icon: ClipboardList,
   },
   {
     id: 'pomodoro',
