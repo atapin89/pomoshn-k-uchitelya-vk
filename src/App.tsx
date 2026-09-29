@@ -91,7 +91,6 @@ export default function App() {
         await bridge.send('VKWebAppInit');
         console.log('✅ VK Bridge initialized');
 
-        // 🆕 Раскрываем окно приложения на максимальную высоту
         if (bridge.supports('VKWebAppResizeWindow')) {
           await bridge.send('VKWebAppResizeWindow', {
             height: window.innerHeight,
@@ -108,7 +107,6 @@ export default function App() {
     void init();
   }, []);
 
-  // 🆕 Подстраиваем высоту окна при повороте устройства и ресайзе
   useEffect(() => {
     if (!bridge.supports('VKWebAppResizeWindow')) return;
 
@@ -129,11 +127,43 @@ export default function App() {
     };
   }, []);
 
+  // 🆕 Обработка системной кнопки "Назад" на мобильных устройствах
+  useEffect(() => {
+    const handlePopState = () => {
+      // Если мы не на главной странице — возвращаемся на неё
+      if (route !== 'home') {
+        setRoute('home');
+        setActiveTemplate(null);
+        setStudyDeckId(null);
+        setQuizDeckId(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [route]);
+
+  // 🆕 Добавляем запись в историю при навигации на экран инструмента
+  useEffect(() => {
+    if (route !== 'home') {
+      // Добавляем запись в историю, чтобы кнопка "Назад" работала
+      window.history.pushState({ route }, '', `#${route}`);
+    } else {
+      // Если вернулись на главную — очищаем историю
+      window.history.replaceState({ route: 'home' }, '', window.location.pathname);
+    }
+  }, [route]);
+
   const navigateHome = useCallback(() => {
     setStudyDeckId(null);
     setQuizDeckId(null);
     setActiveTemplate(null);
     setRoute('home');
+    // Очищаем историю при ручном возврате на главную
+    window.history.replaceState({ route: 'home' }, '', window.location.pathname);
   }, []);
 
   const handleSaveCustom = (template: LessonTemplate) => {
