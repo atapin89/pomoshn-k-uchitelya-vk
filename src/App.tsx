@@ -26,6 +26,7 @@ import EquipmentScreen from '@/components/EquipmentScreen';
 import TeleprompterScreen from '@/components/TeleprompterScreen';
 import WordCloudScreen from '@/components/WordCloudScreen';
 import GraphDictationScreen from '@/components/GraphDictationScreen';
+import LessonBoardScreen from '@/components/LessonBoardScreen'; // 🆕
 import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 import QRCodeScreen from '@/components/QRCodeScreen';
 import BibliographyScreen from '@/components/BibliographyScreen';
@@ -59,6 +60,7 @@ type Route =
   | 'wordcloud'
   | 'graphdictation'
   | 'lifebalance'
+  | 'lessonboard' // 🆕
   | 'qrcode'
   | 'bibliography'
   | 'visualschedule'
@@ -127,7 +129,7 @@ export default function App() {
     };
   }, []);
 
-  // 🆕 Обработка системной кнопки "Назад" на мобильных устройствах
+  // Обработка системной кнопки "Назад" на мобильных устройствах
   useEffect(() => {
     const handlePopState = () => {
       // Если мы не на главной странице — возвращаемся на неё
@@ -146,7 +148,7 @@ export default function App() {
     };
   }, [route]);
 
-  // 🆕 Добавляем запись в историю при навигации на экран инструмента
+  // Добавляем запись в историю при навигации на экран инструмента
   useEffect(() => {
     if (route !== 'home') {
       // Добавляем запись в историю, чтобы кнопка "Назад" работала
@@ -242,6 +244,7 @@ export default function App() {
     wordcloud: <WordCloudScreen onBack={navigateHome} />,
     graphdictation: <GraphDictationScreen onBack={navigateHome} />,
     lifebalance: <LifeBalanceScreen onBack={navigateHome} />,
+    lessonboard: <LessonBoardScreen onBack={navigateHome} />, // 🆕
     qrcode: <QRCodeScreen onBack={navigateHome} />,
     bibliography: <BibliographyScreen onBack={navigateHome} />,
     visualschedule: <VisualScheduleScreen onBack={navigateHome} />,
