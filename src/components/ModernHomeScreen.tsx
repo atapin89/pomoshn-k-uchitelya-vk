@@ -445,15 +445,28 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
     <div className="min-h-[100dvh] bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 flex flex-col">
       {/* Шапка */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200/60 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
-                {getGreeting()}
-              </h1>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-2">
+          {/* Приветствие */}
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">
+            {getGreeting()}
+          </h1>
+
+          {/* Поиск + кнопки в одну строку */}
+          <div className="flex items-center gap-2">
+            {/* Поиск */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Поиск..."
+                className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 focus:border-purple-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-100 transition-all text-sm"
+              />
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 pt-9">
+            {/* Кнопки и аватар */}
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setShowSettings(true)}
                 className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
@@ -469,18 +482,6 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
               </button>
               <UserAvatar size="sm" />
             </div>
-          </div>
-
-          {/* Поиск */}
-          <div className="mt-3 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 focus:border-purple-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-100 transition-all text-sm"
-            />
           </div>
         </div>
       </header>
