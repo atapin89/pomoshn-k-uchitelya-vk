@@ -6,8 +6,6 @@ import {
   RotateCcw,
   Plus,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   Drum,
   Focus,
@@ -15,6 +13,8 @@ import {
   Trophy,
   Lightbulb,
   Zap,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import BackButton from './BackButton';
 import { triggerHaptic } from '@/lib/haptic';
@@ -145,7 +145,6 @@ const SCENARIO_ITEMS = [
 // ===== Генерация координат точки по траектории =====
 
 function getPointOnTrajectory(t: number, traj: Trajectory): { x: number; y: number } {
-  // t в диапазоне [0, 1] — нормализованное время
   switch (traj) {
     case 'circle': {
       const angle = t * 2 * Math.PI;
@@ -160,33 +159,30 @@ function getPointOnTrajectory(t: number, traj: Trajectory): { x: number; y: numb
       return { x: 50 + 25 * Math.sin(2 * angle), y: 50 + 40 * Math.sin(angle) };
     }
     case 'cross': {
-      // 4 сегмента: верх-низ-лево-право
       const seg = t * 4;
       const i = Math.floor(seg) % 4;
       const p = seg - Math.floor(seg);
       const positions = [
-        { x: 50, y: 15 + p * 70 }, // вниз
-        { x: 15 + p * 70, y: 50 }, // вправо
-        { x: 50, y: 85 - p * 70 }, // вверх
-        { x: 85 - p * 70, y: 50 }, // влево
+        { x: 50, y: 15 + p * 70 },
+        { x: 15 + p * 70, y: 50 },
+        { x: 50, y: 85 - p * 70 },
+        { x: 85 - p * 70, y: 50 },
       ];
       return positions[i];
     }
     case 'square': {
-      // 4 стороны прямоугольника
       const seg = t * 4;
       const i = Math.floor(seg) % 4;
       const p = seg - Math.floor(seg);
       const positions = [
-        { x: 15 + p * 70, y: 15 }, // верх
-        { x: 85, y: 15 + p * 70 }, // право
-        { x: 85 - p * 70, y: 85 }, // низ
-        { x: 15, y: 85 - p * 70 }, // лево
+        { x: 15 + p * 70, y: 15 },
+        { x: 85, y: 15 + p * 70 },
+        { x: 85 - p * 70, y: 85 },
+        { x: 15, y: 85 - p * 70 },
       ];
       return positions[i];
     }
     case 'zigzag': {
-      // диагональ туда-обратно
       const cycle = (t * 4) % 1;
       const dir = Math.floor(t * 4) % 2;
       const y = 15 + cycle * 70;
@@ -196,6 +192,31 @@ function getPointOnTrajectory(t: number, traj: Trajectory): { x: number; y: numb
   }
 }
 
+// 🆕 Генерация SVG-траектории для отрисовки пути
+function getTrajectorySvg(traj: Trajectory): { type: 'path'; d: string } | { type: 'lines'; lines: { x1: number; y1: number; x2: number; y2: number }[] } {
+  // Крест рисуем двумя отдельными линиями через центр
+  if (traj === 'cross') {
+    return {
+      type: 'lines',
+      lines: [
+        { x1: 50, y1: 15, x2: 50, y2: 85 },
+        { x1: 15, y1: 50, x2: 85, y2: 50 },
+      ],
+    };
+  }
+
+  // Для остальных траекторий генерируем путь из 200 точек
+  const parts: string[] = [];
+  const steps = 200;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const p = getPointOnTrajectory(t, traj);
+    parts.push(`${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)},${p.y.toFixed(2)}`);
+  }
+  parts.push('Z'); // замыкаем путь
+  return { type: 'path', d: parts.join(' ') };
+}
+
 // ===== Компонент =====
 
 export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
@@ -203,11 +224,15 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
 
   // ===== Тренажёр для глаз =====
   const [trajectory, setTrajectory] = useState<Trajectory>('circle');
-  const [duration, setDuration] = useState(20); // секунд на полный цикл
+  const [duration, setDuration] = useState(20);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const animRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
+
+  // 🆕 Состояние полноэкранного режима
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const eyeAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -227,7 +252,32 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
     };
   }, [isPlaying, duration]);
 
+  // 🆕 Слушатель изменения полноэкранного режима
+  useEffect(() => {
+    const handler = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  // 🆕 Переключение полноэкранного режима
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await eyeAreaRef.current?.requestFullscreen();
+        triggerHaptic('medium');
+      } else {
+        await document.exitFullscreen();
+        triggerHaptic('light');
+      }
+    } catch (e) {
+      console.warn('Fullscreen API not supported:', e);
+    }
+  };
+
   const pointPos = useMemo(() => getPointOnTrajectory(progress, trajectory), [progress, trajectory]);
+  const trajectorySvg = useMemo(() => getTrajectorySvg(trajectory), [trajectory]);
 
   // ===== Барабан действий =====
   const [sets, setSets] = useState<DrumSet[]>(() => {
@@ -246,7 +296,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     try {
-      // Сохраняем только пользовательские (не дефолтные) наборы
       const custom = sets.filter((s) => !DEFAULT_SETS.find((d) => d.id === s.id));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(custom));
     } catch {}
@@ -259,7 +308,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
     setIsSpinning(true);
     setDrumResult(null);
     triggerHaptic('medium');
-    // Анимация "мигания" разных действий 1.5 сек
     const total = 1500;
     const step = 80;
     let elapsed = 0;
@@ -307,7 +355,7 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
   const [focusTimer, setFocusTimer] = useState(0);
   const [focusPhase, setFocusPhase] = useState<'near' | 'far'>('near');
   const [focusRunning, setFocusRunning] = useState(false);
-  const [focusTotal, setFocusTotal] = useState(120); // 2 минуты
+  const [focusTotal, setFocusTotal] = useState(120);
   const focusIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -324,7 +372,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
           setFocusRunning(false);
           return focusTotal;
         }
-        // каждые 10 сек — смена фазы
         if (next % 10 === 0) {
           setFocusPhase((p) => (p === 'near' ? 'far' : 'near'));
           triggerHaptic('medium');
@@ -385,18 +432,69 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
         {tab === 'eyes' && (
           <>
             <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-purple-600" />
-                <h3 className="font-bold text-purple-700 text-base">Глазодвигательная гимнастика</h3>
+              {/* 🆕 Шапка секции с кнопкой полноэкранного режима */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Eye className="w-5 h-5 text-purple-600 shrink-0" />
+                  <h3 className="font-bold text-purple-700 text-base truncate">Глазодвигательная гимнастика</h3>
+                </div>
+                <button
+                  onClick={toggleFullscreen}
+                  className="p-2 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 transition-colors shrink-0"
+                  title={isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'}
+                  aria-label={isFullscreen ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим'}
+                >
+                  {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
               </div>
               <p className="text-xs text-gray-500">
                 Следите за точкой только глазами, не поворачивая головы. Держите экран на расстоянии 40–60 см.
               </p>
 
               {/* Область движения точки */}
-              <div className="relative bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl border-2 border-purple-100 aspect-square sm:aspect-[4/3] overflow-hidden">
+              <div
+                ref={eyeAreaRef}
+                className="relative bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl border-2 border-purple-100 aspect-square sm:aspect-[4/3] overflow-hidden"
+                style={isFullscreen ? { background: 'linear-gradient(to bottom right, #faf5ff, #eff6ff)' } : undefined}
+              >
+                {/* 🆕 SVG с визуальной траекторией движения */}
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                >
+                  {trajectorySvg.type === 'path' ? (
+                    <path
+                      d={trajectorySvg.d}
+                      fill="none"
+                      stroke="rgba(168, 85, 247, 0.35)"
+                      strokeWidth="0.5"
+                      strokeDasharray="1.5 1"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ) : (
+                    trajectorySvg.lines.map((l, i) => (
+                      <line
+                        key={i}
+                        x1={l.x1}
+                        y1={l.y1}
+                        x2={l.x2}
+                        y2={l.y2}
+                        stroke="rgba(168, 85, 247, 0.35)"
+                        strokeWidth="0.5"
+                        strokeDasharray="1.5 1"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))
+                  )}
+                </svg>
+
+                {/* Пунктирная рамка-ориентир */}
+                <div className="absolute inset-4 border-2 border-dashed border-purple-200 rounded-xl pointer-events-none" />
+
                 {/* Центральная метка */}
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-purple-300" />
+
                 {/* Движущаяся точка */}
                 <div
                   className="absolute w-10 h-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg transition-transform"
@@ -406,8 +504,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                     boxShadow: '0 0 20px rgba(124, 58, 237, 0.6)',
                   }}
                 />
-                {/* Стрелки-подсказки по углам */}
-                <div className="absolute inset-4 border-2 border-dashed border-purple-200 rounded-xl pointer-events-none" />
               </div>
 
               {/* Выбор траектории */}
@@ -483,7 +579,7 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                 <li>Голова неподвижна — двигаются только глаза</li>
                 <li>Расстояние до экрана 40–60 см</li>
                 <li>30–60 секунд на одну траекторию достаточно</li>
-                <li>Выводите на проектор — пусть весь класс следит вместе</li>
+                <li>Выводите на проектор в полноэкранном режиме — пусть весь класс следит вместе</li>
               </ul>
             </section>
           </>
@@ -498,7 +594,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                 <h3 className="font-bold text-purple-700 text-base">Барабан действий</h3>
               </div>
 
-              {/* Выбор набора */}
               <div>
                 <label className="text-xs font-semibold text-gray-600 block mb-2">Набор действий</label>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -521,7 +616,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
 
-              {/* Барабан */}
               <div className="relative bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-6 sm:p-8 min-h-[200px] flex flex-col items-center justify-center">
                 <div className="absolute top-2 left-2 text-amber-400 text-2xl">🎯</div>
                 <div className="absolute top-2 right-2 text-amber-400 text-2xl">🎯</div>
@@ -556,7 +650,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
               </button>
             </section>
 
-            {/* ===== Редактирование набора ===== */}
             <section className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -571,7 +664,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
 
-              {/* Название активного набора */}
               <input
                 value={activeSet.name}
                 onChange={(e) => updateSetName(activeSetId, e.target.value)}
@@ -580,7 +672,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                 className="w-full rounded-lg border-2 border-purple-200 px-3 py-2 text-sm font-semibold text-purple-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:border-purple-500"
               />
 
-              {/* Действия */}
               <div className="space-y-1.5 max-h-64 overflow-y-auto">
                 {activeSet.actions.map((a, idx) => (
                   <div key={idx} className="flex items-center gap-1.5">
@@ -653,7 +744,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                 Тренировка аккомодации: чередование фокуса на ближнем и дальнем объекте.
               </p>
 
-              {/* Визуализация */}
               <div
                 className={`relative rounded-2xl border-2 p-6 sm:p-8 min-h-[240px] flex flex-col items-center justify-center transition-colors ${
                   focusPhase === 'near'
@@ -667,7 +757,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                   Сейчас смотрите
                 </div>
                 <div className="flex items-center gap-6">
-                  {/* Иконка ближнего объекта */}
                   <div className={`flex flex-col items-center gap-2 ${focusPhase === 'near' ? 'scale-110' : 'opacity-40'} transition-all`}>
                     <div className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl ${
                       focusPhase === 'near' ? 'bg-purple-500 shadow-lg' : 'bg-gray-300'
@@ -680,12 +769,10 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                     <span className="text-[10px] text-gray-500">30 см от глаз</span>
                   </div>
 
-                  {/* Таймер текущей фазы */}
                   <div className="text-4xl font-bold text-gray-700 font-mono min-w-[60px] text-center">
                     {10 - (focusTimer % 10)}
                   </div>
 
-                  {/* Иконка дальнего объекта */}
                   <div className={`flex flex-col items-center gap-2 ${focusPhase === 'far' ? 'scale-110' : 'opacity-40'} transition-all`}>
                     <div className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl ${
                       focusPhase === 'far' ? 'bg-blue-500 shadow-lg' : 'bg-gray-300'
@@ -704,7 +791,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
 
-              {/* Длительность сессии */}
               <div>
                 <div className="flex justify-between text-xs text-gray-600 mb-1">
                   <span>Длительность сессии</span>
@@ -724,7 +810,6 @@ export default function FizminutkaScreen({ onBack }: { onBack: () => void }) {
                 />
               </div>
 
-              {/* Управление */}
               <div className="flex gap-2">
                 <button
                   onClick={() => {
