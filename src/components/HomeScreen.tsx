@@ -33,7 +33,8 @@ import {
   Binary,
   Ruler,
   Radio,
-  ClipboardList, // 🆕
+  ClipboardList,
+  Dumbbell, // 🆕
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -46,7 +47,7 @@ import WelcomeModal from './WelcomeModal';
 
 type SectionId =
   | 'timer'
-  | 'lessonboard' // 🆕
+  | 'lessonboard'
   | 'generator'
   | 'noise'
   | 'flashcards'
@@ -61,6 +62,7 @@ type SectionId =
   | 'bingo'
   | 'edugame'
   | 'activity'
+  | 'fizminutka' // 🆕
   | 'pomodoro'
   | 'dice'
   | 'equipment'
@@ -105,7 +107,7 @@ const SECTIONS: Section[] = [
     icon: Clock,
   },
   {
-    id: 'lessonboard', // 🆕
+    id: 'lessonboard',
     title: 'Сегодня на уроке',
     description: 'Доска, план и QR',
     hint: 'Электронная доска урока: дата, тема, план и домашнее задание в настраиваемых полях (добавление, удаление, переименование, порядок). QR-код с текстовой заметкой для сканирования в конце урока, режим проектора с крупным текстом, скачивание доски в PNG, копирование заметки для чата класса.',
@@ -215,6 +217,13 @@ const SECTIONS: Section[] = [
     description: 'Опрос учеников',
     hint: 'Отслеживайте, кого опросили и кто был активен. Счётчик ответов. Сводка в конце урока.',
     icon: Users,
+  },
+  {
+    id: 'fizminutka', // 🆕
+    title: 'Физминутка',
+    description: 'Глаза, тело, фокус',
+    hint: 'Три тренажёра для перерыва на уроке: глазодвигательная гимнастика с 6 траекториями (круг, горизонтальная и вертикальная восьмёрки, крест, периметр, зигзаг) и настраиваемой скоростью; барабан случайных действий с 4 готовыми наборами (активная, спокойная, координация, весёлая) и возможность создавать свои наборы; тренажёр "метка на стекле" для тренировки аккомодации с автоматической сменой фокуса ближний/дальний.',
+    icon: Dumbbell,
   },
   {
     id: 'dice',
