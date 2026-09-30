@@ -26,7 +26,8 @@ import EquipmentScreen from '@/components/EquipmentScreen';
 import TeleprompterScreen from '@/components/TeleprompterScreen';
 import WordCloudScreen from '@/components/WordCloudScreen';
 import GraphDictationScreen from '@/components/GraphDictationScreen';
-import LessonBoardScreen from '@/components/LessonBoardScreen'; // 🆕
+import LessonBoardScreen from '@/components/LessonBoardScreen';
+import FizminutkaScreen from '@/components/FizminutkaScreen'; // 🆕
 import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 import QRCodeScreen from '@/components/QRCodeScreen';
 import BibliographyScreen from '@/components/BibliographyScreen';
@@ -53,6 +54,7 @@ type Route =
   | 'bingo'
   | 'edugame'
   | 'activity'
+  | 'fizminutka' // 🆕
   | 'pomodoro'
   | 'dice'
   | 'equipment'
@@ -60,7 +62,7 @@ type Route =
   | 'wordcloud'
   | 'graphdictation'
   | 'lifebalance'
-  | 'lessonboard' // 🆕
+  | 'lessonboard'
   | 'qrcode'
   | 'bibliography'
   | 'visualschedule'
@@ -237,6 +239,7 @@ export default function App() {
     bingo: <BingoGeneratorScreen onBack={navigateHome} />,
     edugame: <EduGameScreen onBack={navigateHome} />,
     activity: <TapperScreen onBack={navigateHome} />,
+    fizminutka: <FizminutkaScreen onBack={navigateHome} />, // 🆕
     pomodoro: <PomodoroScreen onBack={navigateHome} />,
     dice: <DiceMakerScreen onBack={navigateHome} />,
     equipment: <EquipmentScreen onBack={navigateHome} />,
@@ -244,7 +247,7 @@ export default function App() {
     wordcloud: <WordCloudScreen onBack={navigateHome} />,
     graphdictation: <GraphDictationScreen onBack={navigateHome} />,
     lifebalance: <LifeBalanceScreen onBack={navigateHome} />,
-    lessonboard: <LessonBoardScreen onBack={navigateHome} />, // 🆕
+    lessonboard: <LessonBoardScreen onBack={navigateHome} />,
     qrcode: <QRCodeScreen onBack={navigateHome} />,
     bibliography: <BibliographyScreen onBack={navigateHome} />,
     visualschedule: <VisualScheduleScreen onBack={navigateHome} />,
