@@ -47,4 +47,5 @@ export interface WordSearchResult {
 export interface WordSearchConfig {
   gridSize: number; // 10, 15, 20
   difficulty: 'easy' | 'medium' | 'hard'; // Влияет на доступные направления слов
+  language?: 'ru' | 'en'; // 🆕 Язык филворда (кириллица или латиница)
 }
