@@ -1,9 +1,11 @@
 import type { WordSearchResult, WordSearchConfig, PlacedWord } from '@/types';
 
 const RUSSIAN_ALPHABET = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+const ENGLISH_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-function getRandomLetter(): string {
-  return RUSSIAN_ALPHABET[Math.floor(Math.random() * RUSSIAN_ALPHABET.length)];
+function getRandomLetter(language: 'ru' | 'en' = 'ru'): string {
+  const alphabet = language === 'en' ? ENGLISH_ALPHABET : RUSSIAN_ALPHABET;
+  return alphabet[Math.floor(Math.random() * alphabet.length)];
 }
 
 function getDirections(difficulty: 'easy' | 'medium' | 'hard'): { dr: number; dc: number }[] {
@@ -14,9 +16,14 @@ function getDirections(difficulty: 'easy' | 'medium' | 'hard'): { dr: number; dc
 }
 
 export function generateWordSearch(wordsInput: string, config: WordSearchConfig): WordSearchResult {
+  const language = config.language || 'ru';
+  
+  // Регулярное выражение для фильтрации: принимаем кириллицу или латиницу
+  const filterRegex = language === 'en' ? /[^A-Z]/g : /[^А-ЯЁ]/g;
+  
   const words = wordsInput
     .split('\n')
-    .map(w => w.trim().toUpperCase().replace(/[^А-ЯЁ]/g, ''))
+    .map(w => w.trim().toUpperCase().replace(filterRegex, ''))
     .filter(w => w.length > 1 && w.length <= config.gridSize)
     .sort((a, b) => b.length - a.length); // Сначала размещаем длинные слова
 
@@ -67,11 +74,11 @@ export function generateWordSearch(wordsInput: string, config: WordSearchConfig)
     if (!placed) failedWords.push(word);
   }
 
-  // Заполняем пустые клетки случайными русскими буквами
+  // Заполняем пустые клетки случайными буквами выбранного алфавита
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       if (grid[r][c] === '') {
-        grid[r][c] = getRandomLetter();
+        grid[r][c] = getRandomLetter(language);
       }
     }
   }
