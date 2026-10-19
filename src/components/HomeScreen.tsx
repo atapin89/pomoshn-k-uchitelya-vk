@@ -34,7 +34,8 @@ import {
   Ruler,
   Radio,
   ClipboardList,
-  Dumbbell, // 🆕
+  Dumbbell,
+  Bell, // 🆕
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -62,7 +63,8 @@ type SectionId =
   | 'bingo'
   | 'edugame'
   | 'activity'
-  | 'fizminutka' // 🆕
+  | 'fizminutka'
+  | 'notifications' // 🆕
   | 'pomodoro'
   | 'dice'
   | 'equipment'
@@ -95,6 +97,7 @@ const ORDER_KEY = 'home-section-order';
 const GEAR_SEEN_KEY = 'home-gear-seen';
 const MANUAL_SEEN_KEY = 'home-manual-seen';
 const HOME_STYLE_KEY = 'home-style';
+const NOTIFICATIONS_KEY = 'app-notifications'; // 🆕
 
 // ===== Данные =====
 
@@ -219,7 +222,7 @@ const SECTIONS: Section[] = [
     icon: Users,
   },
   {
-    id: 'fizminutka', // 🆕
+    id: 'fizminutka',
     title: 'Физминутка',
     description: 'Глаза, тело, фокус',
     hint: 'Три тренажёра для перерыва на уроке: глазодвигательная гимнастика с 6 траекториями (круг, горизонтальная и вертикальная восьмёрки, крест, периметр, зигзаг) и настраиваемой скоростью; барабан случайных действий с 4 готовыми наборами (активная, спокойная, координация, весёлая) и возможность создавать свои наборы; тренажёр "метка на стекле" для тренировки аккомодации с автоматической сменой фокуса ближний/дальний.',
@@ -307,6 +310,9 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [userName, setUserName] = useState<string | undefined>();
 
+  // 🆕 Количество непрочитанных уведомлений
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const [gearSeen, setGearSeen] = useState(() => {
     try {
       return localStorage.getItem(GEAR_SEEN_KEY) === 'true';
@@ -363,6 +369,36 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       }
     } catch {}
   }, []);
+
+  // 🆕 Подсчёт непрочитанных уведомлений
+  useEffect(() => {
+    const countUnread = () => {
+      try {
+        const raw = localStorage.getItem(NOTIFICATIONS_KEY);
+        if (raw) {
+          const arr = JSON.parse(raw) as { read: boolean }[];
+          if (Array.isArray(arr)) {
+            setUnreadCount(arr.filter(n => !n.read).length);
+            return;
+          }
+        }
+        // Если уведомлений ещё нет в localStorage — считаем стартовые непрочитанными
+        setUnreadCount(4);
+      } catch {
+        setUnreadCount(4);
+      }
+    };
+
+    countUnread();
+
+    // Слушаем изменения из других вкладок и возврат из раздела уведомлений
+    window.addEventListener('storage', countUnread);
+    window.addEventListener('focus', countUnread);
+    return () => {
+      window.removeEventListener('storage', countUnread);
+      window.removeEventListener('focus', countUnread);
+    };
+  }, [route]);
 
   useEffect(() => {
     try {
@@ -587,8 +623,30 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </a>
           </div>
 
-          {/* Правая колонка: аватар пользователя (опущен ниже системных кнопок ВК) */}
+          {/* Правая колонка: уведомления и аватар пользователя (опущены ниже системных кнопок ВК) */}
           <div className="shrink-0 flex flex-col items-center gap-2 pt-9">
+            {/* 🆕 Колокольчик уведомлений с бейджем */}
+            <div className="group relative">
+              <button
+                onClick={() => onNavigate('notifications')}
+                className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white/60 backdrop-blur-sm shadow-sm"
+                aria-label={`Уведомления${unreadCount > 0 ? `: ${unreadCount} непрочитанных` : ''}`}
+                title="Уведомления"
+              >
+                <Bell className="relative z-10 w-6 h-6" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-white z-20">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
+                Уведомления
+              </div>
+            </div>
+
             <UserAvatar />
           </div>
         </div>
