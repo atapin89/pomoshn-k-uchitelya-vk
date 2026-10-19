@@ -398,7 +398,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       window.removeEventListener('storage', countUnread);
       window.removeEventListener('focus', countUnread);
     };
-  }, []); // ✅ ИСПРАВЛЕНО: было [route], стало []
+  }, []);
 
   useEffect(() => {
     try {
@@ -546,8 +546,9 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
         <div className="flex items-start gap-3">
-          {/* Левая колонка: шестерёнка и руководство */}
+          {/* Левая колонка: шестерёнка, руководство и уведомления */}
           <div className="shrink-0 flex flex-col items-center gap-2">
+            {/* Шестерёнка */}
             <div className="group relative">
               <button
                 onClick={handleGearClick}
@@ -577,6 +578,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               </div>
             </div>
 
+            {/* Руководство */}
             <div className="group relative">
               <button
                 onClick={handleManualClick}
@@ -596,6 +598,28 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                 <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
                 Руководство
+              </div>
+            </div>
+
+            {/* 🆕 Уведомления — перенесены в левую колонку */}
+            <div className="group relative">
+              <button
+                onClick={() => onNavigate('notifications')}
+                className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white/60 backdrop-blur-sm shadow-sm"
+                aria-label={`Уведомления${unreadCount > 0 ? `: ${unreadCount} непрочитанных` : ''}`}
+                title="Уведомления"
+              >
+                <Bell className="relative z-10 w-6 h-6" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-white z-20">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
+                Уведомления
               </div>
             </div>
           </div>
@@ -623,30 +647,8 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </a>
           </div>
 
-          {/* Правая колонка: уведомления и аватар пользователя (опущены ниже системных кнопок ВК) */}
+          {/* Правая колонка: только аватар пользователя */}
           <div className="shrink-0 flex flex-col items-center gap-2 pt-9">
-            {/* Колокольчик уведомлений с бейджем */}
-            <div className="group relative">
-              <button
-                onClick={() => onNavigate('notifications')}
-                className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white/60 backdrop-blur-sm shadow-sm"
-                aria-label={`Уведомления${unreadCount > 0 ? `: ${unreadCount} непрочитанных` : ''}`}
-                title="Уведомления"
-              >
-                <Bell className="relative z-10 w-6 h-6" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-white z-20">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              <div className="absolute right-full mr-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
-                <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
-                Уведомления
-              </div>
-            </div>
-
             <UserAvatar />
           </div>
         </div>
