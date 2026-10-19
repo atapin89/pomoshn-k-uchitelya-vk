@@ -47,5 +47,25 @@ export interface WordSearchResult {
 export interface WordSearchConfig {
   gridSize: number; // 10, 15, 20
   difficulty: 'easy' | 'medium' | 'hard'; // Влияет на доступные направления слов
-  language?: 'ru' | 'en'; // 🆕 Язык филворда (кириллица или латиница)
+  language?: 'ru' | 'en'; // Язык филворда (кириллица или латиница)
+}
+
+// === УВЕДОМЛЕНИЯ (NOTIFICATIONS) ===
+export type NotificationType = 'update' | 'feature' | 'event' | 'info' | 'gift';
+
+export interface AppNotification {
+  id: string; // Уникальный идентификатор (например, push-2026-10-20-contest)
+  title: string; // Заголовок уведомления
+  message: string; // Основной текст
+  date: string; // ISO-строка даты создания
+  type: NotificationType; // Тип (влияет на иконку и цвет)
+  read: boolean; // Статус прочитано / не прочитано
+  expiresAt?: string; // 🆕 ISO-строка даты, после которой уведомление скрывается навсегда
+}
+
+// === НАСТРОЙКИ ЛИЧНОГО КАБИНЕТА ===
+export interface NotificationSettings {
+  showBadge: boolean; // Пульсирующий бейдж на аватаре
+  hideRead: boolean; // Скрывать прочитанные из ленты
+  displayDays: number; // Срок показа в днях; 0 = без ограничения (до expiresAt)
 }
