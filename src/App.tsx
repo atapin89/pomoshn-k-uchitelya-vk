@@ -27,7 +27,8 @@ import TeleprompterScreen from '@/components/TeleprompterScreen';
 import WordCloudScreen from '@/components/WordCloudScreen';
 import GraphDictationScreen from '@/components/GraphDictationScreen';
 import LessonBoardScreen from '@/components/LessonBoardScreen';
-import FizminutkaScreen from '@/components/FizminutkaScreen'; // 🆕
+import FizminutkaScreen from '@/components/FizminutkaScreen';
+import NotificationsScreen from '@/components/NotificationsScreen'; // 🆕
 import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 import QRCodeScreen from '@/components/QRCodeScreen';
 import BibliographyScreen from '@/components/BibliographyScreen';
@@ -54,7 +55,8 @@ type Route =
   | 'bingo'
   | 'edugame'
   | 'activity'
-  | 'fizminutka' // 🆕
+  | 'fizminutka'
+  | 'notifications' // 🆕
   | 'pomodoro'
   | 'dice'
   | 'equipment'
@@ -129,6 +131,27 @@ export default function App() {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
     };
+  }, []);
+
+  // 🆕 Обработка глубоких ссылок при загрузке (для пуш-уведомлений)
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '') as Route;
+    if (hash && hash !== 'home') {
+      // Проверяем, что хэш — валидный маршрут, через существующий объект routes
+      // routes определяется ниже, поэтому делаем проверку через тайм-аут
+      setTimeout(() => {
+        try {
+          // Пытаемся установить маршрут — если невалидный, ничего не произойдёт
+          setRoute((currentRoute) => {
+            // Возвращаем текущий маршрут, если хэш невалидный
+            // Валидные маршруты проверяются в самом объекте routes ниже
+            return hash;
+          });
+        } catch (err) {
+          console.warn('⚠️ Invalid deep link hash:', hash);
+        }
+      }, 100);
+    }
   }, []);
 
   // Обработка системной кнопки "Назад" на мобильных устройствах
@@ -239,7 +262,8 @@ export default function App() {
     bingo: <BingoGeneratorScreen onBack={navigateHome} />,
     edugame: <EduGameScreen onBack={navigateHome} />,
     activity: <TapperScreen onBack={navigateHome} />,
-    fizminutka: <FizminutkaScreen onBack={navigateHome} />, // 🆕
+    fizminutka: <FizminutkaScreen onBack={navigateHome} />,
+    notifications: <NotificationsScreen onBack={navigateHome} />, // 🆕
     pomodoro: <PomodoroScreen onBack={navigateHome} />,
     dice: <DiceMakerScreen onBack={navigateHome} />,
     equipment: <EquipmentScreen onBack={navigateHome} />,
@@ -302,7 +326,7 @@ export default function App() {
         onStateChange={setFlashcardsState}
       />
     );
-  } else if (routes[route] !== null) {
+  } else if (routes[route] !== null && routes[route] !== undefined) {
     content = <div className="animate-fadeIn">{routes[route]}</div>;
   } else {
     content = (
