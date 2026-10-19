@@ -4,6 +4,7 @@ import type { LessonTemplate } from '@/types';
 import { presetTemplates } from '@/data/templates';
 import { loadCustomTemplates, saveCustomTemplates } from '@/lib/storage';
 import { fullSync } from '@/lib/sync';
+import { syncNotificationsFeed } from '@/lib/notificationsFeed'; // 🆕
 import TemplateList from '@/components/TemplateList';
 import ActiveTimer from '@/components/ActiveTimer';
 import CreateTemplateModal from '@/components/CreateTemplateModal';
@@ -28,7 +29,7 @@ import WordCloudScreen from '@/components/WordCloudScreen';
 import GraphDictationScreen from '@/components/GraphDictationScreen';
 import LessonBoardScreen from '@/components/LessonBoardScreen';
 import FizminutkaScreen from '@/components/FizminutkaScreen';
-import NotificationsScreen from '@/components/NotificationsScreen'; // 🆕
+import ProfileScreen from '@/components/ProfileScreen'; // 🆕 (бывший NotificationsScreen)
 import LifeBalanceScreen from '@/components/LifeBalanceScreen';
 import QRCodeScreen from '@/components/QRCodeScreen';
 import BibliographyScreen from '@/components/BibliographyScreen';
@@ -56,7 +57,7 @@ type Route =
   | 'edugame'
   | 'activity'
   | 'fizminutka'
-  | 'notifications' // 🆕
+  | 'profile' // 🆕 (бывший notifications) — личный кабинет
   | 'pomodoro'
   | 'dice'
   | 'equipment'
@@ -109,6 +110,7 @@ export default function App() {
 
       await fullSync();
       setCustomTemplates(loadCustomTemplates());
+      void syncNotificationsFeed(); // 🆕 Подтягиваем свежие рассылки из notifications.json
     };
     void init();
   }, []);
@@ -133,7 +135,7 @@ export default function App() {
     };
   }, []);
 
-  // 🆕 Обработка глубоких ссылок при загрузке (для пуш-уведомлений)
+  // Обработка глубоких ссылок при загрузке (для пуш-уведомлений)
   useEffect(() => {
     const hash = window.location.hash.replace('#', '') as Route;
     if (hash && hash !== 'home') {
@@ -263,7 +265,7 @@ export default function App() {
     edugame: <EduGameScreen onBack={navigateHome} />,
     activity: <TapperScreen onBack={navigateHome} />,
     fizminutka: <FizminutkaScreen onBack={navigateHome} />,
-    notifications: <NotificationsScreen onBack={navigateHome} />, // 🆕
+    profile: <ProfileScreen onBack={navigateHome} />, // 🆕 личный кабинет (бывший notifications)
     pomodoro: <PomodoroScreen onBack={navigateHome} />,
     dice: <DiceMakerScreen onBack={navigateHome} />,
     equipment: <EquipmentScreen onBack={navigateHome} />,
