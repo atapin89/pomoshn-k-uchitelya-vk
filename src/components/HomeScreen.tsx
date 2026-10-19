@@ -35,7 +35,7 @@ import {
   Radio,
   ClipboardList,
   Dumbbell,
-  Bell, // 🆕
+  Bell,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -64,7 +64,7 @@ type SectionId =
   | 'edugame'
   | 'activity'
   | 'fizminutka'
-  | 'notifications' // 🆕
+  | 'notifications'
   | 'pomodoro'
   | 'dice'
   | 'equipment'
@@ -97,7 +97,7 @@ const ORDER_KEY = 'home-section-order';
 const GEAR_SEEN_KEY = 'home-gear-seen';
 const MANUAL_SEEN_KEY = 'home-manual-seen';
 const HOME_STYLE_KEY = 'home-style';
-const NOTIFICATIONS_KEY = 'app-notifications'; // 🆕
+const NOTIFICATIONS_KEY = 'app-notifications';
 
 // ===== Данные =====
 
@@ -310,7 +310,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [userName, setUserName] = useState<string | undefined>();
 
-  // 🆕 Количество непрочитанных уведомлений
+  // Количество непрочитанных уведомлений
   const [unreadCount, setUnreadCount] = useState(0);
 
   const [gearSeen, setGearSeen] = useState(() => {
@@ -370,7 +370,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     } catch {}
   }, []);
 
-  // 🆕 Подсчёт непрочитанных уведомлений
+  // Подсчёт непрочитанных уведомлений
   useEffect(() => {
     const countUnread = () => {
       try {
@@ -398,7 +398,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
       window.removeEventListener('storage', countUnread);
       window.removeEventListener('focus', countUnread);
     };
-  }, [route]);
+  }, []); // ✅ ИСПРАВЛЕНО: было [route], стало []
 
   useEffect(() => {
     try {
@@ -625,7 +625,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
 
           {/* Правая колонка: уведомления и аватар пользователя (опущены ниже системных кнопок ВК) */}
           <div className="shrink-0 flex flex-col items-center gap-2 pt-9">
-            {/* 🆕 Колокольчик уведомлений с бейджем */}
+            {/* Колокольчик уведомлений с бейджем */}
             <div className="group relative">
               <button
                 onClick={() => onNavigate('notifications')}
