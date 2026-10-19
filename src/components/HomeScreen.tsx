@@ -35,7 +35,6 @@ import {
   Radio,
   ClipboardList,
   Dumbbell,
-  Bell,
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -375,17 +374,19 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     const countUnread = () => {
       try {
         const raw = localStorage.getItem(NOTIFICATIONS_KEY);
-        if (raw) {
-          const arr = JSON.parse(raw) as { read: boolean }[];
-          if (Array.isArray(arr)) {
-            setUnreadCount(arr.filter(n => !n.read).length);
-            return;
-          }
+        if (raw === null) {
+          // Первый запуск — считаем 4 стартовых уведомления непрочитанными
+          setUnreadCount(4);
+          return;
         }
-        // Если уведомлений ещё нет в localStorage — считаем стартовые непрочитанными
-        setUnreadCount(4);
+        const arr = JSON.parse(raw) as { read: boolean }[];
+        if (Array.isArray(arr)) {
+          setUnreadCount(arr.filter(n => !n.read).length);
+          return;
+        }
+        setUnreadCount(0);
       } catch {
-        setUnreadCount(4);
+        setUnreadCount(0);
       }
     };
 
@@ -546,9 +547,8 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
         <div className="flex items-start gap-3">
-          {/* Левая колонка: шестерёнка, руководство и уведомления */}
+          {/* Левая колонка: только шестерёнка и руководство */}
           <div className="shrink-0 flex flex-col items-center gap-2">
-            {/* Шестерёнка */}
             <div className="group relative">
               <button
                 onClick={handleGearClick}
@@ -578,7 +578,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               </div>
             </div>
 
-            {/* Руководство */}
             <div className="group relative">
               <button
                 onClick={handleManualClick}
@@ -598,28 +597,6 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
               <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                 <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
                 Руководство
-              </div>
-            </div>
-
-            {/* 🆕 Уведомления — перенесены в левую колонку */}
-            <div className="group relative">
-              <button
-                onClick={() => onNavigate('notifications')}
-                className="relative text-gray-400 hover:text-purple-600 transition-colors p-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white/60 backdrop-blur-sm shadow-sm"
-                aria-label={`Уведомления${unreadCount > 0 ? `: ${unreadCount} непрочитанных` : ''}`}
-                title="Уведомления"
-              >
-                <Bell className="relative z-10 w-6 h-6" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-white z-20">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
-                <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
-                Уведомления
               </div>
             </div>
           </div>
@@ -647,9 +624,26 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </a>
           </div>
 
-          {/* Правая колонка: только аватар пользователя */}
+          {/* 🆕 Правая колонка: аватар с бейджем уведомлений — клик открывает раздел уведомлений */}
           <div className="shrink-0 flex flex-col items-center gap-2 pt-9">
-            <UserAvatar />
+            <button
+              onClick={() => onNavigate('notifications')}
+              className="relative focus:outline-none focus:ring-2 focus:ring-purple-400 rounded-full"
+              aria-label={`Уведомления${unreadCount > 0 ? `: ${unreadCount} непрочитанных` : ''}`}
+              title="Уведомления"
+            >
+              <UserAvatar />
+              {unreadCount > 0 && (
+                <>
+                  {/* Слой 1: пульсирующее кольцо */}
+                  <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500/70 rounded-full animate-ping z-10" />
+                  {/* Слой 2: статичный бейдж с числом */}
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-[20px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-white z-20">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </header>
