@@ -34,7 +34,8 @@ import {
   Ruler,
   Radio,
   ClipboardList,
-  Dumbbell, // 🆕
+  Dumbbell,
+  Bell, // 🆕
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
@@ -60,7 +61,8 @@ type SectionId =
   | 'bingo'
   | 'edugame'
   | 'activity'
-  | 'fizminutka' // 🆕
+  | 'fizminutka'
+  | 'notifications' // 🆕
   | 'pomodoro'
   | 'dice'
   | 'equipment'
@@ -92,6 +94,7 @@ interface ModernHomeScreenProps {
 
 const FAVORITES_KEY = 'home-favorites';
 const RECENT_KEY = 'home-recent';
+const NOTIFICATIONS_KEY = 'app-notifications'; // 🆕
 
 // ===== Категории =====
 
@@ -163,7 +166,7 @@ const SECTIONS: Section[] = [
     category: 'activities',
   },
   {
-    id: 'fizminutka', // 🆕
+    id: 'fizminutka',
     title: 'Физминутка',
     description: 'Глаза, тело, фокус',
     hint: 'Три тренажёра для перерыва на уроке: глазодвигательная гимнастика с 6 траекториями (круг, горизонтальная и вертикальная восьмёрки, крест, периметр, зигзаг) и настраиваемой скоростью; барабан случайных действий с 4 готовыми наборами (активная, спокойная, координация, весёлая) и возможность создавать свои наборы; тренажёр "метка на стекле" для тренировки аккомодации с автоматической сменой фокуса ближний/дальний.',
@@ -340,6 +343,9 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
   const [activeHelpModal, setActiveHelpModal] = useState<SectionId | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
+  // 🆕 Количество непрочитанных уведомлений
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const [favorites, setFavorites] = useState<Set<SectionId>>(() => {
     try {
       const raw = localStorage.getItem(FAVORITES_KEY);
@@ -373,6 +379,36 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
       localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
     } catch {}
   }, [recent]);
+
+  // 🆕 Подсчёт непрочитанных уведомлений из localStorage
+  useEffect(() => {
+    const countUnread = () => {
+      try {
+        const raw = localStorage.getItem(NOTIFICATIONS_KEY);
+        if (raw) {
+          const arr = JSON.parse(raw) as { read: boolean }[];
+          if (Array.isArray(arr)) {
+            setUnreadCount(arr.filter(n => !n.read).length);
+            return;
+          }
+        }
+        // Если уведомлений ещё нет в localStorage — считаем стартовые непрочитанными
+        setUnreadCount(4);
+      } catch {
+        setUnreadCount(4);
+      }
+    };
+
+    countUnread();
+
+    // Слушаем изменения из других вкладок и возврат из раздела уведомлений
+    window.addEventListener('storage', countUnread);
+    window.addEventListener('focus', countUnread);
+    return () => {
+      window.removeEventListener('storage', countUnread);
+      window.removeEventListener('focus', countUnread);
+    };
+  }, []);
 
   const toggleFavorite = (id: SectionId) => {
     setFavorites(prev => {
@@ -493,6 +529,20 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
                 aria-label="Настройки"
               >
                 <Settings className="w-4 h-4" />
+              </button>
+              {/* 🆕 Колокольчик уведомлений с бейджем */}
+              <button
+                onClick={() => onNavigate('notifications')}
+                className="relative p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
+                aria-label={`Уведомления${unreadCount > 0 ? `: ${unreadCount} непрочитанных` : ''}`}
+                title="Уведомления"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-white z-20">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
               <button
                 onClick={onSwitchToClassic}
