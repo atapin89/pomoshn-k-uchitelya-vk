@@ -35,12 +35,12 @@ import {
   Radio,
   ClipboardList,
   Dumbbell,
-  Bell, // 🆕
   type LucideIcon,
 } from 'lucide-react';
 import { HelpModal } from './HelpModal';
 import { helpTexts } from '@/data/helpTexts';
 import { UserAvatar } from './UserAvatar';
+import { getUnreadBadgeCount } from '@/lib/notificationsFeed'; // 🆕
 
 // ===== Типы =====
 
@@ -62,7 +62,7 @@ type SectionId =
   | 'edugame'
   | 'activity'
   | 'fizminutka'
-  | 'notifications' // 🆕
+  | 'profile' // 🆕 (бывший notifications)
   | 'pomodoro'
   | 'dice'
   | 'equipment'
@@ -94,7 +94,6 @@ interface ModernHomeScreenProps {
 
 const FAVORITES_KEY = 'home-favorites';
 const RECENT_KEY = 'home-recent';
-const NOTIFICATIONS_KEY = 'app-notifications'; // 🆕
 
 // ===== Категории =====
 
@@ -343,7 +342,7 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
   const [activeHelpModal, setActiveHelpModal] = useState<SectionId | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
-  // 🆕 Количество непрочитанных уведомлений
+  // 🆕 Количество непрочитанных уведомлений (с учётом настроек и сроков)
   const [unreadCount, setUnreadCount] = useState(0);
 
   const [favorites, setFavorites] = useState<Set<SectionId>>(() => {
@@ -380,33 +379,17 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
     } catch {}
   }, [recent]);
 
-  // 🆕 Подсчёт непрочитанных уведомлений из localStorage
+  // 🆕 Подсчёт непрочитанных с учётом настроек и сроков показа
   useEffect(() => {
-    const countUnread = () => {
-      try {
-        const raw = localStorage.getItem(NOTIFICATIONS_KEY);
-        if (raw) {
-          const arr = JSON.parse(raw) as { read: boolean }[];
-          if (Array.isArray(arr)) {
-            setUnreadCount(arr.filter(n => !n.read).length);
-            return;
-          }
-        }
-        // Если уведомлений ещё нет в localStorage — считаем стартовые непрочитанными
-        setUnreadCount(4);
-      } catch {
-        setUnreadCount(4);
-      }
-    };
-
+    const countUnread = () => setUnreadCount(getUnreadBadgeCount());
     countUnread();
-
-    // Слушаем изменения из других вкладок и возврат из раздела уведомлений
     window.addEventListener('storage', countUnread);
     window.addEventListener('focus', countUnread);
+    window.addEventListener('notifications-updated', countUnread);
     return () => {
       window.removeEventListener('storage', countUnread);
       window.removeEventListener('focus', countUnread);
+      window.removeEventListener('notifications-updated', countUnread);
     };
   }, []);
 
@@ -530,27 +513,32 @@ export default function ModernHomeScreen({ onNavigate, onSwitchToClassic }: Mode
               >
                 <Settings className="w-4 h-4" />
               </button>
-              {/* 🆕 Колокольчик уведомлений с бейджем */}
-              <button
-                onClick={() => onNavigate('notifications')}
-                className="relative p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
-                aria-label={`Уведомления${unreadCount > 0 ? `: ${unreadCount} непрочитанных` : ''}`}
-                title="Уведомления"
-              >
-                <Bell className="w-4 h-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm ring-2 ring-white z-20">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
               <button
                 onClick={onSwitchToClassic}
                 className="hidden sm:flex px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
               >
                 Классический вид
               </button>
-              <UserAvatar size="sm" />
+              
+              {/* 🆕 Аватар с пульсирующим бейджем — клик открывает личный кабинет */}
+              <button
+                onClick={() => onNavigate('profile')}
+                className="relative rounded-full focus:outline-none focus:ring-2 focus:ring-purple-400"
+                aria-label={`Личный кабинет${unreadCount > 0 ? `, непрочитанных: ${unreadCount}` : ''}`}
+                title="Личный кабинет"
+              >
+                <UserAvatar size="sm" />
+                {unreadCount > 0 && (
+                  <>
+                    {/* Слой 1: пульсирующее кольцо */}
+                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500/70 rounded-full animate-ping z-10" />
+                    {/* Слой 2: статичный бейдж с числом */}
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white z-20">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
