@@ -42,6 +42,7 @@ import { helpTexts } from '@/data/helpTexts';
 import ModernHomeScreen from './ModernHomeScreen';
 import { UserAvatar } from './UserAvatar';
 import WelcomeModal from './WelcomeModal';
+import { getUnreadBadgeCount } from '@/lib/notificationsFeed'; // 🆕
 
 // ===== Типы =====
 
@@ -63,7 +64,7 @@ type SectionId =
   | 'edugame'
   | 'activity'
   | 'fizminutka'
-  | 'notifications'
+  | 'profile' // 🆕 (бывший notifications)
   | 'pomodoro'
   | 'dice'
   | 'equipment'
@@ -96,7 +97,6 @@ const ORDER_KEY = 'home-section-order';
 const GEAR_SEEN_KEY = 'home-gear-seen';
 const MANUAL_SEEN_KEY = 'home-manual-seen';
 const HOME_STYLE_KEY = 'home-style';
-const NOTIFICATIONS_KEY = 'app-notifications';
 
 // ===== Данные =====
 
@@ -309,7 +309,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [userName, setUserName] = useState<string | undefined>();
 
-  // Количество непрочитанных уведомлений
+  // 🆕 Количество непрочитанных уведомлений (с учётом настроек и сроков)
   const [unreadCount, setUnreadCount] = useState(0);
 
   const [gearSeen, setGearSeen] = useState(() => {
@@ -369,35 +369,17 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     } catch {}
   }, []);
 
-  // Подсчёт непрочитанных уведомлений
+  // 🆕 Подсчёт непрочитанных с учётом настроек и сроков показа
   useEffect(() => {
-    const countUnread = () => {
-      try {
-        const raw = localStorage.getItem(NOTIFICATIONS_KEY);
-        if (raw === null) {
-          // Первый запуск — считаем 4 стартовых уведомления непрочитанными
-          setUnreadCount(4);
-          return;
-        }
-        const arr = JSON.parse(raw) as { read: boolean }[];
-        if (Array.isArray(arr)) {
-          setUnreadCount(arr.filter(n => !n.read).length);
-          return;
-        }
-        setUnreadCount(0);
-      } catch {
-        setUnreadCount(0);
-      }
-    };
-
+    const countUnread = () => setUnreadCount(getUnreadBadgeCount());
     countUnread();
-
-    // Слушаем изменения из других вкладок и возврат из раздела уведомлений
     window.addEventListener('storage', countUnread);
     window.addEventListener('focus', countUnread);
+    window.addEventListener('notifications-updated', countUnread);
     return () => {
       window.removeEventListener('storage', countUnread);
       window.removeEventListener('focus', countUnread);
+      window.removeEventListener('notifications-updated', countUnread);
     };
   }, []);
 
@@ -547,7 +529,7 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
     <div className="min-h-[100dvh] notebook-bg flex flex-col">
       <header className="max-w-md mx-auto w-full px-5 pt-4 pb-3">
         <div className="flex items-start gap-3">
-          {/* Левая колонка: только шестерёнка и руководство */}
+          {/* Левая колонка: шестерёнка и руководство */}
           <div className="shrink-0 flex flex-col items-center gap-2">
             <div className="group relative">
               <button
@@ -624,13 +606,13 @@ export default function HomeScreen({ onNavigate }: HomeScreenProps) {
             </a>
           </div>
 
-          {/* 🆕 Правая колонка: аватар с бейджем уведомлений — клик открывает раздел уведомлений */}
+          {/* 🆕 Правая колонка: аватар с пульсирующим бейджем — клик открывает личный кабинет */}
           <div className="shrink-0 flex flex-col items-center gap-2 pt-9">
             <button
-              onClick={() => onNavigate('notifications')}
+              onClick={() => onNavigate('profile')}
               className="relative focus:outline-none focus:ring-2 focus:ring-purple-400 rounded-full"
-              aria-label={`Уведомления${unreadCount > 0 ? `: ${unreadCount} непрочитанных` : ''}`}
-              title="Уведомления"
+              aria-label={`Личный кабинет${unreadCount > 0 ? `, непрочитанных: ${unreadCount}` : ''}`}
+              title="Личный кабинет"
             >
               <UserAvatar />
               {unreadCount > 0 && (
